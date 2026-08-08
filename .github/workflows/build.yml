@@ -1,0 +1,65 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+      web: ${{ steps.filter.outputs.web }}
+      api: ${{ steps.filter.outputs.api }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            android:
+              - 'transactions-parser-android/**'
+              - '!transactions-parser-android/**/*.md'
+            web:
+              - 'transactions-parser-web/**'
+              - 'shared/api-contract/**'
+              - '!transactions-parser-web/**/*.md'
+            api:
+              - 'services/transactions-api/**'
+              - 'shared/api-contract/**'
+              - '!services/transactions-api/**/*.md'
+
+  android:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: transactions-parser-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      # gradle.properties is gitignored (holds the Google OAuth client ID) — inject it from a repo secret.
+      - name: Write gradle.properties
+        run: echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" >> gradle.properties
+      - run: ./gradlew test --no-daemon
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "transactions-parser-web not scaffolded yet — nothing to build"
+
+  api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "transactions-api not scaffolded yet — nothing to build"

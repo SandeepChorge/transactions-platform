@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_disk_full">Your device storage is full. Free up space and try again.</string>
+    <string name="error_not_found">The requested item could not be found.</string>
+    <string name="error_duplicate">An item with this name already exists.</string>
+    <string name="error_unknown">Something went wrong. Please try again.</string>
+
+    <string name="error_file_too_large">This PDF is larger than 80 MB. Please upload a smaller statement.</string>
+    <string name="error_not_a_pdf">The selected file is not a valid PDF document.</string>
+    <string name="error_password_protected">Password-protected PDFs are not supported. Please upload an unlocked statement.</string>
+    <string name="error_extraction_failed">Could not read the PDF. The file may be corrupted.</string>
+    <string name="error_unrecognized_format">This document doesn\'t look like a supported transaction statement. Currently PhonePe and Google Pay statements are supported.</string>
+    <string name="error_no_transactions">No transactions were found in this statement.</string>
+    <string name="error_storage_failure">The statement was parsed but couldn\'t be saved. Please try again.</string>
+</resources>

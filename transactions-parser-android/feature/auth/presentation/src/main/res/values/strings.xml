@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_title">Transactions Parser</string>
+    <string name="login_subtitle">Turn your PhonePe and Google Pay statements into organized expenses — parsed fully on your device.</string>
+    <string name="login_google_button">Continue with Google</string>
+
+    <string name="auth_error_cancelled">Sign-in was cancelled.</string>
+    <string name="auth_error_no_credential">No Google account found on this device. Add one in device settings and retry.</string>
+    <string name="auth_error_invalid_credential">Received an unexpected credential. Please try again.</string>
+    <string name="auth_error_unknown">Sign-in failed. Please try again.</string>
+</resources>

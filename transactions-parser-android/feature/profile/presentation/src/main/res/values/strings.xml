@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_title">Profile</string>
+    <string name="profile_name_label">Name *</string>
+    <string name="profile_mobile_label">Mobile (optional)</string>
+    <string name="profile_email_label">Email</string>
+    <string name="profile_gender_label">Gender (optional)</string>
+    <string name="profile_edit">Edit profile</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_cancel">Cancel</string>
+    <string name="profile_logout">Log out</string>
+    <string name="profile_saved">Profile saved.</string>
+    <string name="profile_save_failed">Couldn\'t save the profile. Please try again.</string>
+    <string name="profile_error_name_blank">Name is required.</string>
+    <string name="profile_error_mobile_invalid">Enter a valid 10-digit mobile number.</string>
+    <string name="gender_male">Male</string>
+    <string name="gender_female">Female</string>
+    <string name="gender_other">Other</string>
+    <string name="gender_unset">Prefer not to say</string>
+</resources>

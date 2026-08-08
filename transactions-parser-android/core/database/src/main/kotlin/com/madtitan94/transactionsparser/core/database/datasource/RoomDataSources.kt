@@ -1,0 +1,136 @@
+package com.madtitan94.transactionsparser.core.database.datasource
+
+import android.database.sqlite.SQLiteConstraintException
+import android.database.sqlite.SQLiteFullException
+import com.madtitan94.transactionsparser.core.database.dao.CategoryDao
+import com.madtitan94.transactionsparser.core.database.dao.PayeeDao
+import com.madtitan94.transactionsparser.core.database.dao.SessionDao
+import com.madtitan94.transactionsparser.core.database.dao.TransactionDao
+import com.madtitan94.transactionsparser.core.database.dao.UploadLogDao
+import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
+import com.madtitan94.transactionsparser.core.database.toCategory
+import com.madtitan94.transactionsparser.core.database.toPayee
+import com.madtitan94.transactionsparser.core.database.toPayeeEntity
+import com.madtitan94.transactionsparser.core.database.toSessionEntity
+import com.madtitan94.transactionsparser.core.database.toSessionSummary
+import com.madtitan94.transactionsparser.core.database.toStatementSession
+import com.madtitan94.transactionsparser.core.database.toTransaction
+import com.madtitan94.transactionsparser.core.database.toTransactionEntity
+import com.madtitan94.transactionsparser.core.database.toUploadLog
+import com.madtitan94.transactionsparser.core.database.toUploadLogEntity
+import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.model.Category
+import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
+import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
+import com.madtitan94.transactionsparser.core.domain.model.StatementSession
+import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.UploadLog
+import com.madtitan94.transactionsparser.core.domain.util.DataError
+import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
+import com.madtitan94.transactionsparser.core.domain.util.Result
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+private inline fun <T> safeDbCall(block: () -> T): Result<T, DataError.Local> {
+    return try {
+        Result.Success(block())
+    } catch (e: SQLiteConstraintException) {
+        Result.Error(DataError.Local.DUPLICATE)
+    } catch (e: SQLiteFullException) {
+        Result.Error(DataError.Local.DISK_FULL)
+    } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        Result.Error(DataError.Local.UNKNOWN)
+    }
+}
+
+private suspend inline fun <T> safeSuspendDbCall(block: () -> T): Result<T, DataError.Local> = safeDbCall(block)
+
+class RoomCategoryDataSource(private val dao: CategoryDao) : CategoryLocalDataSource {
+
+    override fun observeAll(): Flow<List<Category>> =
+        dao.observeAll().map { entities -> entities.map { it.toCategory() } }
+
+    override fun observeLinkedPayeeCounts(): Flow<Map<Long, Int>> =
+        dao.observeLinkedCounts().map { counts -> counts.associate { it.categoryId to it.count } }
+
+    override suspend fun insert(name: String): Result<Long, DataError.Local> =
+        safeSuspendDbCall { dao.insert(CategoryEntity(name = name.trim())) }
+
+    override suspend fun rename(id: Long, name: String): EmptyResult<DataError.Local> =
+        safeSuspendDbCall { dao.rename(id, name.trim()) }
+
+    override suspend fun delete(id: Long): EmptyResult<DataError.Local> =
+        safeSuspendDbCall { dao.delete(id) }
+
+    override suspend fun linkedPayeeCount(id: Long): Result<Int, DataError.Local> =
+        safeSuspendDbCall { dao.linkedPayeeCount(id) }
+}
+
+class RoomPayeeDataSource(private val dao: PayeeDao) : PayeeLocalDataSource {
+
+    override fun observeAll(): Flow<List<Payee>> =
+        dao.observeAll().map { entities -> entities.map { it.toPayee() } }
+
+    override suspend fun findByNormalizedName(normalizedName: String): Result<Payee?, DataError.Local> =
+        safeSuspendDbCall { dao.findByNormalizedName(normalizedName)?.toPayee() }
+
+    override suspend fun save(payee: Payee): Result<Long, DataError.Local> =
+        safeSuspendDbCall {
+            val existing = dao.findByNormalizedName(payee.normalizedName)
+            if (existing == null) {
+                dao.insert(payee.toPayeeEntity())
+            } else {
+                dao.update(payee.toPayeeEntity().copy(id = existing.id))
+                existing.id
+            }
+        }
+}
+
+class RoomSessionDataSource(private val dao: SessionDao) : SessionLocalDataSource {
+
+    override fun observeSummaries(status: SessionStatus): Flow<List<SessionSummary>> =
+        dao.observeSummaries(status.name).map { rows -> rows.map { it.toSessionSummary() } }
+
+    override suspend fun getById(id: Long): Result<StatementSession?, DataError.Local> =
+        safeSuspendDbCall { dao.getById(id)?.toStatementSession() }
+
+    override suspend fun insert(session: StatementSession): Result<Long, DataError.Local> =
+        safeSuspendDbCall { dao.insert(session.toSessionEntity()) }
+
+    override suspend fun updateStatus(id: Long, status: SessionStatus): EmptyResult<DataError.Local> =
+        safeSuspendDbCall { dao.updateStatus(id, status.name) }
+}
+
+class RoomTransactionDataSource(private val dao: TransactionDao) : TransactionLocalDataSource {
+
+    override fun observeBySession(sessionId: Long): Flow<List<Transaction>> =
+        dao.observeBySession(sessionId).map { entities -> entities.map { it.toTransaction() } }
+
+    override suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local> =
+        safeSuspendDbCall { dao.insertAll(transactions.map { it.toTransactionEntity() }) }
+
+    override suspend fun assignPayee(
+        sessionId: Long,
+        normalizedPayee: String,
+        payeeId: Long
+    ): EmptyResult<DataError.Local> =
+        safeSuspendDbCall { dao.assignPayee(sessionId, normalizedPayee, payeeId) }
+
+    override suspend fun unmappedCount(sessionId: Long): Result<Int, DataError.Local> =
+        safeSuspendDbCall { dao.unmappedCount(sessionId) }
+}
+
+class RoomUploadLogDataSource(private val dao: UploadLogDao) : UploadLogLocalDataSource {
+
+    override fun observeAll(): Flow<List<UploadLog>> =
+        dao.observeAll().map { entities -> entities.map { it.toUploadLog() } }
+
+    override suspend fun log(log: UploadLog): EmptyResult<DataError.Local> =
+        safeSuspendDbCall { dao.insert(log.toUploadLogEntity()) }
+}

@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Node (web / future tooling)
+node_modules/
+.next/
+dist/
+.turbo/
+*.log
+.env
+.env.local
+
+# Editors
+.vscode/
+*.swp
+.claude/settings.local.json

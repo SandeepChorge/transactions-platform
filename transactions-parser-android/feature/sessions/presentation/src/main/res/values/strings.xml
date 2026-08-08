@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sessions_title">Statements</string>
+    <string name="sessions_upload_history">Upload history</string>
+    <string name="tab_pending">Pending</string>
+    <string name="tab_completed">Completed</string>
+    <string name="tab_cancelled">Cancelled</string>
+    <string name="sessions_empty_title">Nothing here yet</string>
+    <string name="sessions_empty_pending">Upload a statement to start a new session. Sessions waiting for payee mapping will appear here.</string>
+    <string name="sessions_empty_completed">Fully mapped sessions will appear here.</string>
+    <string name="sessions_empty_cancelled">Cancelled sessions will appear here.</string>
+    <string name="session_uploaded_at">Uploaded %1$s</string>
+    <string name="session_mapping_progress">%1$d of %2$d transactions mapped</string>
+    <string name="cancel_session_title">Cancel session</string>
+    <string name="cancel_session_message">This session will be moved to Cancelled and its transactions will no longer count. You can\'t undo this.</string>
+    <string name="cancel_session_confirm">Cancel session</string>
+    <string name="cancel_session_dismiss">Keep</string>
+
+    <string name="back">Back</string>
+    <string name="session_no_transactions">No transactions in this session</string>
+    <string name="session_payees_mapped">%1$d of %2$d payees mapped</string>
+    <string name="session_suggested_banner">%1$d payees recognized from your earlier uploads. Confirm to map them all at once.</string>
+    <string name="session_confirm_all">Confirm all</string>
+    <string name="session_amounts">Amounts: %1$s</string>
+    <string name="session_total_and_count">Total %1$s • %2$d entries this session</string>
+    <string name="session_usual_times">Usually around %1$s</string>
+    <string name="session_alias_label">Name you know them by</string>
+    <string name="session_category_label">Category</string>
+    <string name="session_category_placeholder">Select a category</string>
+    <string name="session_new_category">New category…</string>
+    <string name="session_save_mapping">Save</string>
+    <string name="session_confirm_mapping">Confirm</string>
+    <string name="session_payee_saved">Mapped</string>
+    <string name="session_completed">All payees mapped — session completed!</string>
+    <string name="session_new_category_title">New category</string>
+    <string name="session_category_name_label">Category name</string>
+    <string name="session_cancel">Cancel</string>
+    <string name="session_create">Create</string>
+    <string name="category_name_required">Enter a category name.</string>
+
+    <string name="upload_history_title">Upload history</string>
+    <string name="upload_history_empty_title">No uploads yet</string>
+    <string name="upload_history_empty_description">Every statement upload — successful or failed — is logged here.</string>
+</resources>

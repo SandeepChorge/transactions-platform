@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upload_title">Upload statement</string>
+    <string name="upload_privacy_note">Statements are parsed entirely on this device. The PDF is copied to temporary storage only while parsing and deleted immediately afterwards. Nothing is uploaded anywhere.</string>
+    <string name="upload_instructions">Select a PhonePe or Google Pay transaction statement PDF (max 80 MB, without password protection).</string>
+    <string name="upload_select_pdf">Select PDF</string>
+    <string name="upload_clear_selection">Clear selection</string>
+    <string name="upload_parsing">Parsing statement…</string>
+    <string name="upload_parse_button">Parse statement</string>
+    <string name="upload_supported_sources">Supported: PhonePe and Google Pay transaction statements. Bank statements are coming in a later version.</string>
+    <string name="upload_error_title">Couldn\'t import statement</string>
+    <string name="upload_success_title">Statement imported</string>
+    <string name="upload_success_message">%1$d transactions were extracted into a new pending session. %2$d payees were recognized from your earlier mappings and pre-filled.</string>
+    <string name="upload_temp_deleted">The uploaded document has been deleted from temporary storage.</string>
+    <string name="upload_review_now">Review now</string>
+    <string name="upload_later">Later</string>
+    <string name="upload_ok">OK</string>
+</resources>

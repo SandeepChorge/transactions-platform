@@ -1,0 +1,9 @@
+# Project-wide Gradle settings.
+# Copy this file to gradle.properties and fill in real values.
+# gradle.properties is gitignored — never commit it.
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+# org.gradle.parallel=true
+kotlin.code.style=official
+
+# Web client ID from GCP Credentials (see README §3) — required for Google Sign-In.
+GOOGLE_WEB_CLIENT_ID=your-client-id.apps.googleusercontent.com

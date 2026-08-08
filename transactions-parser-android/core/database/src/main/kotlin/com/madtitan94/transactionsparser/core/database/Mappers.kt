@@ -1,0 +1,108 @@
+package com.madtitan94.transactionsparser.core.database
+
+import com.madtitan94.transactionsparser.core.database.dao.SessionSummaryRow
+import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
+import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
+import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
+import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
+import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
+import com.madtitan94.transactionsparser.core.domain.model.Category
+import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
+import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
+import com.madtitan94.transactionsparser.core.domain.model.StatementSession
+import com.madtitan94.transactionsparser.core.domain.model.StatementSource
+import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionType
+import com.madtitan94.transactionsparser.core.domain.model.UploadLog
+
+fun CategoryEntity.toCategory() = Category(id = id, name = name)
+fun Category.toCategoryEntity() = CategoryEntity(id = id, name = name)
+
+fun PayeeEntity.toPayee() = Payee(
+    id = id,
+    rawName = rawName,
+    normalizedName = normalizedName,
+    alias = alias,
+    categoryId = categoryId
+)
+
+fun Payee.toPayeeEntity() = PayeeEntity(
+    id = id,
+    rawName = rawName,
+    normalizedName = normalizedName,
+    alias = alias,
+    categoryId = categoryId
+)
+
+fun SessionEntity.toStatementSession() = StatementSession(
+    id = id,
+    fileName = fileName,
+    source = StatementSource.valueOf(source),
+    uploadedAtMillis = uploadedAtMillis,
+    periodStartMillis = periodStartMillis,
+    periodEndMillis = periodEndMillis,
+    status = SessionStatus.valueOf(status)
+)
+
+fun StatementSession.toSessionEntity() = SessionEntity(
+    id = id,
+    fileName = fileName,
+    source = source.name,
+    uploadedAtMillis = uploadedAtMillis,
+    periodStartMillis = periodStartMillis,
+    periodEndMillis = periodEndMillis,
+    status = status.name
+)
+
+fun SessionSummaryRow.toSessionSummary() = SessionSummary(
+    session = session.toStatementSession(),
+    transactionCount = transactionCount,
+    mappedCount = mappedCount
+)
+
+fun TransactionEntity.toTransaction() = Transaction(
+    id = id,
+    sessionId = sessionId,
+    dateTimeUtcMillis = dateTimeUtcMillis,
+    rawPayee = rawPayee,
+    normalizedPayee = normalizedPayee,
+    amountPaise = amountPaise,
+    type = TransactionType.valueOf(type),
+    transactionRef = transactionRef,
+    utr = utr,
+    payeeId = payeeId
+)
+
+fun Transaction.toTransactionEntity() = TransactionEntity(
+    id = id,
+    sessionId = sessionId,
+    dateTimeUtcMillis = dateTimeUtcMillis,
+    rawPayee = rawPayee,
+    normalizedPayee = normalizedPayee,
+    amountPaise = amountPaise,
+    type = type.name,
+    transactionRef = transactionRef,
+    utr = utr,
+    payeeId = payeeId
+)
+
+fun UploadLogEntity.toUploadLog() = UploadLog(
+    id = id,
+    fileName = fileName,
+    uploadedAtMillis = uploadedAtMillis,
+    success = success,
+    source = source?.let(StatementSource::valueOf),
+    failureReason = failureReason,
+    sessionId = sessionId
+)
+
+fun UploadLog.toUploadLogEntity() = UploadLogEntity(
+    id = id,
+    fileName = fileName,
+    uploadedAtMillis = uploadedAtMillis,
+    success = success,
+    source = source?.name,
+    failureReason = failureReason,
+    sessionId = sessionId
+)
