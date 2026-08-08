@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
+import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.Category
@@ -79,7 +80,7 @@ class CategoriesViewModelTest {
             skipItems(1)
 
             viewModel.onAction(CategoriesAction.OnAddClick)
-            assertThat(awaitItem().dialog).isInstanceOf(CategoryDialog.Add::class)
+            assertThat(awaitItem().dialog).isNotNull().isInstanceOf(CategoryDialog.Add::class)
 
             viewModel.onAction(CategoriesAction.OnDialogNameChange("Food"))
             skipItems(1)
@@ -104,7 +105,7 @@ class CategoriesViewModelTest {
             viewModel.onAction(CategoriesAction.OnDialogConfirm)
 
             val dialog = expectMostRecentItem().dialog as CategoryDialog.Add
-            assertThat(dialog.error).isInstanceOf(
+            assertThat(dialog.error).isNotNull().isInstanceOf(
                 com.madtitan94.transactionsparser.core.presentation.UiText.StringResource::class
             )
         }
@@ -133,7 +134,7 @@ class CategoriesViewModelTest {
         val viewModel = CategoriesViewModel(dataSource)
 
         viewModel.onAction(CategoriesAction.OnDeleteClick(1L))
-        assertThat(viewModel.state.value.dialog).isInstanceOf(CategoryDialog.ConfirmDelete::class)
+        assertThat(viewModel.state.value.dialog).isNotNull().isInstanceOf(CategoryDialog.ConfirmDelete::class)
 
         viewModel.onAction(CategoriesAction.OnDialogConfirm)
 
