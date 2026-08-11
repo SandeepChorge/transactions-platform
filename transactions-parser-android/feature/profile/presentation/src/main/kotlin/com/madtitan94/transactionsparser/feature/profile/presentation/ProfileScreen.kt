@@ -38,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.designsystem.theme.TransactionsParserTheme
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
@@ -171,6 +172,17 @@ fun ProfileScreen(
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }
+        }
+
+        if (state.showLogoutConfirm) {
+            AppAlertDialog(
+                title = stringResource(R.string.profile_logout_confirm_title),
+                message = stringResource(R.string.profile_logout_confirm_message),
+                confirmLabel = stringResource(R.string.profile_logout),
+                dismissLabel = stringResource(R.string.profile_cancel),
+                onConfirm = { onAction(ProfileAction.OnConfirmLogout) },
+                onDismiss = { onAction(ProfileAction.OnDismissLogoutConfirm) }
+            )
         }
     }
 }

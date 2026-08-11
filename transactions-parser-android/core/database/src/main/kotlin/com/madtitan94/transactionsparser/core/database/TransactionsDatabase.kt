@@ -22,7 +22,7 @@ import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
         UploadLogEntity::class
     ],
     version = 1,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class TransactionsDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao

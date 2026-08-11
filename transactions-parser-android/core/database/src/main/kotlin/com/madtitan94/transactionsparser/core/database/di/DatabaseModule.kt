@@ -7,6 +7,7 @@ import com.madtitan94.transactionsparser.core.database.datasource.RoomPayeeDataS
 import com.madtitan94.transactionsparser.core.database.datasource.RoomSessionDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomTransactionDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomUploadLogDataSource
+import com.madtitan94.transactionsparser.core.database.migration.ALL_MIGRATIONS
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
@@ -21,7 +22,7 @@ val coreDatabaseModule = module {
             androidContext(),
             TransactionsDatabase::class.java,
             "transactions_parser.db"
-        ).build()
+        ).addMigrations(*ALL_MIGRATIONS).build()
     }
 
     single { get<TransactionsDatabase>().categoryDao() }
