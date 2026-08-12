@@ -16,32 +16,54 @@ data class CategoryLinkCount(val categoryId: Long, val count: Int)
 
 @Dao
 interface CategoryDao {
-    @Query("SELECT * FROM categories ORDER BY name COLLATE NOCASE")
-    fun observeAll(): Flow<List<CategoryEntity>>
+    @Query("SELECT * FROM categories WHERE ownerId = :ownerId AND isDeleted = 0 ORDER BY name COLLATE NOCASE")
+    fun observeAll(ownerId: String): Flow<List<CategoryEntity>>
 
-    @Query("SELECT categoryId AS categoryId, COUNT(*) AS count FROM payees GROUP BY categoryId")
-    fun observeLinkedCounts(): Flow<List<CategoryLinkCount>>
+    @Query("SELECT * FROM categories WHERE ownerId = :ownerId AND isDeleted = 1 ORDER BY deletedAtMillis DESC")
+    fun observeDeleted(ownerId: String): Flow<List<CategoryEntity>>
+
+    @Query(
+        """
+        SELECT categoryId AS categoryId, COUNT(*) AS count
+        FROM payees
+        WHERE ownerId = :ownerId AND isDeleted = 0
+        GROUP BY categoryId
+        """
+    )
+    fun observeLinkedCounts(ownerId: String): Flow<List<CategoryLinkCount>>
 
     @Insert
     suspend fun insert(category: CategoryEntity): Long
 
-    @Query("UPDATE categories SET name = :name WHERE id = :id")
-    suspend fun rename(id: Long, name: String)
+    @Query("UPDATE categories SET name = :name WHERE id = :id AND ownerId = :ownerId")
+    suspend fun rename(ownerId: String, id: Long, name: String)
 
-    @Query("DELETE FROM categories WHERE id = :id")
-    suspend fun delete(id: Long)
+    @Query(
+        "UPDATE categories SET isDeleted = 1, deletedAtMillis = :deletedAtMillis " +
+            "WHERE id = :id AND ownerId = :ownerId"
+    )
+    suspend fun softDelete(ownerId: String, id: Long, deletedAtMillis: Long)
 
-    @Query("SELECT COUNT(*) FROM payees WHERE categoryId = :id")
-    suspend fun linkedPayeeCount(id: Long): Int
+    @Query(
+        "UPDATE categories SET isDeleted = 0, deletedAtMillis = NULL " +
+            "WHERE id = :id AND ownerId = :ownerId"
+    )
+    suspend fun restore(ownerId: String, id: Long)
+
+    @Query("SELECT COUNT(*) FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 AND categoryId = :id")
+    suspend fun linkedPayeeCount(ownerId: String, id: Long): Int
 }
 
 @Dao
 interface PayeeDao {
-    @Query("SELECT * FROM payees ORDER BY alias COLLATE NOCASE")
-    fun observeAll(): Flow<List<PayeeEntity>>
+    @Query("SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 ORDER BY alias COLLATE NOCASE")
+    fun observeAll(ownerId: String): Flow<List<PayeeEntity>>
 
-    @Query("SELECT * FROM payees WHERE normalizedName = :normalizedName LIMIT 1")
-    suspend fun findByNormalizedName(normalizedName: String): PayeeEntity?
+    @Query(
+        "SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND normalizedName = :normalizedName LIMIT 1"
+    )
+    suspend fun findByNormalizedName(ownerId: String, normalizedName: String): PayeeEntity?
 
     @Insert
     suspend fun insert(payee: PayeeEntity): Long
@@ -64,44 +86,74 @@ interface SessionDao {
                COUNT(t.id) AS transactionCount,
                COUNT(t.payeeId) AS mappedCount
         FROM sessions s
-        LEFT JOIN transactions t ON t.sessionId = s.id
-        WHERE s.status = :status
+        LEFT JOIN transactions t ON t.sessionId = s.id AND t.isDeleted = 0
+        WHERE s.ownerId = :ownerId AND s.isDeleted = 0 AND s.status = :status
         GROUP BY s.id
         ORDER BY s.uploadedAtMillis DESC
         """
     )
-    fun observeSummaries(status: String): Flow<List<SessionSummaryRow>>
+    fun observeSummaries(ownerId: String, status: String): Flow<List<SessionSummaryRow>>
 
-    @Query("SELECT * FROM sessions WHERE id = :id")
-    suspend fun getById(id: Long): SessionEntity?
+    @Query("SELECT * FROM sessions WHERE id = :id AND ownerId = :ownerId AND isDeleted = 0")
+    suspend fun getById(ownerId: String, id: Long): SessionEntity?
 
     @Insert
     suspend fun insert(session: SessionEntity): Long
 
-    @Query("UPDATE sessions SET status = :status WHERE id = :id")
-    suspend fun updateStatus(id: Long, status: String)
+    @Query("UPDATE sessions SET status = :status WHERE id = :id AND ownerId = :ownerId")
+    suspend fun updateStatus(ownerId: String, id: Long, status: String)
 }
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions WHERE sessionId = :sessionId ORDER BY dateTimeUtcMillis DESC")
-    fun observeBySession(sessionId: Long): Flow<List<TransactionEntity>>
+    @Query(
+        "SELECT * FROM transactions WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND sessionId = :sessionId ORDER BY dateTimeUtcMillis DESC"
+    )
+    fun observeBySession(ownerId: String, sessionId: Long): Flow<List<TransactionEntity>>
 
     @Insert
     suspend fun insertAll(transactions: List<TransactionEntity>)
 
-    @Query("UPDATE transactions SET payeeId = :payeeId WHERE sessionId = :sessionId AND normalizedPayee = :normalizedPayee")
-    suspend fun assignPayee(sessionId: Long, normalizedPayee: String, payeeId: Long)
+    @Query(
+        "UPDATE transactions SET payeeId = :payeeId WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND sessionId = :sessionId AND normalizedPayee = :normalizedPayee"
+    )
+    suspend fun assignPayee(ownerId: String, sessionId: Long, normalizedPayee: String, payeeId: Long)
 
-    @Query("SELECT COUNT(*) FROM transactions WHERE sessionId = :sessionId AND payeeId IS NULL")
-    suspend fun unmappedCount(sessionId: Long): Int
+    @Query(
+        "SELECT COUNT(*) FROM transactions WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND sessionId = :sessionId AND payeeId IS NULL"
+    )
+    suspend fun unmappedCount(ownerId: String, sessionId: Long): Int
 }
 
 @Dao
 interface UploadLogDao {
-    @Query("SELECT * FROM upload_logs ORDER BY uploadedAtMillis DESC")
-    fun observeAll(): Flow<List<UploadLogEntity>>
+    @Query(
+        "SELECT * FROM upload_logs WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "ORDER BY uploadedAtMillis DESC"
+    )
+    fun observeAll(ownerId: String): Flow<List<UploadLogEntity>>
 
     @Insert
     suspend fun insert(log: UploadLogEntity)
+}
+
+@Dao
+interface LegacyOwnershipDao {
+    @Query("UPDATE categories SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
+    suspend fun claimCategories(legacyOwnerId: String, ownerId: String)
+
+    @Query("UPDATE payees SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
+    suspend fun claimPayees(legacyOwnerId: String, ownerId: String)
+
+    @Query("UPDATE sessions SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
+    suspend fun claimSessions(legacyOwnerId: String, ownerId: String)
+
+    @Query("UPDATE transactions SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
+    suspend fun claimTransactions(legacyOwnerId: String, ownerId: String)
+
+    @Query("UPDATE upload_logs SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
+    suspend fun claimUploadLogs(legacyOwnerId: String, ownerId: String)
 }

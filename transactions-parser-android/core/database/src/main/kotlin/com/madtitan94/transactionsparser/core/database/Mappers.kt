@@ -17,7 +17,7 @@ import com.madtitan94.transactionsparser.core.domain.model.TransactionType
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 
 fun CategoryEntity.toCategory() = Category(id = id, name = name)
-fun Category.toCategoryEntity() = CategoryEntity(id = id, name = name)
+fun Category.toCategoryEntity(ownerId: String) = CategoryEntity(id = id, ownerId = ownerId, name = name)
 
 fun PayeeEntity.toPayee() = Payee(
     id = id,
@@ -27,8 +27,9 @@ fun PayeeEntity.toPayee() = Payee(
     categoryId = categoryId
 )
 
-fun Payee.toPayeeEntity() = PayeeEntity(
+fun Payee.toPayeeEntity(ownerId: String) = PayeeEntity(
     id = id,
+    ownerId = ownerId,
     rawName = rawName,
     normalizedName = normalizedName,
     alias = alias,
@@ -45,8 +46,9 @@ fun SessionEntity.toStatementSession() = StatementSession(
     status = SessionStatus.valueOf(status)
 )
 
-fun StatementSession.toSessionEntity() = SessionEntity(
+fun StatementSession.toSessionEntity(ownerId: String) = SessionEntity(
     id = id,
+    ownerId = ownerId,
     fileName = fileName,
     source = source.name,
     uploadedAtMillis = uploadedAtMillis,
@@ -74,8 +76,9 @@ fun TransactionEntity.toTransaction() = Transaction(
     payeeId = payeeId
 )
 
-fun Transaction.toTransactionEntity() = TransactionEntity(
+fun Transaction.toTransactionEntity(ownerId: String) = TransactionEntity(
     id = id,
+    ownerId = ownerId,
     sessionId = sessionId,
     dateTimeUtcMillis = dateTimeUtcMillis,
     rawPayee = rawPayee,
@@ -97,8 +100,9 @@ fun UploadLogEntity.toUploadLog() = UploadLog(
     sessionId = sessionId
 )
 
-fun UploadLog.toUploadLogEntity() = UploadLogEntity(
+fun UploadLog.toUploadLogEntity(ownerId: String) = UploadLogEntity(
     id = id,
+    ownerId = ownerId,
     fileName = fileName,
     uploadedAtMillis = uploadedAtMillis,
     success = success,

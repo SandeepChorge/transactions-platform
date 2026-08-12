@@ -15,10 +15,14 @@ import kotlinx.coroutines.flow.Flow
 
 interface CategoryLocalDataSource {
     fun observeAll(): Flow<List<Category>>
+    /** Soft-deleted categories, most recently deleted first, for the recovery list. */
+    fun observeDeleted(): Flow<List<Category>>
     fun observeLinkedPayeeCounts(): Flow<Map<Long, Int>>
     suspend fun insert(name: String): Result<Long, DataError.Local>
     suspend fun rename(id: Long, name: String): EmptyResult<DataError.Local>
+    /** Soft delete — the row stays and can be brought back with [restore]. */
     suspend fun delete(id: Long): EmptyResult<DataError.Local>
+    suspend fun restore(id: Long): EmptyResult<DataError.Local>
     suspend fun linkedPayeeCount(id: Long): Result<Int, DataError.Local>
 }
 

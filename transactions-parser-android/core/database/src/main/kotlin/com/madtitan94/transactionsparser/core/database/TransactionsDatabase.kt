@@ -3,6 +3,7 @@ package com.madtitan94.transactionsparser.core.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.madtitan94.transactionsparser.core.database.dao.CategoryDao
+import com.madtitan94.transactionsparser.core.database.dao.LegacyOwnershipDao
 import com.madtitan94.transactionsparser.core.database.dao.PayeeDao
 import com.madtitan94.transactionsparser.core.database.dao.SessionDao
 import com.madtitan94.transactionsparser.core.database.dao.TransactionDao
@@ -21,7 +22,7 @@ import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
         TransactionEntity::class,
         UploadLogEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class TransactionsDatabase : RoomDatabase() {
@@ -30,4 +31,5 @@ abstract class TransactionsDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun transactionDao(): TransactionDao
     abstract fun uploadLogDao(): UploadLogDao
+    abstract fun legacyOwnershipDao(): LegacyOwnershipDao
 }

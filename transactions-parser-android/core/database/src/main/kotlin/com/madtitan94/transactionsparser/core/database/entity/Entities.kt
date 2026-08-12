@@ -7,17 +7,20 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "categories",
-    indices = [Index(value = ["name"], unique = true)]
+    indices = [Index(value = ["ownerId", "name"], unique = true)]
 )
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
-    val name: String
+    val ownerId: String,
+    val name: String,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long? = null
 )
 
 @Entity(
     tableName = "payees",
     indices = [
-        Index(value = ["normalizedName"], unique = true),
+        Index(value = ["ownerId", "normalizedName"], unique = true),
         Index(value = ["categoryId"])
     ],
     foreignKeys = [
@@ -31,21 +34,30 @@ data class CategoryEntity(
 )
 data class PayeeEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val ownerId: String,
     val rawName: String,
     val normalizedName: String,
     val alias: String,
-    val categoryId: Long
+    val categoryId: Long,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long? = null
 )
 
-@Entity(tableName = "sessions")
+@Entity(
+    tableName = "sessions",
+    indices = [Index(value = ["ownerId"])]
+)
 data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val ownerId: String,
     val fileName: String,
     val source: String,
     val uploadedAtMillis: Long,
     val periodStartMillis: Long?,
     val periodEndMillis: Long?,
-    val status: String
+    val status: String,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long? = null
 )
 
 @Entity(
@@ -53,7 +65,8 @@ data class SessionEntity(
     indices = [
         Index(value = ["sessionId"]),
         Index(value = ["payeeId"]),
-        Index(value = ["normalizedPayee"])
+        Index(value = ["normalizedPayee"]),
+        Index(value = ["ownerId"])
     ],
     foreignKeys = [
         ForeignKey(
@@ -72,6 +85,7 @@ data class SessionEntity(
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val ownerId: String,
     val sessionId: Long,
     val dateTimeUtcMillis: Long,
     val rawPayee: String,
@@ -80,16 +94,24 @@ data class TransactionEntity(
     val type: String,
     val transactionRef: String?,
     val utr: String?,
-    val payeeId: Long?
+    val payeeId: Long?,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long? = null
 )
 
-@Entity(tableName = "upload_logs")
+@Entity(
+    tableName = "upload_logs",
+    indices = [Index(value = ["ownerId"])]
+)
 data class UploadLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val ownerId: String,
     val fileName: String,
     val uploadedAtMillis: Long,
     val success: Boolean,
     val source: String?,
     val failureReason: String?,
-    val sessionId: Long?
+    val sessionId: Long?,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long? = null
 )

@@ -17,3 +17,6 @@
 local.properties
 gradle.properties
 .claude/settings.local.json
+
+# JVM heap dumps from build/test OOMs
+*.hprof

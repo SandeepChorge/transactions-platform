@@ -12,10 +12,21 @@ dependencies {
     "ksp"(libs.androidx.room.compiler)
     "androidTestImplementation"(libs.androidx.room.testing)
     "androidTestImplementation"(libs.androidx.junit)
+    "androidTestImplementation"(libs.androidx.test.runner)
+    "androidTestImplementation"(libs.assertk)
+    "androidTestImplementation"(libs.kotlinx.coroutines.test)
 }
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// MigrationTestHelper loads the exported schema history from the test APK's assets,
+// so every past version has to ship inside it.
+plugins.withId("com.android.library") {
+    extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {
+        sourceSets.getByName("androidTest").assets.srcDir(layout.projectDirectory.dir("schemas"))
+    }
 }
 
 // Fails the build if a Room schema version bump doesn't have a matching Migration
