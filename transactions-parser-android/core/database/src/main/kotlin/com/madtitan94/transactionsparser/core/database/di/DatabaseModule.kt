@@ -2,6 +2,8 @@ package com.madtitan94.transactionsparser.core.database.di
 
 import androidx.room.Room
 import com.madtitan94.transactionsparser.core.database.TransactionsDatabase
+import com.madtitan94.transactionsparser.core.database.account.ActiveAccountProvider
+import com.madtitan94.transactionsparser.core.database.account.LegacyDataClaimer
 import com.madtitan94.transactionsparser.core.database.datasource.RoomCategoryDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomPayeeDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomSessionDataSource
@@ -30,10 +32,14 @@ val coreDatabaseModule = module {
     single { get<TransactionsDatabase>().sessionDao() }
     single { get<TransactionsDatabase>().transactionDao() }
     single { get<TransactionsDatabase>().uploadLogDao() }
+    single { get<TransactionsDatabase>().legacyOwnershipDao() }
 
-    single<CategoryLocalDataSource> { RoomCategoryDataSource(get()) }
-    single<PayeeLocalDataSource> { RoomPayeeDataSource(get()) }
-    single<SessionLocalDataSource> { RoomSessionDataSource(get()) }
-    single<TransactionLocalDataSource> { RoomTransactionDataSource(get()) }
-    single<UploadLogLocalDataSource> { RoomUploadLogDataSource(get()) }
+    single { ActiveAccountProvider(get()) }
+    single { LegacyDataClaimer(get(), get()) }
+
+    single<CategoryLocalDataSource> { RoomCategoryDataSource(get(), get()) }
+    single<PayeeLocalDataSource> { RoomPayeeDataSource(get(), get()) }
+    single<SessionLocalDataSource> { RoomSessionDataSource(get(), get()) }
+    single<TransactionLocalDataSource> { RoomTransactionDataSource(get(), get()) }
+    single<UploadLogLocalDataSource> { RoomUploadLogDataSource(get(), get()) }
 }

@@ -41,10 +41,13 @@ class CategoriesViewModelTest {
 
     private class FakeCategoryDataSource : CategoryLocalDataSource {
         val categories = MutableStateFlow<List<Category>>(emptyList())
+        val deleted = MutableStateFlow<List<Category>>(emptyList())
         val linkedCounts = MutableStateFlow<Map<Long, Int>>(emptyMap())
         private var nextId = 1L
 
         override fun observeAll(): Flow<List<Category>> = categories
+
+        override fun observeDeleted(): Flow<List<Category>> = deleted
 
         override fun observeLinkedPayeeCounts(): Flow<Map<Long, Int>> = linkedCounts
 
@@ -63,7 +66,16 @@ class CategoriesViewModelTest {
         }
 
         override suspend fun delete(id: Long): EmptyResult<DataError.Local> {
-            categories.value = categories.value.filterNot { it.id == id }
+            val target = categories.value.firstOrNull { it.id == id } ?: return Result.Success(Unit)
+            categories.value = categories.value - target
+            deleted.value += target
+            return Result.Success(Unit)
+        }
+
+        override suspend fun restore(id: Long): EmptyResult<DataError.Local> {
+            val target = deleted.value.firstOrNull { it.id == id } ?: return Result.Success(Unit)
+            deleted.value = deleted.value - target
+            categories.value += target
             return Result.Success(Unit)
         }
 
