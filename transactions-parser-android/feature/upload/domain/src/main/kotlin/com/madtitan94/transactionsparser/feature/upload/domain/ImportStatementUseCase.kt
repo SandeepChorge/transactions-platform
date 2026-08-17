@@ -23,7 +23,9 @@ data class ImportResult(
     val totalTransactions: Int,
     val autoMappedPayees: Int,
     /** Rows detected as repeats of earlier imports. Kept and flagged, never dropped. */
-    val duplicateTransactions: Int
+    val duplicateTransactions: Int,
+    /** True when the import left nothing to map, so the session went straight to COMPLETED. */
+    val completedOnImport: Boolean = false
 )
 
 /**
@@ -115,13 +117,24 @@ class ImportStatementUseCase(
             )
         )
 
+        // A statement can arrive with nothing left to map — every payee already known from an
+        // earlier session, or every row flagged as a repeat. There is no button to press in that
+        // case, so completion has to happen here or the session sits PENDING forever. On a lookup
+        // failure we leave it PENDING, which is the behaviour it had before this check existed.
+        val needsMapping = (transactions.unmappedCount(sessionId) as? Result.Success)?.data ?: 1
+        val completedOnImport = needsMapping == 0
+        if (completedOnImport) {
+            sessions.updateStatus(sessionId, SessionStatus.COMPLETED)
+        }
+
         return Result.Success(
             ImportResult(
                 sessionId = sessionId,
                 source = parsed.source,
                 totalTransactions = flagged.size,
                 autoMappedPayees = knownPayees.size,
-                duplicateTransactions = flagged.count { it.isDuplicate }
+                duplicateTransactions = flagged.count { it.isDuplicate },
+                completedOnImport = completedOnImport
             )
         )
     }

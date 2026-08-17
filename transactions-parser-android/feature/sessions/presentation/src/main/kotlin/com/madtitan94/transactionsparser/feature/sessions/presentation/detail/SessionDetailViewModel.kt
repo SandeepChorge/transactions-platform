@@ -70,6 +70,7 @@ data class SessionDetailState(
     val suggestedCount: Int = 0,
     /** Flagged repeats across the whole session, driving the summary banner. */
     val duplicateCount: Int = 0,
+    val transactionCount: Int = 0,
     val newCategoryForKey: String? = null,
     val newCategoryName: String = "",
     val newCategoryError: UiText? = null
@@ -97,7 +98,8 @@ private data class GroupsSnapshot(
     val groups: List<PayeeGroupUi>,
     val categories: List<Category>,
     val suggestedCount: Int,
-    val duplicateCount: Int
+    val duplicateCount: Int,
+    val transactionCount: Int
 )
 
 class SessionDetailViewModel(
@@ -158,7 +160,8 @@ class SessionDetailViewModel(
                     groups = groups.map { it.toUi(currentEdits[it.normalizedPayee], saving) },
                     categories = cats,
                     suggestedCount = groups.count { it.knownPayee != null && !it.isAssigned },
-                    duplicateCount = txns.count { it.isDuplicate }
+                    duplicateCount = txns.count { it.isDuplicate },
+                    transactionCount = txns.size
                 )
             }.collect { snapshot ->
                 _state.update { current ->
@@ -169,7 +172,8 @@ class SessionDetailViewModel(
                         totalGroups = snapshot.groups.size,
                         mappedGroups = snapshot.groups.count { it.status == MappingStatus.SAVED },
                         suggestedCount = snapshot.suggestedCount,
-                        duplicateCount = snapshot.duplicateCount
+                        duplicateCount = snapshot.duplicateCount,
+                        transactionCount = snapshot.transactionCount
                     )
                 }
             }

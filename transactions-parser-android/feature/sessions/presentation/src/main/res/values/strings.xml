@@ -25,6 +25,10 @@
         <item quantity="one">%1$d transaction repeats an earlier import and isn\'t counted in your totals.</item>
         <item quantity="other">%1$d transactions repeat earlier imports and aren\'t counted in your totals.</item>
     </plurals>
+    <plurals name="session_duplicates_banner_all">
+        <item quantity="one">Nothing new here — the %1$d transaction in this statement was already imported.</item>
+        <item quantity="other">Nothing new here — all %1$d transactions in this statement were already imported.</item>
+    </plurals>
     <plurals name="session_duplicates_badge_excluded">
         <item quantity="one">%1$d duplicate, not counted</item>
         <item quantity="other">%1$d duplicates, not counted</item>

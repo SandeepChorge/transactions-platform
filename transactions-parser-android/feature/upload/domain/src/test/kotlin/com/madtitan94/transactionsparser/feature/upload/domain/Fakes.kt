@@ -87,12 +87,17 @@ class FakeSessionDataSource : SessionLocalDataSource {
         return Result.Success(id)
     }
 
-    override suspend fun updateStatus(id: Long, status: SessionStatus): EmptyResult<DataError.Local> =
-        Result.Success(Unit)
+    override suspend fun updateStatus(id: Long, status: SessionStatus): EmptyResult<DataError.Local> {
+        inserted.replaceAll { if (it.id == id) it.copy(status = status) else it }
+        return Result.Success(Unit)
+    }
+
+    fun statusOf(id: Long): SessionStatus? = inserted.find { it.id == id }?.status
 }
 
 class FakeTransactionDataSource : TransactionLocalDataSource {
     val transactions = mutableListOf<Transaction>()
+    var failOnUnmappedCount = false
 
     override fun observeBySession(sessionId: Long): Flow<List<Transaction>> =
         MutableStateFlow(transactions.toList()).map { list -> list.filter { it.sessionId == sessionId } }
@@ -163,8 +168,15 @@ class FakeTransactionDataSource : TransactionLocalDataSource {
         return Result.Success(Unit)
     }
 
+    // Mirrors the DAO's `AND isExcluded = 0`: an excluded row is not waiting to be mapped.
     override suspend fun unmappedCount(sessionId: Long): Result<Int, DataError.Local> =
-        Result.Success(transactions.count { it.sessionId == sessionId && it.payeeId == null })
+        if (failOnUnmappedCount) {
+            Result.Error(DataError.Local.UNKNOWN)
+        } else {
+            Result.Success(
+                transactions.count { it.sessionId == sessionId && it.payeeId == null && !it.isExcluded }
+            )
+        }
 }
 
 class FakePayeeDataSource(initial: List<Payee> = emptyList()) : PayeeLocalDataSource {

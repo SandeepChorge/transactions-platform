@@ -139,7 +139,12 @@ fun SessionDetailScreen(
                 // Informational only — nothing to confirm, because the totals are already correct.
                 if (state.duplicateCount > 0) {
                     item(key = "duplicates") {
-                        DuplicatesBanner(count = state.duplicateCount)
+                        DuplicatesBanner(
+                            count = state.duplicateCount,
+                            // Worth saying outright when an upload added nothing, otherwise a
+                            // session that completes with no work to do just looks broken.
+                            isEverything = state.duplicateCount == state.transactionCount
+                        )
                     }
                 }
 
@@ -205,7 +210,7 @@ private fun SuggestionsBanner(count: Int, onConfirmAll: () -> Unit) {
 }
 
 @Composable
-private fun DuplicatesBanner(count: Int) {
+private fun DuplicatesBanner(count: Int, isEverything: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -223,7 +228,15 @@ private fun DuplicatesBanner(count: Int) {
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = pluralStringResource(R.plurals.session_duplicates_banner, count, count),
+                text = pluralStringResource(
+                    if (isEverything) {
+                        R.plurals.session_duplicates_banner_all
+                    } else {
+                        R.plurals.session_duplicates_banner
+                    },
+                    count,
+                    count
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
