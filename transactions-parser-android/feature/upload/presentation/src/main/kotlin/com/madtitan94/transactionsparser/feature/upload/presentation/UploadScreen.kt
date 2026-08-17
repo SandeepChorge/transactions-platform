@@ -215,7 +215,11 @@ fun UploadScreen(
         AppAlertDialog(
             title = stringResource(R.string.upload_success_title),
             message = stringResource(
-                R.string.upload_success_message,
+                if (success.completedOnImport) {
+                    R.string.upload_success_message_complete
+                } else {
+                    R.string.upload_success_message
+                },
                 success.totalTransactions,
                 success.autoMappedPayees
             ) + "\n\n" + stringResource(R.string.upload_temp_deleted),

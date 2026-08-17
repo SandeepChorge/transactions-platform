@@ -21,7 +21,11 @@ data class ImportResult(
     val sessionId: Long,
     val source: StatementSource,
     val totalTransactions: Int,
-    val autoMappedPayees: Int
+    val autoMappedPayees: Int,
+    /** Rows detected as repeats of earlier imports. Kept and flagged, never dropped. */
+    val duplicateTransactions: Int,
+    /** True when the import left nothing to map, so the session went straight to COMPLETED. */
+    val completedOnImport: Boolean = false
 )
 
 /**
@@ -90,7 +94,15 @@ class ImportStatementUseCase(
             )
         }
 
-        if (transactions.insertAll(toInsert) is Result.Error) {
+        // Detection can't be allowed to sink an otherwise-good import, so a lookup failure
+        // falls back to inserting everything unflagged rather than aborting.
+        val existingKeys = when (val found = transactions.findDuplicateKeys(toInsert)) {
+            is Result.Error -> emptyList()
+            is Result.Success -> found.data
+        }
+        val flagged = DuplicateDetector.flag(toInsert, existingKeys)
+
+        if (transactions.insertAll(flagged) is Result.Error) {
             return failure(fileName, ParseError.STORAGE_FAILURE, parsed.source)
         }
 
@@ -105,12 +117,24 @@ class ImportStatementUseCase(
             )
         )
 
+        // A statement can arrive with nothing left to map — every payee already known from an
+        // earlier session, or every row flagged as a repeat. There is no button to press in that
+        // case, so completion has to happen here or the session sits PENDING forever. On a lookup
+        // failure we leave it PENDING, which is the behaviour it had before this check existed.
+        val needsMapping = (transactions.unmappedCount(sessionId) as? Result.Success)?.data ?: 1
+        val completedOnImport = needsMapping == 0
+        if (completedOnImport) {
+            sessions.updateStatus(sessionId, SessionStatus.COMPLETED)
+        }
+
         return Result.Success(
             ImportResult(
                 sessionId = sessionId,
                 source = parsed.source,
-                totalTransactions = toInsert.size,
-                autoMappedPayees = knownPayees.size
+                totalTransactions = flagged.size,
+                autoMappedPayees = knownPayees.size,
+                duplicateTransactions = flagged.count { it.isDuplicate },
+                completedOnImport = completedOnImport
             )
         )
     }

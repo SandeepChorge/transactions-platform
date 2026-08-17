@@ -17,6 +17,7 @@ import com.madtitan94.transactionsparser.core.database.toSessionSummary
 import com.madtitan94.transactionsparser.core.database.toStatementSession
 import com.madtitan94.transactionsparser.core.database.toTransaction
 import com.madtitan94.transactionsparser.core.database.toTransactionEntity
+import com.madtitan94.transactionsparser.core.database.toTransactionKey
 import com.madtitan94.transactionsparser.core.database.toUploadLog
 import com.madtitan94.transactionsparser.core.database.toUploadLogEntity
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
@@ -30,6 +31,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.util.DataError
 import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
@@ -38,6 +40,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+
+/**
+ * Well under SQLite's per-statement variable cap (999 on older Android versions), so a large
+ * statement can't fail the import just by having too many transactions to look up at once.
+ */
+private const val SQLITE_BIND_CHUNK = 400
 
 private inline fun <T> safeDbCall(block: () -> T): Result<T, DataError.Local> {
     return try {
@@ -157,6 +165,53 @@ class RoomTransactionDataSource(
         safeSuspendDbCall {
             val ownerId = activeAccount.currentOwnerId()
             dao.insertAll(transactions.map { it.toTransactionEntity(ownerId) })
+        }
+
+    override suspend fun findDuplicateKeys(
+        candidates: List<Transaction>
+    ): Result<List<TransactionKey>, DataError.Local> =
+        safeSuspendDbCall {
+            val ownerId = activeAccount.currentOwnerId()
+
+            val refs = candidates.mapNotNull { it.transactionRef }.distinct()
+            val utrs = candidates.mapNotNull { it.utr }.distinct()
+            val reflessTimestamps = candidates
+                .filter { it.transactionRef == null && it.utr == null }
+                .map { it.dateTimeUtcMillis }
+                .distinct()
+
+            buildList {
+                // Chunked because Room expands each IN list into one bind variable per item, and
+                // SQLite caps those per statement — a large statement would otherwise blow the limit.
+                refs.chunked(SQLITE_BIND_CHUNK).forEach { chunk ->
+                    addAll(dao.findByRefOrUtr(ownerId, refs = chunk, utrs = emptyList()))
+                }
+                utrs.chunked(SQLITE_BIND_CHUNK).forEach { chunk ->
+                    addAll(dao.findByRefOrUtr(ownerId, refs = emptyList(), utrs = chunk))
+                }
+                reflessTimestamps.chunked(SQLITE_BIND_CHUNK).forEach { chunk ->
+                    addAll(dao.findReflessAt(ownerId, chunk))
+                }
+            }
+                .distinctBy { it.id }
+                .map { it.toTransactionKey() }
+        }
+
+    override suspend fun setExcluded(id: Long, isExcluded: Boolean): EmptyResult<DataError.Local> =
+        safeSuspendDbCall { dao.setExcluded(activeAccount.currentOwnerId(), id, isExcluded) }
+
+    override suspend fun setDuplicatesExcluded(
+        sessionId: Long,
+        normalizedPayee: String,
+        isExcluded: Boolean
+    ): EmptyResult<DataError.Local> =
+        safeSuspendDbCall {
+            dao.setDuplicatesExcluded(
+                activeAccount.currentOwnerId(),
+                sessionId,
+                normalizedPayee,
+                isExcluded
+            )
         }
 
     override suspend fun assignPayee(

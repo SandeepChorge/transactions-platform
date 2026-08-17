@@ -54,7 +54,25 @@ data class Transaction(
     val type: TransactionType,
     val transactionRef: String?,
     val utr: String?,
-    val payeeId: Long?
+    val payeeId: Long?,
+    /** Detected at import as a repeat of [duplicateOfTransactionId]. Not user-editable. */
+    val isDuplicate: Boolean = false,
+    val duplicateOfTransactionId: Long? = null,
+    /** Left out of every total. Starts equal to [isDuplicate]; the user can toggle it. */
+    val isExcluded: Boolean = false
+)
+
+/**
+ * The identity fields of an already-stored transaction — everything duplicate matching needs,
+ * without loading whole rows for an import that may only match a handful of them.
+ */
+data class TransactionKey(
+    val id: Long,
+    val transactionRef: String?,
+    val utr: String?,
+    val normalizedPayee: String,
+    val amountPaise: Long,
+    val dateTimeUtcMillis: Long
 )
 
 data class UploadLog(

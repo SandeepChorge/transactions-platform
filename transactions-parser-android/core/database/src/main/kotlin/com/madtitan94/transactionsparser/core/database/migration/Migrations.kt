@@ -41,8 +41,33 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
 }
 
 /**
+ * Adds duplicate detection to transactions.
+ *
+ * Existing rows are left un-flagged rather than scanned retroactively: detection runs at import,
+ * so history keeps whatever totals it already had and an upgrade can't silently change a number
+ * the user has already seen. The indices are non-unique on purpose — duplicates are kept and
+ * flagged, never rejected by the database.
+ */
+private val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `transactions` ADD COLUMN `isDuplicate` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `transactions` ADD COLUMN `duplicateOfTransactionId` INTEGER")
+        db.execSQL("ALTER TABLE `transactions` ADD COLUMN `isExcluded` INTEGER NOT NULL DEFAULT 0")
+
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_transactions_ownerId_transactionRef` " +
+                "ON `transactions` (`ownerId`, `transactionRef`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_transactions_ownerId_utr` " +
+                "ON `transactions` (`ownerId`, `utr`)"
+        )
+    }
+}
+
+/**
  * Every schema-version migration TransactionsDatabase has ever needed, in order.
  * verifyRoomMigrations (build-logic) fails the build if a schema version bump here
  * doesn't have a matching entry, so nothing ships without an upgrade path.
  */
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)

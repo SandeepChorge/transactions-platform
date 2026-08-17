@@ -23,6 +23,7 @@ junitJupiter = "5.11.4"
 junitPlatform = "1.11.4"
 turbine = "1.2.0"
 assertk = "0.28.1"
+json = "20250517"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +65,8 @@ junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.r
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junitPlatform" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 assertk = { group = "com.willowtreeapps.assertk", name = "assertk", version.ref = "assertk" }
+# Real org.json for unit tests — the Android SDK ships only stubs that throw.
+json = { group = "org.json", name = "json", version.ref = "json" }
 
 # Gradle plugin artifacts for build-logic
 android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }

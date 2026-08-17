@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,8 +17,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -44,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -132,6 +136,18 @@ fun SessionDetailScreen(
                     }
                 }
 
+                // Informational only — nothing to confirm, because the totals are already correct.
+                if (state.duplicateCount > 0) {
+                    item(key = "duplicates") {
+                        DuplicatesBanner(
+                            count = state.duplicateCount,
+                            // Worth saying outright when an upload added nothing, otherwise a
+                            // session that completes with no work to do just looks broken.
+                            isEverything = state.duplicateCount == state.transactionCount
+                        )
+                    }
+                }
+
                 items(items = state.groups, key = { it.key }) { group ->
                     PayeeGroupCard(
                         group = group,
@@ -193,6 +209,41 @@ private fun SuggestionsBanner(count: Int, onConfirmAll: () -> Unit) {
     }
 }
 
+@Composable
+private fun DuplicatesBanner(count: Int, isEverything: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = pluralStringResource(
+                    if (isEverything) {
+                        R.plurals.session_duplicates_banner_all
+                    } else {
+                        R.plurals.session_duplicates_banner
+                    },
+                    count,
+                    count
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PayeeGroupCard(
@@ -241,6 +292,46 @@ private fun PayeeGroupCard(
                     text = stringResource(R.string.session_usual_times, group.timesLabel),
                     style = MaterialTheme.typography.bodySmall
                 )
+            }
+
+            if (group.duplicateCount > 0) {
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = pluralStringResource(
+                            if (group.duplicatesExcluded) {
+                                R.plurals.session_duplicates_badge_excluded
+                            } else {
+                                R.plurals.session_duplicates_badge_included
+                            },
+                            group.duplicateCount,
+                            group.duplicateCount
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = { onAction(SessionDetailAction.OnToggleDuplicates(group.key)) }
+                    ) {
+                        Text(
+                            stringResource(
+                                if (group.duplicatesExcluded) {
+                                    R.string.session_duplicates_include
+                                } else {
+                                    R.string.session_duplicates_exclude
+                                }
+                            )
+                        )
+                    }
+                }
             }
 
             if (!readOnly && group.status != MappingStatus.SAVED) {

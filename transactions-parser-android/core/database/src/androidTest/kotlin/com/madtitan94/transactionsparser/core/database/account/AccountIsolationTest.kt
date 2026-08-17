@@ -147,6 +147,61 @@ class AccountIsolationTest {
             }
     }
 
+    @Test
+    fun rowsKeyedByEmailAreReKeyedToTheStableGoogleSub() = runTest {
+        // What builds before the switch to `sub` wrote.
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO categories (ownerId, name, isDeleted) VALUES('someone@gmail.com','Grocery',0)"
+        )
+
+        sessionStorage.signIn("google-sub-a")
+        assertThat(categories.observeAll().first()).isEmpty()
+
+        LegacyDataClaimer(database, database.legacyOwnershipDao())
+            .claimFor("google-sub-a", priorOwnerIds = listOf("someone@gmail.com"))
+
+        assertThat(categories.observeAll().first().map { it.name }).containsExactly("Grocery")
+    }
+
+    @Test
+    fun reKeyingNeverReachesAnotherAccountsRows() = runTest {
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO categories (ownerId, name, isDeleted) VALUES('someone-else@gmail.com','Theirs',0)"
+        )
+
+        // Signing in as one account passes only its own email, so the other account's
+        // email-keyed rows are not a claim source and stay put.
+        LegacyDataClaimer(database, database.legacyOwnershipDao())
+            .claimFor("google-sub-a", priorOwnerIds = listOf("someone@gmail.com"))
+
+        sessionStorage.signIn("google-sub-a")
+        assertThat(categories.observeAll().first()).isEmpty()
+
+        database.openHelper.readableDatabase
+            .query("SELECT ownerId FROM categories")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertThat(cursor.getString(0)).isEqualTo("someone-else@gmail.com")
+            }
+    }
+
+    @Test
+    fun reKeyingClaimsLegacyRowsInTheSamePass() = runTest {
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO categories (ownerId, name, isDeleted) VALUES('$LEGACY_OWNER_ID','FromV1',0)"
+        )
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO categories (ownerId, name, isDeleted) VALUES('someone@gmail.com','FromEmailBuild',0)"
+        )
+
+        LegacyDataClaimer(database, database.legacyOwnershipDao())
+            .claimFor("google-sub-a", priorOwnerIds = listOf("someone@gmail.com"))
+
+        sessionStorage.signIn("google-sub-a")
+        assertThat(categories.observeAll().first().map { it.name })
+            .containsExactly("FromEmailBuild", "FromV1")
+    }
+
     private companion object {
         const val FIXED_NOW = 1_700_000_000_000L
     }

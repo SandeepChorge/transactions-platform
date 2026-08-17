@@ -96,6 +96,72 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate2To3_keepsRowsAndLeavesExistingHistoryCounted() {
+        helper.createDatabase(TEST_DB, 1).use { db ->
+            db.execSQL("INSERT INTO categories VALUES(1,'Grocery')")
+            db.execSQL(
+                "INSERT INTO payees VALUES(80,'PRAJAKTA ENTERPRISES','PRAJAKTA ENTERPRISES','Prajakta',1)"
+            )
+            db.execSQL(
+                "INSERT INTO sessions VALUES(1,'PhonePe_Statement_Jun2026_Jun2026.pdf','PHONEPE'," +
+                    "1783874080900,1780272000000,1782777600000,'COMPLETED')"
+            )
+            db.execSQL(
+                "INSERT INTO transactions VALUES(3,1,1782644460000,'PRAJAKTA ENTERPRISES'," +
+                    "'PRAJAKTA ENTERPRISES',20000,'DEBIT','T2606281101277674481567','026430027128',80)"
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 3, true, *ALL_MIGRATIONS)
+
+        db.query(
+            "SELECT amountPaise, transactionRef, isDuplicate, duplicateOfTransactionId, isExcluded " +
+                "FROM transactions WHERE id = 3"
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertThat(cursor.getLong(0)).isEqualTo(20000L)
+            assertThat(cursor.getString(1)).isEqualTo("T2606281101277674481567")
+            // History is left alone: an upgrade must not silently change a total already seen.
+            assertThat(cursor.getInt(2)).isEqualTo(0)
+            assertThat(cursor.isNull(3)).isEqualTo(true)
+            assertThat(cursor.getInt(4)).isEqualTo(0)
+        }
+
+        db.close()
+    }
+
+    @Test
+    fun migrate2To3_allowsRepeatedRefsSoDuplicatesAreKeptRatherThanRejected() {
+        helper.createDatabase(TEST_DB, 1).use { db ->
+            db.execSQL("INSERT INTO categories VALUES(1,'Grocery')")
+            db.execSQL(
+                "INSERT INTO sessions VALUES(1,'june.pdf','PHONEPE',1783874080900,1780272000000,1782777600000,'COMPLETED')"
+            )
+            db.execSQL(
+                "INSERT INTO transactions VALUES(3,1,1782644460000,'SHOP','SHOP',20000,'DEBIT','T-DUP','111',NULL)"
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 3, true, *ALL_MIGRATIONS)
+
+        // The new indices must be non-unique, or flagging a duplicate would be impossible —
+        // SQLite would reject the row before it could ever be stored and marked.
+        db.execSQL(
+            "INSERT INTO transactions (ownerId, sessionId, dateTimeUtcMillis, rawPayee, normalizedPayee, " +
+                "amountPaise, type, transactionRef, utr, payeeId, isDuplicate, duplicateOfTransactionId, " +
+                "isExcluded, isDeleted) " +
+                "VALUES('__legacy__',1,1782644460000,'SHOP','SHOP',20000,'DEBIT','T-DUP','111',NULL,1,3,1,0)"
+        )
+
+        db.query("SELECT COUNT(*) FROM transactions WHERE transactionRef = 'T-DUP'").use { cursor ->
+            cursor.moveToFirst()
+            assertThat(cursor.getInt(0)).isEqualTo(2)
+        }
+
+        db.close()
+    }
+
     private companion object {
         const val TEST_DB = "migration-test.db"
     }
