@@ -1,5 +1,6 @@
 package com.madtitan94.transactionsparser.core.database
 
+import com.madtitan94.transactionsparser.core.database.dao.DuplicateCandidate
 import com.madtitan94.transactionsparser.core.database.dao.SessionSummaryRow
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
@@ -13,6 +14,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.StatementSource
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.TransactionType
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 
@@ -73,7 +75,10 @@ fun TransactionEntity.toTransaction() = Transaction(
     type = TransactionType.valueOf(type),
     transactionRef = transactionRef,
     utr = utr,
-    payeeId = payeeId
+    payeeId = payeeId,
+    isDuplicate = isDuplicate,
+    duplicateOfTransactionId = duplicateOfTransactionId,
+    isExcluded = isExcluded
 )
 
 fun Transaction.toTransactionEntity(ownerId: String) = TransactionEntity(
@@ -87,7 +92,19 @@ fun Transaction.toTransactionEntity(ownerId: String) = TransactionEntity(
     type = type.name,
     transactionRef = transactionRef,
     utr = utr,
-    payeeId = payeeId
+    payeeId = payeeId,
+    isDuplicate = isDuplicate,
+    duplicateOfTransactionId = duplicateOfTransactionId,
+    isExcluded = isExcluded
+)
+
+fun DuplicateCandidate.toTransactionKey() = TransactionKey(
+    id = id,
+    transactionRef = transactionRef,
+    utr = utr,
+    normalizedPayee = normalizedPayee,
+    amountPaise = amountPaise,
+    dateTimeUtcMillis = dateTimeUtcMillis
 )
 
 fun UploadLogEntity.toUploadLog() = UploadLog(

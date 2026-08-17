@@ -21,6 +21,20 @@
     <string name="session_payees_mapped">%1$d of %2$d payees mapped</string>
     <string name="session_suggested_banner">%1$d payees recognized from your earlier uploads. Confirm to map them all at once.</string>
     <string name="session_confirm_all">Confirm all</string>
+    <plurals name="session_duplicates_banner">
+        <item quantity="one">%1$d transaction repeats an earlier import and isn\'t counted in your totals.</item>
+        <item quantity="other">%1$d transactions repeat earlier imports and aren\'t counted in your totals.</item>
+    </plurals>
+    <plurals name="session_duplicates_badge_excluded">
+        <item quantity="one">%1$d duplicate, not counted</item>
+        <item quantity="other">%1$d duplicates, not counted</item>
+    </plurals>
+    <plurals name="session_duplicates_badge_included">
+        <item quantity="one">%1$d duplicate, counted</item>
+        <item quantity="other">%1$d duplicates, counted</item>
+    </plurals>
+    <string name="session_duplicates_include">Count these</string>
+    <string name="session_duplicates_exclude">Don\'t count these</string>
     <string name="session_amounts">Amounts: %1$s</string>
     <string name="session_total_and_count">Total %1$s • %2$d entries this session</string>
     <string name="session_usual_times">Usually around %1$s</string>

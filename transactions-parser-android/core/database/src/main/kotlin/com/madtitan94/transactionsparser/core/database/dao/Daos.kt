@@ -86,7 +86,7 @@ interface SessionDao {
                COUNT(t.id) AS transactionCount,
                COUNT(t.payeeId) AS mappedCount
         FROM sessions s
-        LEFT JOIN transactions t ON t.sessionId = s.id AND t.isDeleted = 0
+        LEFT JOIN transactions t ON t.sessionId = s.id AND t.isDeleted = 0 AND t.isExcluded = 0
         WHERE s.ownerId = :ownerId AND s.isDeleted = 0 AND s.status = :status
         GROUP BY s.id
         ORDER BY s.uploadedAtMillis DESC
@@ -104,6 +104,16 @@ interface SessionDao {
     suspend fun updateStatus(ownerId: String, id: Long, status: String)
 }
 
+/** Just enough of an existing row to decide whether an incoming one repeats it. */
+data class DuplicateCandidate(
+    val id: Long,
+    val transactionRef: String?,
+    val utr: String?,
+    val normalizedPayee: String,
+    val amountPaise: Long,
+    val dateTimeUtcMillis: Long
+)
+
 @Dao
 interface TransactionDao {
     @Query(
@@ -115,15 +125,76 @@ interface TransactionDao {
     @Insert
     suspend fun insertAll(transactions: List<TransactionEntity>)
 
+    /**
+     * Existing rows carrying any of these refs or UTRs, across every session of this account.
+     * Matching on identity rather than date is what makes an overlapping-date-range re-import
+     * fall out for free — no separate period-overlap logic needed.
+     */
+    @Query(
+        """
+        SELECT id, transactionRef, utr, normalizedPayee, amountPaise, dateTimeUtcMillis
+        FROM transactions
+        WHERE ownerId = :ownerId AND isDeleted = 0
+          AND (
+            (transactionRef IS NOT NULL AND transactionRef IN (:refs))
+            OR (utr IS NOT NULL AND utr IN (:utrs))
+          )
+        """
+    )
+    suspend fun findByRefOrUtr(
+        ownerId: String,
+        refs: List<String>,
+        utrs: List<String>
+    ): List<DuplicateCandidate>
+
+    /**
+     * Candidates for rows that carry neither a ref nor a UTR (Google Pay statements can produce
+     * these). Narrowed by timestamp here; payee and amount are compared by the caller.
+     */
+    @Query(
+        """
+        SELECT id, transactionRef, utr, normalizedPayee, amountPaise, dateTimeUtcMillis
+        FROM transactions
+        WHERE ownerId = :ownerId AND isDeleted = 0
+          AND transactionRef IS NULL AND utr IS NULL
+          AND dateTimeUtcMillis IN (:timestamps)
+        """
+    )
+    suspend fun findReflessAt(
+        ownerId: String,
+        timestamps: List<Long>
+    ): List<DuplicateCandidate>
+
+    @Query(
+        "UPDATE transactions SET isExcluded = :isExcluded WHERE id = :id AND ownerId = :ownerId"
+    )
+    suspend fun setExcluded(ownerId: String, id: Long, isExcluded: Boolean)
+
+    /**
+     * Flips only the flagged rows of one payee within a session. Scoped to `isDuplicate = 1` so
+     * re-including duplicates can never sweep in a row the user excluded for their own reasons.
+     */
+    @Query(
+        "UPDATE transactions SET isExcluded = :isExcluded WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND sessionId = :sessionId AND normalizedPayee = :normalizedPayee AND isDuplicate = 1"
+    )
+    suspend fun setDuplicatesExcluded(
+        ownerId: String,
+        sessionId: Long,
+        normalizedPayee: String,
+        isExcluded: Boolean
+    )
+
     @Query(
         "UPDATE transactions SET payeeId = :payeeId WHERE ownerId = :ownerId AND isDeleted = 0 " +
             "AND sessionId = :sessionId AND normalizedPayee = :normalizedPayee"
     )
     suspend fun assignPayee(ownerId: String, sessionId: Long, normalizedPayee: String, payeeId: Long)
 
+    /** Excluded rows are skipped — mapping a transaction that counts toward nothing is busywork. */
     @Query(
         "SELECT COUNT(*) FROM transactions WHERE ownerId = :ownerId AND isDeleted = 0 " +
-            "AND sessionId = :sessionId AND payeeId IS NULL"
+            "AND isExcluded = 0 AND sessionId = :sessionId AND payeeId IS NULL"
     )
     suspend fun unmappedCount(ownerId: String, sessionId: Long): Int
 }

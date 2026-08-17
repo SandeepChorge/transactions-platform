@@ -110,4 +110,64 @@ class PayeeGrouperTest {
         )
         assertThat(groups.first().knownPayee).isNull()
     }
+
+    @Test
+    fun `excluded duplicates do not inflate the total or the count`() {
+        val groups = PayeeGrouper.group(
+            transactions = listOf(
+                txn("abc shop", 1_000, hour = 13),
+                txn("abc shop", 1_000, hour = 13).copy(isDuplicate = true, isExcluded = true)
+            ),
+            knownPayees = emptyMap()
+        )
+
+        val group = groups.single()
+        assertThat(group.totalPaise).isEqualTo(1_000L)
+        assertThat(group.transactionCount).isEqualTo(1)
+        assertThat(group.duplicateCount).isEqualTo(1)
+        assertThat(group.duplicatesExcluded).isTrue()
+    }
+
+    @Test
+    fun `a duplicate the user chose to count is back in the total`() {
+        val groups = PayeeGrouper.group(
+            transactions = listOf(
+                txn("abc shop", 1_000, hour = 13),
+                txn("abc shop", 1_000, hour = 13).copy(isDuplicate = true, isExcluded = false)
+            ),
+            knownPayees = emptyMap()
+        )
+
+        val group = groups.single()
+        assertThat(group.totalPaise).isEqualTo(2_000L)
+        assertThat(group.duplicateCount).isEqualTo(1)
+        assertThat(group.duplicatesExcluded).isFalse()
+    }
+
+    @Test
+    fun `a payee whose rows are all excluded still appears so it can be recovered`() {
+        val groups = PayeeGrouper.group(
+            transactions = listOf(
+                txn("abc shop", 1_000, hour = 13).copy(isDuplicate = true, isExcluded = true)
+            ),
+            knownPayees = emptyMap()
+        )
+
+        val group = groups.single()
+        assertThat(group.rawPayee).isEqualTo("abc shop")
+        assertThat(group.totalPaise).isEqualTo(0L)
+        assertThat(group.transactionCount).isEqualTo(0)
+        assertThat(group.duplicateCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `a group with no duplicates reports none, so the badge stays hidden`() {
+        val groups = PayeeGrouper.group(
+            transactions = listOf(txn("abc shop", 1_000, hour = 13)),
+            knownPayees = emptyMap()
+        )
+
+        assertThat(groups.single().duplicateCount).isEqualTo(0)
+        assertThat(groups.single().duplicatesExcluded).isFalse()
+    }
 }

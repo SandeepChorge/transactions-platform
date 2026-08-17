@@ -47,7 +47,10 @@ data class PayeeGroupUi(
     val aliasInput: String,
     val selectedCategoryId: Long?,
     val status: MappingStatus,
-    val isSaving: Boolean
+    val isSaving: Boolean,
+    /** Flagged repeats in this group; 0 hides the duplicate badge and its toggle entirely. */
+    val duplicateCount: Int = 0,
+    val duplicatesExcluded: Boolean = false
 ) {
     val canSave: Boolean
         get() = aliasInput.isNotBlank() && selectedCategoryId != null && !isSaving && status != MappingStatus.SAVED
@@ -65,6 +68,8 @@ data class SessionDetailState(
     val mappedGroups: Int = 0,
     val totalGroups: Int = 0,
     val suggestedCount: Int = 0,
+    /** Flagged repeats across the whole session, driving the summary banner. */
+    val duplicateCount: Int = 0,
     val newCategoryForKey: String? = null,
     val newCategoryName: String = "",
     val newCategoryError: UiText? = null
@@ -75,6 +80,8 @@ sealed interface SessionDetailAction {
     data class OnCategorySelect(val key: String, val categoryId: Long) : SessionDetailAction
     data class OnSaveClick(val key: String) : SessionDetailAction
     data object OnConfirmAllSuggested : SessionDetailAction
+    /** Puts this payee's flagged repeats back into the totals, or takes them out again. */
+    data class OnToggleDuplicates(val key: String) : SessionDetailAction
     data class OnAddCategoryClick(val key: String) : SessionDetailAction
     data class OnNewCategoryNameChange(val name: String) : SessionDetailAction
     data object OnCreateCategory : SessionDetailAction
@@ -84,6 +91,14 @@ sealed interface SessionDetailAction {
 sealed interface SessionDetailEvent {
     data class ShowMessage(val message: UiText) : SessionDetailEvent
 }
+
+/** One pass of the group pipeline — named rather than a Triple now that it carries four values. */
+private data class GroupsSnapshot(
+    val groups: List<PayeeGroupUi>,
+    val categories: List<Category>,
+    val suggestedCount: Int,
+    val duplicateCount: Int
+)
 
 class SessionDetailViewModel(
     savedStateHandle: SavedStateHandle,
@@ -139,17 +154,22 @@ class SessionDetailViewModel(
             ) { txns, allPayees, cats, currentEdits, saving ->
                 val knownByName = allPayees.associateBy(Payee::normalizedName)
                 val groups = PayeeGrouper.group(txns, knownByName)
-                val groupUis = groups.map { it.toUi(currentEdits[it.normalizedPayee], saving) }
-                Triple(groupUis, cats, groups.count { it.knownPayee != null && !it.isAssigned })
-            }.collect { (groupUis, cats, suggested) ->
+                GroupsSnapshot(
+                    groups = groups.map { it.toUi(currentEdits[it.normalizedPayee], saving) },
+                    categories = cats,
+                    suggestedCount = groups.count { it.knownPayee != null && !it.isAssigned },
+                    duplicateCount = txns.count { it.isDuplicate }
+                )
+            }.collect { snapshot ->
                 _state.update { current ->
                     current.copy(
                         isLoading = false,
-                        groups = groupUis,
-                        categories = cats,
-                        totalGroups = groupUis.size,
-                        mappedGroups = groupUis.count { it.status == MappingStatus.SAVED },
-                        suggestedCount = suggested
+                        groups = snapshot.groups,
+                        categories = snapshot.categories,
+                        totalGroups = snapshot.groups.size,
+                        mappedGroups = snapshot.groups.count { it.status == MappingStatus.SAVED },
+                        suggestedCount = snapshot.suggestedCount,
+                        duplicateCount = snapshot.duplicateCount
                     )
                 }
             }
@@ -162,6 +182,7 @@ class SessionDetailViewModel(
             is SessionDetailAction.OnCategorySelect -> updateEdit(action.key) { it.copy(categoryId = action.categoryId) }
             is SessionDetailAction.OnSaveClick -> save(action.key)
             SessionDetailAction.OnConfirmAllSuggested -> confirmAllSuggested()
+            is SessionDetailAction.OnToggleDuplicates -> toggleDuplicates(action.key)
             is SessionDetailAction.OnAddCategoryClick -> _state.update {
                 it.copy(newCategoryForKey = action.key, newCategoryName = "", newCategoryError = null)
             }
@@ -232,6 +253,19 @@ class SessionDetailViewModel(
         }
     }
 
+    private fun toggleDuplicates(key: String) {
+        val group = _state.value.groups.find { it.key == key } ?: return
+        if (group.duplicateCount == 0) return
+
+        viewModelScope.launch {
+            transactions.setDuplicatesExcluded(
+                sessionId = sessionId,
+                normalizedPayee = key,
+                isExcluded = !group.duplicatesExcluded
+            ).onFailure { _events.send(SessionDetailEvent.ShowMessage(it.toUiText())) }
+        }
+    }
+
     private suspend fun completeSessionIfFullyMapped() {
         val unmapped = (transactions.unmappedCount(sessionId) as? Result.Success)?.data ?: return
         if (unmapped == 0) {
@@ -290,7 +324,9 @@ class SessionDetailViewModel(
             aliasInput = edit?.alias ?: knownPayee?.alias.orEmpty(),
             selectedCategoryId = edit?.categoryId ?: knownPayee?.categoryId,
             status = status,
-            isSaving = normalizedPayee in saving
+            isSaving = normalizedPayee in saving,
+            duplicateCount = duplicateCount,
+            duplicatesExcluded = duplicatesExcluded
         )
     }
 }

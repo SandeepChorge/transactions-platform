@@ -22,7 +22,7 @@ import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
         TransactionEntity::class,
         UploadLogEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class TransactionsDatabase : RoomDatabase() {

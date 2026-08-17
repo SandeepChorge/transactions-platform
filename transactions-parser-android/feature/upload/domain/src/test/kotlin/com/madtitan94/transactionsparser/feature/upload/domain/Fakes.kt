@@ -10,6 +10,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.StatementSource
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.TransactionType
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.parsing.ParseError
@@ -26,6 +27,27 @@ import kotlinx.coroutines.flow.map
 
 class FakeExtractor(var result: Result<String, ParseError>) : StatementTextExtractor {
     override suspend fun extractText(filePath: String): Result<String, ParseError> = result
+}
+
+/** A parser whose output the test chooses, for simulating re-imports of overlapping periods. */
+class FakeConfigurableParser(
+    private val transactions: List<ParsedTransaction>,
+    private val periodStartMillis: Long = 1L,
+    private val periodEndMillis: Long = 2L
+) : StatementParser {
+    override val source = StatementSource.PHONEPE
+    override fun canParse(text: String) = text.contains("PHONEPE_FIXTURE")
+    override fun parse(text: String): Result<ParsedStatement, ParseError> {
+        if (!canParse(text)) return Result.Error(ParseError.UNRECOGNIZED_FORMAT)
+        return Result.Success(
+            ParsedStatement(
+                source = source,
+                periodStartMillis = periodStartMillis,
+                periodEndMillis = periodEndMillis,
+                transactions = transactions
+            )
+        )
+    }
 }
 
 class FakePhonePeParser : StatementParser {
@@ -76,7 +98,61 @@ class FakeTransactionDataSource : TransactionLocalDataSource {
         MutableStateFlow(transactions.toList()).map { list -> list.filter { it.sessionId == sessionId } }
 
     override suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local> {
-        this.transactions += transactions
+        // Ids are assigned on insert, mirroring Room — the detector relies on stored rows having
+        // real ids while the incoming batch does not.
+        val startId = this.transactions.size + 1
+        this.transactions += transactions.mapIndexed { index, txn -> txn.copy(id = (startId + index).toLong()) }
+        return Result.Success(Unit)
+    }
+
+    override suspend fun findDuplicateKeys(
+        candidates: List<Transaction>
+    ): Result<List<TransactionKey>, DataError.Local> {
+        val refs = candidates.mapNotNull { it.transactionRef }.toSet()
+        val utrs = candidates.mapNotNull { it.utr }.toSet()
+        val reflessTimestamps = candidates
+            .filter { it.transactionRef == null && it.utr == null }
+            .map { it.dateTimeUtcMillis }
+            .toSet()
+
+        return Result.Success(
+            transactions
+                .filter { stored ->
+                    stored.transactionRef in refs ||
+                        stored.utr in utrs ||
+                        (stored.transactionRef == null && stored.utr == null &&
+                            stored.dateTimeUtcMillis in reflessTimestamps)
+                }
+                .map {
+                    TransactionKey(
+                        id = it.id,
+                        transactionRef = it.transactionRef,
+                        utr = it.utr,
+                        normalizedPayee = it.normalizedPayee,
+                        amountPaise = it.amountPaise,
+                        dateTimeUtcMillis = it.dateTimeUtcMillis
+                    )
+                }
+        )
+    }
+
+    override suspend fun setExcluded(id: Long, isExcluded: Boolean): EmptyResult<DataError.Local> {
+        transactions.replaceAll { if (it.id == id) it.copy(isExcluded = isExcluded) else it }
+        return Result.Success(Unit)
+    }
+
+    override suspend fun setDuplicatesExcluded(
+        sessionId: Long,
+        normalizedPayee: String,
+        isExcluded: Boolean
+    ): EmptyResult<DataError.Local> {
+        transactions.replaceAll {
+            if (it.sessionId == sessionId && it.normalizedPayee == normalizedPayee && it.isDuplicate) {
+                it.copy(isExcluded = isExcluded)
+            } else {
+                it
+            }
+        }
         return Result.Success(Unit)
     }
 

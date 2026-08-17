@@ -6,6 +6,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.model.UserSession
 import com.madtitan94.transactionsparser.core.domain.util.DataError
@@ -43,6 +44,20 @@ interface SessionLocalDataSource {
 interface TransactionLocalDataSource {
     fun observeBySession(sessionId: Long): Flow<List<Transaction>>
     suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local>
+    /**
+     * Keys of already-stored transactions that could match any of [candidates], across every
+     * session of this account. Returns candidates to compare, not a verdict — the matching
+     * rules live in the domain layer so they stay testable without a database.
+     */
+    suspend fun findDuplicateKeys(candidates: List<Transaction>): Result<List<TransactionKey>, DataError.Local>
+    /** User override for whether a transaction counts toward totals. */
+    suspend fun setExcluded(id: Long, isExcluded: Boolean): EmptyResult<DataError.Local>
+    /** Same override applied to the flagged rows of one payee in a session, and only those. */
+    suspend fun setDuplicatesExcluded(
+        sessionId: Long,
+        normalizedPayee: String,
+        isExcluded: Boolean
+    ): EmptyResult<DataError.Local>
     suspend fun assignPayee(sessionId: Long, normalizedPayee: String, payeeId: Long): EmptyResult<DataError.Local>
     suspend fun unmappedCount(sessionId: Long): Result<Int, DataError.Local>
 }

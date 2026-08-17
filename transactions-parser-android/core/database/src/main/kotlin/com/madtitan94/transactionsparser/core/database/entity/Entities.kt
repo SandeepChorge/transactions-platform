@@ -66,7 +66,11 @@ data class SessionEntity(
         Index(value = ["sessionId"]),
         Index(value = ["payeeId"]),
         Index(value = ["normalizedPayee"]),
-        Index(value = ["ownerId"])
+        Index(value = ["ownerId"]),
+        // Duplicate lookup on import. Deliberately non-unique: a unique index would make
+        // SQLite reject or silently drop repeat rows, and we want to keep and flag them.
+        Index(value = ["ownerId", "transactionRef"]),
+        Index(value = ["ownerId", "utr"])
     ],
     foreignKeys = [
         ForeignKey(
@@ -95,6 +99,16 @@ data class TransactionEntity(
     val transactionRef: String?,
     val utr: String?,
     val payeeId: Long?,
+    /** Set once at import when this row repeats an earlier one. Never user-editable. */
+    val isDuplicate: Boolean = false,
+    /** The earlier row this one repeats, when [isDuplicate]. */
+    val duplicateOfTransactionId: Long? = null,
+    /**
+     * Left out of every total. Initialized to [isDuplicate] at import, then owned by the user —
+     * which is why it's separate from [isDuplicate]: re-including a false positive must not
+     * erase the fact that detection flagged it.
+     */
+    val isExcluded: Boolean = false,
     val isDeleted: Boolean = false,
     val deletedAtMillis: Long? = null
 )
