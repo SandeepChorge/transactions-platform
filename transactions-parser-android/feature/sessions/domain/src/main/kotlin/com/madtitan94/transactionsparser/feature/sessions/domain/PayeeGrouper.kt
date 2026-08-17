@@ -7,6 +7,32 @@ import java.time.ZoneOffset
 
 data class TypicalTime(val hourOfDay: Int, val count: Int)
 
+/**
+ * How much of a group's flagged rows are left out of the totals.
+ *
+ * A boolean was enough while the group button was the only way to change exclusion, because it
+ * always wrote all-or-nothing. The per-transaction toggle on Payee Detail can leave a group part
+ * way, and [SOME] is what stops the card from claiming those rows are counted when some are not.
+ */
+enum class DuplicateSelection {
+    /** Every flagged row counts toward the totals. */
+    NONE,
+
+    /** Some are counted and some are not — reachable only via the per-transaction toggle. */
+    SOME,
+
+    /** No flagged row counts. What a fresh import produces. */
+    ALL;
+
+    companion object {
+        fun of(total: Int, excluded: Int): DuplicateSelection = when {
+            total == 0 || excluded == 0 -> NONE
+            excluded == total -> ALL
+            else -> SOME
+        }
+    }
+}
+
 data class PayeeGroup(
     val normalizedPayee: String,
     val rawPayee: String,
@@ -18,8 +44,10 @@ data class PayeeGroup(
     val transactionCount: Int,
     /** Rows in this group flagged as repeats of an earlier import, counted or not. */
     val duplicateCount: Int,
-    /** True while every flagged row here is left out of the totals — the state the toggle flips. */
-    val duplicatesExcluded: Boolean,
+    /** Flagged rows here that are left out of the totals. */
+    val excludedDuplicateCount: Int,
+    /** How much of [duplicateCount] is excluded, as the three states the card can show. */
+    val duplicateSelection: DuplicateSelection,
     /** Most frequent hours of day, count-descending, max 3. */
     val typicalTimes: List<TypicalTime>,
     /** Existing saved mapping for this payee, when the user mapped it before. */
@@ -42,6 +70,7 @@ object PayeeGrouper {
                 // wrongly-flagged payee would vanish with no way to bring it back.
                 val counted = group.filterNot { it.isExcluded }
                 val duplicates = group.filter { it.isDuplicate }
+                val excludedDuplicates = duplicates.count { it.isExcluded }
                 PayeeGroup(
                     normalizedPayee = normalized,
                     rawPayee = group.first().rawPayee,
@@ -49,7 +78,8 @@ object PayeeGrouper {
                     totalPaise = counted.sumOf { it.amountPaise },
                     transactionCount = counted.size,
                     duplicateCount = duplicates.size,
-                    duplicatesExcluded = duplicates.isNotEmpty() && duplicates.all { it.isExcluded },
+                    excludedDuplicateCount = excludedDuplicates,
+                    duplicateSelection = DuplicateSelection.of(duplicates.size, excludedDuplicates),
                     typicalTimes = typicalTimes(counted),
                     knownPayee = knownPayees[normalized],
                     isAssigned = counted.all { it.payeeId != null }

@@ -19,6 +19,7 @@ import com.madtitan94.transactionsparser.core.presentation.formatHourOfDay
 import com.madtitan94.transactionsparser.core.presentation.formatPaise
 import com.madtitan94.transactionsparser.core.presentation.formatStatementDate
 import com.madtitan94.transactionsparser.core.presentation.toUiText
+import com.madtitan94.transactionsparser.feature.sessions.domain.DuplicateSelection
 import com.madtitan94.transactionsparser.feature.sessions.domain.PayeeGroup
 import com.madtitan94.transactionsparser.feature.sessions.domain.PayeeGrouper
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
@@ -48,9 +49,10 @@ data class PayeeGroupUi(
     val selectedCategoryId: Long?,
     val status: MappingStatus,
     val isSaving: Boolean,
-    /** Flagged repeats in this group; 0 hides the duplicate badge and its toggle entirely. */
+    /** Flagged repeats in this group; 0 hides the duplicate badge and its control entirely. */
     val duplicateCount: Int = 0,
-    val duplicatesExcluded: Boolean = false
+    val excludedDuplicateCount: Int = 0,
+    val duplicateSelection: DuplicateSelection = DuplicateSelection.NONE
 ) {
     val canSave: Boolean
         get() = aliasInput.isNotBlank() && selectedCategoryId != null && !isSaving && status != MappingStatus.SAVED
@@ -81,8 +83,11 @@ sealed interface SessionDetailAction {
     data class OnCategorySelect(val key: String, val categoryId: Long) : SessionDetailAction
     data class OnSaveClick(val key: String) : SessionDetailAction
     data object OnConfirmAllSuggested : SessionDetailAction
-    /** Puts this payee's flagged repeats back into the totals, or takes them out again. */
-    data class OnToggleDuplicates(val key: String) : SessionDetailAction
+    /**
+     * Puts this payee's flagged repeats into the totals, or takes them out. Carries the target
+     * state rather than flipping: from a part-excluded group there is no sensible "opposite".
+     */
+    data class OnSetDuplicatesExcluded(val key: String, val isExcluded: Boolean) : SessionDetailAction
     data class OnAddCategoryClick(val key: String) : SessionDetailAction
     data class OnNewCategoryNameChange(val name: String) : SessionDetailAction
     data object OnCreateCategory : SessionDetailAction
@@ -186,7 +191,8 @@ class SessionDetailViewModel(
             is SessionDetailAction.OnCategorySelect -> updateEdit(action.key) { it.copy(categoryId = action.categoryId) }
             is SessionDetailAction.OnSaveClick -> save(action.key)
             SessionDetailAction.OnConfirmAllSuggested -> confirmAllSuggested()
-            is SessionDetailAction.OnToggleDuplicates -> toggleDuplicates(action.key)
+            is SessionDetailAction.OnSetDuplicatesExcluded ->
+                setDuplicatesExcluded(action.key, action.isExcluded)
             is SessionDetailAction.OnAddCategoryClick -> _state.update {
                 it.copy(newCategoryForKey = action.key, newCategoryName = "", newCategoryError = null)
             }
@@ -257,7 +263,7 @@ class SessionDetailViewModel(
         }
     }
 
-    private fun toggleDuplicates(key: String) {
+    private fun setDuplicatesExcluded(key: String, isExcluded: Boolean) {
         val group = _state.value.groups.find { it.key == key } ?: return
         if (group.duplicateCount == 0) return
 
@@ -265,7 +271,7 @@ class SessionDetailViewModel(
             transactions.setDuplicatesExcluded(
                 sessionId = sessionId,
                 normalizedPayee = key,
-                isExcluded = !group.duplicatesExcluded
+                isExcluded = isExcluded
             ).onFailure { _events.send(SessionDetailEvent.ShowMessage(it.toUiText())) }
         }
     }
@@ -330,7 +336,8 @@ class SessionDetailViewModel(
             status = status,
             isSaving = normalizedPayee in saving,
             duplicateCount = duplicateCount,
-            duplicatesExcluded = duplicatesExcluded
+            excludedDuplicateCount = excludedDuplicateCount,
+            duplicateSelection = duplicateSelection
         )
     }
 }

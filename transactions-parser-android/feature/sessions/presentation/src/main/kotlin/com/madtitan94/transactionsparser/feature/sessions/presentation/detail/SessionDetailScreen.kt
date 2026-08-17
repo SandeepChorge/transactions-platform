@@ -55,6 +55,7 @@ import com.madtitan94.transactionsparser.core.designsystem.components.EmptyState
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
+import com.madtitan94.transactionsparser.feature.sessions.domain.DuplicateSelection
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -62,6 +63,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SessionDetailRoot(
     onBack: () -> Unit,
+    onOpenPayee: (normalizedPayee: String, rawPayee: String) -> Unit,
     viewModel: SessionDetailViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -81,6 +83,7 @@ fun SessionDetailRoot(
         state = state,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
+        onOpenPayee = onOpenPayee,
         onAction = viewModel::onAction
     )
 }
@@ -91,6 +94,7 @@ fun SessionDetailScreen(
     state: SessionDetailState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
+    onOpenPayee: (normalizedPayee: String, rawPayee: String) -> Unit,
     onAction: (SessionDetailAction) -> Unit
 ) {
     Scaffold(
@@ -153,6 +157,7 @@ fun SessionDetailScreen(
                         group = group,
                         categories = state.categories,
                         readOnly = state.isReadOnly,
+                        onOpen = { onOpenPayee(group.key, group.rawPayee) },
                         onAction = onAction
                     )
                 }
@@ -250,9 +255,12 @@ private fun PayeeGroupCard(
     group: PayeeGroupUi,
     categories: List<Category>,
     readOnly: Boolean,
+    onOpen: () -> Unit,
     onAction: (SessionDetailAction) -> Unit
 ) {
-    Card(Modifier.fillMaxWidth()) {
+    // Clickable regardless of session status: a completed or cancelled session's payees have a
+    // history worth opening too.
+    Card(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -305,28 +313,45 @@ private fun PayeeGroupCard(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = pluralStringResource(
-                            if (group.duplicatesExcluded) {
-                                R.plurals.session_duplicates_badge_excluded
-                            } else {
-                                R.plurals.session_duplicates_badge_included
-                            },
-                            group.duplicateCount,
-                            group.duplicateCount
-                        ),
+                        text = when (group.duplicateSelection) {
+                            DuplicateSelection.ALL -> pluralStringResource(
+                                R.plurals.session_duplicates_badge_excluded,
+                                group.duplicateCount,
+                                group.duplicateCount
+                            )
+                            DuplicateSelection.NONE -> pluralStringResource(
+                                R.plurals.session_duplicates_badge_included,
+                                group.duplicateCount,
+                                group.duplicateCount
+                            )
+                            // Says which way the split falls, rather than picking one of the two
+                            // absolute labels and being wrong about the other half.
+                            DuplicateSelection.SOME -> stringResource(
+                                R.string.session_duplicates_badge_partial,
+                                group.excludedDuplicateCount,
+                                group.duplicateCount
+                            )
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
                     )
+                    // From a split group the useful move is to count everything, so that is what
+                    // the single button offers — inverting "some" would be a coin toss.
+                    val targetExcluded = group.duplicateSelection == DuplicateSelection.NONE
                     TextButton(
-                        onClick = { onAction(SessionDetailAction.OnToggleDuplicates(group.key)) }
+                        onClick = {
+                            onAction(
+                                SessionDetailAction.OnSetDuplicatesExcluded(group.key, targetExcluded)
+                            )
+                        }
                     ) {
                         Text(
                             stringResource(
-                                if (group.duplicatesExcluded) {
-                                    R.string.session_duplicates_include
-                                } else {
+                                if (targetExcluded) {
                                     R.string.session_duplicates_exclude
+                                } else {
+                                    R.string.session_duplicates_include
                                 }
                             )
                         )

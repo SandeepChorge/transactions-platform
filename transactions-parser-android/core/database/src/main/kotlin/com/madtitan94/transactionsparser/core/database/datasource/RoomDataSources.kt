@@ -2,6 +2,10 @@ package com.madtitan94.transactionsparser.core.database.datasource
 
 import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteFullException
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
 import com.madtitan94.transactionsparser.core.database.account.ActiveAccountProvider
 import com.madtitan94.transactionsparser.core.database.dao.CategoryDao
 import com.madtitan94.transactionsparser.core.database.dao.PayeeDao
@@ -11,6 +15,8 @@ import com.madtitan94.transactionsparser.core.database.dao.UploadLogDao
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.toCategory
 import com.madtitan94.transactionsparser.core.database.toPayee
+import com.madtitan94.transactionsparser.core.database.toPayeeTotals
+import com.madtitan94.transactionsparser.core.database.toPeriodTotal
 import com.madtitan94.transactionsparser.core.database.toPayeeEntity
 import com.madtitan94.transactionsparser.core.database.toSessionEntity
 import com.madtitan94.transactionsparser.core.database.toSessionSummary
@@ -27,6 +33,8 @@ import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocal
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
+import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
@@ -46,6 +54,9 @@ import kotlinx.coroutines.flow.map
  * statement can't fail the import just by having too many transactions to look up at once.
  */
 private const val SQLITE_BIND_CHUNK = 400
+
+/** Roughly three screens of rows, so scrolling stays ahead of the reader without over-fetching. */
+private const val PAGE_SIZE = 50
 
 private inline fun <T> safeDbCall(block: () -> T): Result<T, DataError.Local> {
     return try {
@@ -115,6 +126,10 @@ class RoomPayeeDataSource(
         activeAccount.flowForOwner(dao::observeAll)
             .map { entities -> entities.map { it.toPayee() } }
 
+    override fun observeByNormalizedName(normalizedName: String): Flow<Payee?> =
+        activeAccount.flowForOwner { ownerId -> dao.observeByNormalizedName(ownerId, normalizedName) }
+            .map { it?.toPayee() }
+
     override suspend fun findByNormalizedName(normalizedName: String): Result<Payee?, DataError.Local> =
         safeSuspendDbCall {
             dao.findByNormalizedName(activeAccount.currentOwnerId(), normalizedName)?.toPayee()
@@ -160,6 +175,29 @@ class RoomTransactionDataSource(
     override fun observeBySession(sessionId: Long): Flow<List<Transaction>> =
         activeAccount.flowForOwner { ownerId -> dao.observeBySession(ownerId, sessionId) }
             .map { entities -> entities.map { it.toTransaction() } }
+
+    /**
+     * The Pager is rebuilt when the account changes rather than reused, so an in-flight page
+     * load can't deliver the previous account's rows into a list already showing the new one.
+     */
+    override fun observePagedByPayee(normalizedPayee: String): Flow<PagingData<Transaction>> =
+        activeAccount.flowForOwner { ownerId ->
+            Pager(PagingConfig(pageSize = PAGE_SIZE, enablePlaceholders = false)) {
+                dao.pagingByPayee(ownerId, normalizedPayee)
+            }.flow.map { paging -> paging.map { it.toTransaction() } }
+        }
+
+    override fun observePayeeTotals(normalizedPayee: String): Flow<PayeeTotals> =
+        activeAccount.flowForOwner { ownerId -> dao.observePayeeTotals(ownerId, normalizedPayee) }
+            .map { it?.toPayeeTotals() ?: PayeeTotals() }
+
+    override fun observePayeeDayTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
+        activeAccount.flowForOwner { ownerId -> dao.observePayeeDayTotals(ownerId, normalizedPayee) }
+            .map { rows -> rows.map { it.toPeriodTotal() } }
+
+    override fun observePayeeMonthTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
+        activeAccount.flowForOwner { ownerId -> dao.observePayeeMonthTotals(ownerId, normalizedPayee) }
+            .map { rows -> rows.map { it.toPeriodTotal() } }
 
     override suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local> =
         safeSuspendDbCall {

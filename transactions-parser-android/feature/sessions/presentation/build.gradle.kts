@@ -8,4 +8,5 @@ android {
 
 dependencies {
     implementation(project(":feature:sessions:domain"))
+    implementation(libs.androidx.paging.compose)
 }

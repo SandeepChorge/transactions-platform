@@ -63,6 +63,37 @@ data class Transaction(
 )
 
 /**
+ * Everything the Payee Detail header shows, aggregated in SQL rather than by loading rows —
+ * the transaction list beneath it is paginated precisely because loading them all doesn't scale.
+ *
+ * [countedTotalPaise] and [countedCount] respect the user's exclusions; [transactionCount] and
+ * the date range describe every row, so a payee whose transactions are all excluded still shows
+ * the period they fall in rather than looking empty.
+ */
+data class PayeeTotals(
+    val countedTotalPaise: Long = 0L,
+    val countedCount: Int = 0,
+    val transactionCount: Int = 0,
+    val duplicateCount: Int = 0,
+    val excludedDuplicateCount: Int = 0,
+    val firstMillis: Long? = null,
+    val lastMillis: Long? = null
+)
+
+/**
+ * Subtotal for one day or one month of a payee's history.
+ *
+ * Kept out of the paged stream on purpose: a day's rows can straddle a page boundary, so a
+ * separator that summed only what it could see would show a subtotal that changes as you scroll.
+ * [startMillis] is the start of the period, matching how the rows themselves are read back.
+ */
+data class PeriodTotal(
+    val startMillis: Long,
+    val countedTotalPaise: Long,
+    val countedCount: Int
+)
+
+/**
  * The identity fields of an already-stored transaction — everything duplicate matching needs,
  * without loading whole rows for an import that may only match a handful of them.
  */

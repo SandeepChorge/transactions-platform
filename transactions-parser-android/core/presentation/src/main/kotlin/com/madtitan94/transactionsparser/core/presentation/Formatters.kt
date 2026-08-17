@@ -11,6 +11,9 @@ private val INDIA = Locale("en", "IN")
 private val integerFormat = NumberFormat.getIntegerInstance(INDIA)
 private val dateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH)
 private val dateTimeFormat = DateTimeFormatter.ofPattern("dd MMM yyyy, h:mm a", Locale.ENGLISH)
+private val timeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private val dayHeaderFormat = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.ENGLISH)
+private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
 
 /** "₹2,580" for whole rupees, "₹2,580.50" otherwise. */
 fun formatPaise(paise: Long): String {
@@ -27,6 +30,14 @@ fun statementDateTime(utcMillis: Long): LocalDateTime =
 fun formatStatementDate(utcMillis: Long): String = dateFormat.format(statementDateTime(utcMillis))
 
 fun formatStatementDateTime(utcMillis: Long): String = dateTimeFormat.format(statementDateTime(utcMillis))
+
+fun formatStatementTime(utcMillis: Long): String = timeFormat.format(statementDateTime(utcMillis))
+
+/** "Sunday, 01 Jun 2026" — the day header above a run of that day's transactions. */
+fun formatStatementDayHeader(utcMillis: Long): String = dayHeaderFormat.format(statementDateTime(utcMillis))
+
+/** "June 2026" — the month header a day run rolls up into. */
+fun formatStatementMonth(utcMillis: Long): String = monthFormat.format(statementDateTime(utcMillis))
 
 fun formatHourOfDay(hour: Int): String {
     val h = hour % 12

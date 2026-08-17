@@ -37,6 +37,7 @@
         <item quantity="one">%1$d duplicate, counted</item>
         <item quantity="other">%1$d duplicates, counted</item>
     </plurals>
+    <string name="session_duplicates_badge_partial">%1$d of %2$d duplicates not counted</string>
     <string name="session_duplicates_include">Count these</string>
     <string name="session_duplicates_exclude">Don\'t count these</string>
     <string name="session_amounts">Amounts: %1$s</string>
@@ -59,4 +60,15 @@
     <string name="upload_history_title">Upload history</string>
     <string name="upload_history_empty_title">No uploads yet</string>
     <string name="upload_history_empty_description">Every statement upload — successful or failed — is logged here.</string>
+    <string name="payee_back">Back</string>
+    <string name="payee_unmapped_title">Not mapped yet</string>
+    <string name="payee_mapping_saved">Mapping saved</string>
+    <string name="payee_row_duplicate">Duplicate</string>
+    <string name="payee_row_skip">Don\'t count</string>
+    <string name="payee_row_count">Count</string>
+    <string name="payee_not_counted">%1$d not counted</string>
+    <plurals name="payee_counted_transactions">
+        <item quantity="one">%1$d transaction counted</item>
+        <item quantity="other">%1$d transactions counted</item>
+    </plurals>
 </resources>
