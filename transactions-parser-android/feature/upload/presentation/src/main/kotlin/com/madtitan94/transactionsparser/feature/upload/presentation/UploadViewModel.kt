@@ -21,7 +21,9 @@ import kotlinx.coroutines.launch
 data class ImportSuccessUi(
     val sessionId: Long,
     val totalTransactions: Int,
-    val autoMappedPayees: Int
+    val autoMappedPayees: Int,
+    /** The session needed no mapping and is already completed — don't call it pending. */
+    val completedOnImport: Boolean = false
 )
 
 data class UploadState(
@@ -167,7 +169,8 @@ class UploadViewModel(
                         success = ImportSuccessUi(
                             sessionId = result.data.sessionId,
                             totalTransactions = result.data.totalTransactions,
-                            autoMappedPayees = result.data.autoMappedPayees
+                            autoMappedPayees = result.data.autoMappedPayees,
+                            completedOnImport = result.data.completedOnImport
                         )
                     )
                 }

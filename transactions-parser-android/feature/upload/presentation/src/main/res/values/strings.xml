@@ -11,6 +11,7 @@
     <string name="upload_error_title">Couldn\'t import statement</string>
     <string name="upload_success_title">Statement imported</string>
     <string name="upload_success_message">%1$d transactions were extracted into a new pending session. %2$d payees were recognized from your earlier mappings and pre-filled.</string>
+    <string name="upload_success_message_complete">%1$d transactions were extracted. There was nothing left to map — %2$d payees were already known, or the rows already imported — so the session is marked completed.</string>
     <string name="upload_temp_deleted">The uploaded document has been deleted from temporary storage.</string>
     <string name="upload_review_now">Review now</string>
     <string name="upload_later">Later</string>
