@@ -22,4 +22,8 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
+
+    // The Android SDK's org.json is stub-only and throws in unit tests; this is the real one,
+    // so the ID token parsing that decides every row's owner id can actually be tested.
+    testImplementation(libs.json)
 }

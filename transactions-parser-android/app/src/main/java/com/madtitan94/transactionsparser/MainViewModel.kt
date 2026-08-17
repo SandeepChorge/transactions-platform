@@ -36,9 +36,13 @@ class MainViewModel(
         viewModelScope.launch {
             sessionStorage.observeSession()
                 .filterNotNull()
-                .map { it.googleId }
+                // The email is passed as a prior owner id so data written by builds that keyed
+                // on email is re-homed onto this account's stable `sub`.
+                .map { it.googleId to it.email }
                 .distinctUntilChanged()
-                .collect(legacyDataClaimer::claimFor)
+                .collect { (ownerId, email) ->
+                    legacyDataClaimer.claimFor(ownerId, priorOwnerIds = listOf(email))
+                }
         }
     }
 }
