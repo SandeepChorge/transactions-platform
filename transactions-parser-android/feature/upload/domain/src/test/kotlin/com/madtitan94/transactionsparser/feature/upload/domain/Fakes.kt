@@ -4,7 +4,10 @@ import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSo
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
+import androidx.paging.PagingData
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
+import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
@@ -102,6 +105,19 @@ class FakeTransactionDataSource : TransactionLocalDataSource {
     override fun observeBySession(sessionId: Long): Flow<List<Transaction>> =
         MutableStateFlow(transactions.toList()).map { list -> list.filter { it.sessionId == sessionId } }
 
+    // Payee Detail reads these; the import path under test here never does.
+    override fun observePagedByPayee(normalizedPayee: String): Flow<PagingData<Transaction>> =
+        MutableStateFlow(PagingData.empty())
+
+    override fun observePayeeTotals(normalizedPayee: String): Flow<PayeeTotals> =
+        MutableStateFlow(PayeeTotals())
+
+    override fun observePayeeDayTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
+        MutableStateFlow(emptyList())
+
+    override fun observePayeeMonthTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
+        MutableStateFlow(emptyList())
+
     override suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local> {
         // Ids are assigned on insert, mirroring Room — the detector relies on stored rows having
         // real ids while the incoming batch does not.
@@ -183,6 +199,9 @@ class FakePayeeDataSource(initial: List<Payee> = emptyList()) : PayeeLocalDataSo
     private val payees = initial.toMutableList()
 
     override fun observeAll(): Flow<List<Payee>> = MutableStateFlow(payees.toList())
+
+    override fun observeByNormalizedName(normalizedName: String): Flow<Payee?> =
+        MutableStateFlow(payees.find { it.normalizedName == normalizedName })
 
     override suspend fun findByNormalizedName(normalizedName: String): Result<Payee?, DataError.Local> =
         Result.Success(payees.find { it.normalizedName == normalizedName })

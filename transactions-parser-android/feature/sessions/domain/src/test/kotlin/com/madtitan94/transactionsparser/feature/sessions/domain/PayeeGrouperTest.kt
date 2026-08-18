@@ -125,7 +125,7 @@ class PayeeGrouperTest {
         assertThat(group.totalPaise).isEqualTo(1_000L)
         assertThat(group.transactionCount).isEqualTo(1)
         assertThat(group.duplicateCount).isEqualTo(1)
-        assertThat(group.duplicatesExcluded).isTrue()
+        assertThat(group.duplicateSelection).isEqualTo(DuplicateSelection.ALL)
     }
 
     @Test
@@ -141,7 +141,7 @@ class PayeeGrouperTest {
         val group = groups.single()
         assertThat(group.totalPaise).isEqualTo(2_000L)
         assertThat(group.duplicateCount).isEqualTo(1)
-        assertThat(group.duplicatesExcluded).isFalse()
+        assertThat(group.duplicateSelection).isEqualTo(DuplicateSelection.NONE)
     }
 
     @Test
@@ -161,6 +161,26 @@ class PayeeGrouperTest {
     }
 
     @Test
+    fun `a part-excluded group reports SOME, so the card can't claim they all count`() {
+        // Only reachable via the per-transaction toggle on Payee Detail; before that existed a
+        // boolean was enough, and would report this group as fully counted.
+        val groups = PayeeGrouper.group(
+            transactions = listOf(
+                txn("abc shop", 1_000, hour = 13).copy(isDuplicate = true, isExcluded = true),
+                txn("abc shop", 2_000, hour = 14).copy(isDuplicate = true, isExcluded = false)
+            ),
+            knownPayees = emptyMap()
+        )
+
+        val group = groups.single()
+        assertThat(group.duplicateCount).isEqualTo(2)
+        assertThat(group.excludedDuplicateCount).isEqualTo(1)
+        assertThat(group.duplicateSelection).isEqualTo(DuplicateSelection.SOME)
+        // The counted total follows the rows, not the group's label.
+        assertThat(group.totalPaise).isEqualTo(2_000L)
+    }
+
+    @Test
     fun `a group with no duplicates reports none, so the badge stays hidden`() {
         val groups = PayeeGrouper.group(
             transactions = listOf(txn("abc shop", 1_000, hour = 13)),
@@ -168,6 +188,6 @@ class PayeeGrouperTest {
         )
 
         assertThat(groups.single().duplicateCount).isEqualTo(0)
-        assertThat(groups.single().duplicatesExcluded).isFalse()
+        assertThat(groups.single().duplicateSelection).isEqualTo(DuplicateSelection.NONE)
     }
 }

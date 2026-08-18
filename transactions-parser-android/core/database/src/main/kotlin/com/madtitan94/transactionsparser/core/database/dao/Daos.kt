@@ -1,5 +1,6 @@
 package com.madtitan94.transactionsparser.core.database.dao
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Embedded
 import androidx.room.Insert
@@ -63,6 +64,12 @@ interface PayeeDao {
         "SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 " +
             "AND normalizedName = :normalizedName LIMIT 1"
     )
+    fun observeByNormalizedName(ownerId: String, normalizedName: String): Flow<PayeeEntity?>
+
+    @Query(
+        "SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND normalizedName = :normalizedName LIMIT 1"
+    )
     suspend fun findByNormalizedName(ownerId: String, normalizedName: String): PayeeEntity?
 
     @Insert
@@ -114,6 +121,26 @@ data class DuplicateCandidate(
     val dateTimeUtcMillis: Long
 )
 
+/** Header aggregates for one payee. Nullable because a payee with no rows yields all-NULL. */
+data class PayeeTotalsRow(
+    val countedTotalPaise: Long?,
+    val countedCount: Int,
+    val transactionCount: Int,
+    val duplicateCount: Int,
+    val excludedDuplicateCount: Int,
+    val firstMillis: Long?,
+    val lastMillis: Long?
+)
+
+data class PeriodTotalRow(
+    val startMillis: Long,
+    val countedTotalPaise: Long?,
+    val countedCount: Int
+)
+
+/** Milliseconds in a day — the divisor that floors a timestamp to its day. */
+private const val DAY_MILLIS = 86_400_000
+
 @Dao
 interface TransactionDao {
     @Query(
@@ -121,6 +148,69 @@ interface TransactionDao {
             "AND sessionId = :sessionId ORDER BY dateTimeUtcMillis DESC"
     )
     fun observeBySession(ownerId: String, sessionId: Long): Flow<List<TransactionEntity>>
+
+    /**
+     * One payee's history across every session, keyed on the statement name rather than the
+     * mapping, so an unmapped payee has a detail view too. Excluded rows are deliberately kept
+     * in the list: hiding them would leave no way to reverse an exclusion the user disagrees with.
+     */
+    @Query(
+        "SELECT * FROM transactions WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND normalizedPayee = :normalizedPayee ORDER BY dateTimeUtcMillis DESC, id DESC"
+    )
+    fun pagingByPayee(ownerId: String, normalizedPayee: String): PagingSource<Int, TransactionEntity>
+
+    @Query(
+        """
+        SELECT SUM(CASE WHEN isExcluded = 0 THEN amountPaise ELSE 0 END) AS countedTotalPaise,
+               SUM(CASE WHEN isExcluded = 0 THEN 1 ELSE 0 END) AS countedCount,
+               COUNT(*) AS transactionCount,
+               SUM(CASE WHEN isDuplicate = 1 THEN 1 ELSE 0 END) AS duplicateCount,
+               SUM(CASE WHEN isDuplicate = 1 AND isExcluded = 1 THEN 1 ELSE 0 END)
+                   AS excludedDuplicateCount,
+               MIN(dateTimeUtcMillis) AS firstMillis,
+               MAX(dateTimeUtcMillis) AS lastMillis
+        FROM transactions
+        WHERE ownerId = :ownerId AND isDeleted = 0 AND normalizedPayee = :normalizedPayee
+        """
+    )
+    fun observePayeeTotals(ownerId: String, normalizedPayee: String): Flow<PayeeTotalsRow?>
+
+    /**
+     * Day subtotals, bucketed by flooring the timestamp to a whole day.
+     *
+     * Statement times are stored as the printed wall clock read back as UTC (see
+     * `statementDateTime`), so a plain UTC floor lands on exactly the day the row displays under.
+     * No timezone or DST correction applies — introducing one here would move rows into the
+     * wrong bucket.
+     */
+    @Query(
+        """
+        SELECT (dateTimeUtcMillis / $DAY_MILLIS) * $DAY_MILLIS AS startMillis,
+               SUM(CASE WHEN isExcluded = 0 THEN amountPaise ELSE 0 END) AS countedTotalPaise,
+               SUM(CASE WHEN isExcluded = 0 THEN 1 ELSE 0 END) AS countedCount
+        FROM transactions
+        WHERE ownerId = :ownerId AND isDeleted = 0 AND normalizedPayee = :normalizedPayee
+        GROUP BY startMillis
+        ORDER BY startMillis DESC
+        """
+    )
+    fun observePayeeDayTotals(ownerId: String, normalizedPayee: String): Flow<List<PeriodTotalRow>>
+
+    /** Months need calendar arithmetic rather than a divisor, hence `start of month`. */
+    @Query(
+        """
+        SELECT CAST(strftime('%s', dateTimeUtcMillis / 1000, 'unixepoch', 'start of month')
+                    AS INTEGER) * 1000 AS startMillis,
+               SUM(CASE WHEN isExcluded = 0 THEN amountPaise ELSE 0 END) AS countedTotalPaise,
+               SUM(CASE WHEN isExcluded = 0 THEN 1 ELSE 0 END) AS countedCount
+        FROM transactions
+        WHERE ownerId = :ownerId AND isDeleted = 0 AND normalizedPayee = :normalizedPayee
+        GROUP BY startMillis
+        ORDER BY startMillis DESC
+        """
+    )
+    fun observePayeeMonthTotals(ownerId: String, normalizedPayee: String): Flow<List<PeriodTotalRow>>
 
     @Insert
     suspend fun insertAll(transactions: List<TransactionEntity>)

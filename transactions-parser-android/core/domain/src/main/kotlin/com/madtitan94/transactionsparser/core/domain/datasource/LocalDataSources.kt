@@ -1,7 +1,10 @@
 package com.madtitan94.transactionsparser.core.domain.datasource
 
+import androidx.paging.PagingData
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
+import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
@@ -29,6 +32,8 @@ interface CategoryLocalDataSource {
 
 interface PayeeLocalDataSource {
     fun observeAll(): Flow<List<Payee>>
+    /** Null until this statement name is mapped, so a detail screen can offer to map it. */
+    fun observeByNormalizedName(normalizedName: String): Flow<Payee?>
     suspend fun findByNormalizedName(normalizedName: String): Result<Payee?, DataError.Local>
     /** Inserts or updates by [Payee.normalizedName]; returns the payee id. */
     suspend fun save(payee: Payee): Result<Long, DataError.Local>
@@ -43,6 +48,21 @@ interface SessionLocalDataSource {
 
 interface TransactionLocalDataSource {
     fun observeBySession(sessionId: Long): Flow<List<Transaction>>
+
+    /**
+     * One payee's transactions across every session, newest first, loaded a page at a time.
+     * Keyed on the statement name so an unmapped payee has a history too. Excluded rows are
+     * included — the list is where the user sees and reverses that decision.
+     */
+    fun observePagedByPayee(normalizedPayee: String): Flow<PagingData<Transaction>>
+
+    /** Header aggregates for one payee, computed in SQL over all of their rows. */
+    fun observePayeeTotals(normalizedPayee: String): Flow<PayeeTotals>
+
+    /** Per-day and per-month subtotals for one payee, for the list's section headers. */
+    fun observePayeeDayTotals(normalizedPayee: String): Flow<List<PeriodTotal>>
+    fun observePayeeMonthTotals(normalizedPayee: String): Flow<List<PeriodTotal>>
+
     suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local>
     /**
      * Keys of already-stored transactions that could match any of [candidates], across every

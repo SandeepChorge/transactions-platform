@@ -1,6 +1,8 @@
 package com.madtitan94.transactionsparser.core.database
 
 import com.madtitan94.transactionsparser.core.database.dao.DuplicateCandidate
+import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalsRow
+import com.madtitan94.transactionsparser.core.database.dao.PeriodTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.SessionSummaryRow
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
@@ -9,6 +11,8 @@ import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
 import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
+import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
@@ -126,4 +130,21 @@ fun UploadLog.toUploadLogEntity(ownerId: String) = UploadLogEntity(
     source = source?.name,
     failureReason = failureReason,
     sessionId = sessionId
+)
+
+/** A payee with no rows aggregates to all-NULL, which reads as an empty total, not an error. */
+fun PayeeTotalsRow.toPayeeTotals() = PayeeTotals(
+    countedTotalPaise = countedTotalPaise ?: 0L,
+    countedCount = countedCount,
+    transactionCount = transactionCount,
+    duplicateCount = duplicateCount,
+    excludedDuplicateCount = excludedDuplicateCount,
+    firstMillis = firstMillis,
+    lastMillis = lastMillis
+)
+
+fun PeriodTotalRow.toPeriodTotal() = PeriodTotal(
+    startMillis = startMillis,
+    countedTotalPaise = countedTotalPaise ?: 0L,
+    countedCount = countedCount
 )
