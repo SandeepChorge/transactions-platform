@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,16 +77,23 @@ fun CategoriesScreen(
     onAction: (CategoriesAction) -> Unit
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.categories_title)) }) },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { onAction(CategoriesAction.OnAddClick) }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.category_add)
-                )
-            }
-        }
+        // Add lives in the top bar rather than in a FAB: a FAB floats over the last row's edit
+        // and delete buttons, which makes the bottom category unreachable once the list is long
+        // enough to scroll.
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.categories_title)) },
+                actions = {
+                    IconButton(onClick = { onAction(CategoriesAction.OnAddClick) }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.category_add)
+                        )
+                    }
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         when {
             state.isLoading -> LoadingIndicator(Modifier.padding(padding))

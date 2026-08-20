@@ -9,6 +9,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.model.UserSession
@@ -80,6 +81,15 @@ interface TransactionLocalDataSource {
     ): EmptyResult<DataError.Local>
     suspend fun assignPayee(sessionId: Long, normalizedPayee: String, payeeId: Long): EmptyResult<DataError.Local>
     suspend fun unmappedCount(sessionId: Long): Result<Int, DataError.Local>
+
+    /**
+     * Every transaction of this account, flattened for export with its mapping resolved.
+     *
+     * Deliberately a one-shot list rather than a [Flow] or a [PagingData] stream: an export is a
+     * snapshot of a moment, and a file that changed while it was being written would be worse
+     * than one that is merely a few seconds old.
+     */
+    suspend fun exportRows(): Result<List<TransactionExportRow>, DataError.Local>
 }
 
 interface UploadLogLocalDataSource {

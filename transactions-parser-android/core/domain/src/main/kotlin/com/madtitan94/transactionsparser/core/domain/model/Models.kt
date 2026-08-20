@@ -33,9 +33,17 @@ data class StatementSession(
     val status: SessionStatus
 )
 
+/**
+ * Progress for one session, as the history list shows it.
+ *
+ * [countedCount] and [mappedCount] respect the user's exclusions; [transactionCount] counts every
+ * row the session imported. The two differ whenever a statement repeats an earlier one, and the
+ * gap is what lets an all-duplicate import say so rather than reporting "0 of 0".
+ */
 data class SessionSummary(
     val session: StatementSession,
     val transactionCount: Int,
+    val countedCount: Int,
     val mappedCount: Int
 )
 
@@ -91,6 +99,29 @@ data class PeriodTotal(
     val startMillis: Long,
     val countedTotalPaise: Long,
     val countedCount: Int
+)
+
+/**
+ * One transaction flattened for export, with the payee mapping and statement resolved in SQL.
+ *
+ * Separate from [Transaction] because an export is a different shape from what the app renders:
+ * it carries the human-readable alias and category the user actually mapped, not the foreign
+ * keys, and it keeps [isDuplicate] and [isExcluded] as visible columns rather than filtering
+ * rows out — a spreadsheet the user can audit beats one that silently disagrees with the app.
+ */
+data class TransactionExportRow(
+    val dateTimeUtcMillis: Long,
+    val rawPayee: String,
+    /** Null while the payee is unmapped — exported as an empty cell, not as a guess. */
+    val alias: String?,
+    val category: String?,
+    val amountPaise: Long,
+    val type: TransactionType,
+    val transactionRef: String?,
+    val utr: String?,
+    val isDuplicate: Boolean,
+    val isExcluded: Boolean,
+    val statementFileName: String
 )
 
 /**

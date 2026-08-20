@@ -35,6 +35,10 @@ android {
     }
     buildFeatures {
         compose = true
+        // Settings shows the app version, and BuildConfig is where versionName is readable from
+        // code. Only :app can carry it — a library module's BuildConfig knows nothing about the
+        // application it ends up in, which is why the value is passed down into settingsGraph.
+        buildConfig = true
     }
 }
 
@@ -56,6 +60,7 @@ dependencies {
     implementation(project(":feature:sessions:domain"))
     implementation(project(":feature:sessions:presentation"))
     implementation(project(":feature:categories:presentation"))
+    implementation(project(":feature:settings:presentation"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

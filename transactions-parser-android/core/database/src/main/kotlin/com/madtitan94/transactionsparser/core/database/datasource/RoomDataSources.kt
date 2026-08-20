@@ -23,6 +23,7 @@ import com.madtitan94.transactionsparser.core.database.toSessionSummary
 import com.madtitan94.transactionsparser.core.database.toStatementSession
 import com.madtitan94.transactionsparser.core.database.toTransaction
 import com.madtitan94.transactionsparser.core.database.toTransactionEntity
+import com.madtitan94.transactionsparser.core.database.toTransactionExportRow
 import com.madtitan94.transactionsparser.core.database.toTransactionKey
 import com.madtitan94.transactionsparser.core.database.toUploadLog
 import com.madtitan94.transactionsparser.core.database.toUploadLogEntity
@@ -39,6 +40,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.util.DataError
@@ -263,6 +265,11 @@ class RoomTransactionDataSource(
 
     override suspend fun unmappedCount(sessionId: Long): Result<Int, DataError.Local> =
         safeSuspendDbCall { dao.unmappedCount(activeAccount.currentOwnerId(), sessionId) }
+
+    override suspend fun exportRows(): Result<List<TransactionExportRow>, DataError.Local> =
+        safeSuspendDbCall {
+            dao.exportRows(activeAccount.currentOwnerId()).map { it.toTransactionExportRow() }
+        }
 }
 
 class RoomUploadLogDataSource(

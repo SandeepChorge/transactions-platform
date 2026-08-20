@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -46,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.itemKey
 import com.madtitan94.transactionsparser.core.designsystem.components.ListRow
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.designsystem.components.SectionHeader
@@ -139,48 +139,84 @@ private fun PayeeDetailScreen(
     }
 }
 
+/** A run of loaded rows that share a day, as a half-open index range into the paged list. */
+private data class DayBlock(val dayStartMillis: Long, val from: Int, val until: Int)
+
 /**
- * Emits the paged rows with their day headers, and a month header wherever the run of days
- * crosses into a new month as the reader scrolls into older data.
+ * Splits the loaded rows into day runs so each day's header can be a list item of its own —
+ * which is what `stickyHeader` requires, and therefore what lets the day header pin while its
+ * rows scroll past it.
+ *
+ * Uses `peek` rather than indexing so building the structure never triggers a page load: the
+ * shape of the list is decided from what is already there, and loading stays driven by what the
+ * reader actually scrolls to. Placeholders are off for this pager, so every index below
+ * `itemCount` is a real row.
+ */
+private fun dayBlocks(rows: LazyPagingItems<TransactionRowUi>): List<DayBlock> = buildList {
+    var start = 0
+    while (start < rows.itemCount) {
+        val day = rows.peek(start)?.dayStartMillis ?: break
+        var end = start + 1
+        while (end < rows.itemCount && rows.peek(end)?.dayStartMillis == day) end++
+        add(DayBlock(day, start, end))
+        start = end
+    }
+}
+
+/**
+ * Emits the paged rows with a pinned day header over each run, and a month header wherever the
+ * run of days crosses into a new month as the reader scrolls into older data.
+ *
+ * Only the day header is sticky. Pinning both would put them in competition for the same slot,
+ * and the month is the coarser context — it reads correctly as a divider between sections rather
+ * than as something that follows you down the list.
  *
  * Subtotals come from [PayeeDetailState.dayTotals] / [PayeeDetailState.monthTotals] rather than
  * from the rows on screen: a day can straddle a page boundary, and a header that summed only the
  * loaded part would show a figure that changes while you scroll.
  */
-private fun androidx.compose.foundation.lazy.LazyListScope.transactionRows(
+private fun LazyListScope.transactionRows(
     state: PayeeDetailState,
     rows: LazyPagingItems<TransactionRowUi>,
     onAction: (PayeeDetailAction) -> Unit
 ) {
-    items(
-        count = rows.itemCount,
-        key = rows.itemKey { it.id }
-    ) { index ->
-        val row = rows[index] ?: return@items
-        val previous = if (index == 0) null else rows.peek(index - 1)
+    val blocks = dayBlocks(rows)
 
-        if (previous == null || previous.dayStartMillis != row.dayStartMillis) {
-            val isNewMonth = previous == null ||
-                monthStartOf(previous.dayStartMillis) != monthStartOf(row.dayStartMillis)
-            if (isNewMonth) {
-                state.monthTotals[monthStartOf(row.dayStartMillis)]?.let { month ->
+    blocks.forEachIndexed { index, block ->
+        val monthStart = monthStartOf(block.dayStartMillis)
+        val previousMonth = blocks.getOrNull(index - 1)?.let { monthStartOf(it.dayStartMillis) }
+
+        if (previousMonth != monthStart) {
+            state.monthTotals[monthStart]?.let { month ->
+                item(key = "month-$monthStart") {
                     SectionHeader(
-                        title = formatStatementMonth(row.dayStartMillis),
+                        title = formatStatementMonth(block.dayStartMillis),
                         trailing = formatPaise(month.countedTotalPaise),
                         emphasized = true
                     )
                 }
             }
-            state.dayTotals[row.dayStartMillis]?.let { day ->
+        }
+
+        state.dayTotals[block.dayStartMillis]?.let { day ->
+            stickyHeader(key = "day-${block.dayStartMillis}") {
                 SectionHeader(
-                    title = formatStatementDayHeader(row.dayStartMillis),
+                    title = formatStatementDayHeader(block.dayStartMillis),
                     trailing = formatPaise(day.countedTotalPaise)
                 )
             }
         }
 
-        TransactionListRow(row = row, onAction = onAction)
-        HorizontalDivider()
+        items(
+            count = block.until - block.from,
+            key = { offset -> rows.peek(block.from + offset)?.id ?: (block.from + offset) }
+        ) { offset ->
+            // Indexing here, not peeking: this is the access that tells Paging the reader has
+            // reached this row and that the next page should be fetched.
+            val row = rows[block.from + offset] ?: return@items
+            TransactionListRow(row = row, onAction = onAction)
+            HorizontalDivider()
+        }
     }
 }
 

@@ -3,13 +3,16 @@ package com.madtitan94.transactionsparser
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.madtitan94.transactionsparser.core.database.account.LegacyDataClaimer
+import com.madtitan94.transactionsparser.core.domain.datasource.DocumentWriter
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionStorage
+import com.madtitan94.transactionsparser.core.presentation.AndroidDocumentWriter
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -49,4 +52,7 @@ class MainViewModel(
 
 val appModule = module {
     viewModelOf(::MainViewModel)
+    // Bound here rather than in core:presentation so that module stays free of a DI framework;
+    // :app is already where the cross-cutting singletons are assembled.
+    single<DocumentWriter> { AndroidDocumentWriter(androidContext()) }
 }

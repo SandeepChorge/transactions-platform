@@ -4,6 +4,7 @@ import com.madtitan94.transactionsparser.core.database.dao.DuplicateCandidate
 import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalsRow
 import com.madtitan94.transactionsparser.core.database.dao.PeriodTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.SessionSummaryRow
+import com.madtitan94.transactionsparser.core.database.dao.TransactionExportRowEntity
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
 import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
@@ -18,6 +19,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.StatementSource
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.TransactionType
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
@@ -66,6 +68,7 @@ fun StatementSession.toSessionEntity(ownerId: String) = SessionEntity(
 fun SessionSummaryRow.toSessionSummary() = SessionSummary(
     session = session.toStatementSession(),
     transactionCount = transactionCount,
+    countedCount = countedCount,
     mappedCount = mappedCount
 )
 
@@ -100,6 +103,20 @@ fun Transaction.toTransactionEntity(ownerId: String) = TransactionEntity(
     isDuplicate = isDuplicate,
     duplicateOfTransactionId = duplicateOfTransactionId,
     isExcluded = isExcluded
+)
+
+fun TransactionExportRowEntity.toTransactionExportRow() = TransactionExportRow(
+    dateTimeUtcMillis = dateTimeUtcMillis,
+    rawPayee = rawPayee,
+    alias = alias,
+    category = category,
+    amountPaise = amountPaise,
+    type = TransactionType.valueOf(type),
+    transactionRef = transactionRef,
+    utr = utr,
+    isDuplicate = isDuplicate,
+    isExcluded = isExcluded,
+    statementFileName = statementFileName
 )
 
 fun DuplicateCandidate.toTransactionKey() = TransactionKey(

@@ -1,5 +1,6 @@
 package com.madtitan94.transactionsparser.core.database.di
 
+import android.content.Context
 import androidx.room.Room
 import com.madtitan94.transactionsparser.core.database.TransactionsDatabase
 import com.madtitan94.transactionsparser.core.database.account.ActiveAccountProvider
@@ -18,14 +19,22 @@ import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDa
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
+const val DATABASE_NAME = "transactions_parser.db"
+
+/**
+ * The one place the app's database is built.
+ *
+ * Extracted from the Koin module and given a [name] parameter so a test can exercise this exact
+ * builder — the migration tests construct Room themselves, so without this a migration missing
+ * from [ALL_MIGRATIONS] *here* would pass every test and only fail on a real upgrade.
+ */
+fun buildDatabase(context: Context, name: String = DATABASE_NAME): TransactionsDatabase =
+    Room.databaseBuilder(context, TransactionsDatabase::class.java, name)
+        .addMigrations(*ALL_MIGRATIONS)
+        .build()
+
 val coreDatabaseModule = module {
-    single {
-        Room.databaseBuilder(
-            androidContext(),
-            TransactionsDatabase::class.java,
-            "transactions_parser.db"
-        ).addMigrations(*ALL_MIGRATIONS).build()
-    }
+    single { buildDatabase(androidContext()) }
 
     single { get<TransactionsDatabase>().categoryDao() }
     single { get<TransactionsDatabase>().payeeDao() }

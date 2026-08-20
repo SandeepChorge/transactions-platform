@@ -24,6 +24,7 @@ data class SessionSummaryUi(
     val uploadedLabel: String,
     val periodLabel: String?,
     val transactionCount: Int,
+    val countedCount: Int,
     val mappedCount: Int,
     val isPending: Boolean
 )
@@ -119,6 +120,7 @@ internal fun SessionSummary.toUi() = SessionSummaryUi(
         }
     },
     transactionCount = transactionCount,
+    countedCount = countedCount,
     mappedCount = mappedCount,
     isPending = session.status == SessionStatus.PENDING
 )

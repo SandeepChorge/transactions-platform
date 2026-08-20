@@ -3,5 +3,5 @@
     <string name="tab_statements">Statements</string>
     <string name="tab_upload">Upload</string>
     <string name="tab_categories">Categories</string>
-    <string name="tab_profile">Profile</string>
+    <string name="tab_settings">Settings</string>
 </resources>

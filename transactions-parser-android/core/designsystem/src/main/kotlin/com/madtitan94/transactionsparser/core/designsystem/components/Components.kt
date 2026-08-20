@@ -134,7 +134,10 @@ fun SectionHeader(
 }
 
 /**
- * One row of a list: a title, optional supporting line, and a trailing value.
+ * One row of a list: a title, optional supporting line, and an optional trailing value.
+ *
+ * [value] is null for rows that have nothing to show on the right — a settings entry or a
+ * recovery list item — so those don't have to pass an empty string to mean "none".
  *
  * [dimmed] is for rows that are present but don't count toward anything — they stay readable
  * rather than being hidden, because hiding them would leave no way to change that decision.
@@ -142,10 +145,11 @@ fun SectionHeader(
 @Composable
 fun ListRow(
     title: String,
-    value: String,
     modifier: Modifier = Modifier,
+    value: String? = null,
     supporting: String? = null,
     dimmed: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
     badge: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
@@ -160,6 +164,10 @@ fun ListRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        leading?.let {
+            it()
+            Spacer(Modifier.width(16.dp))
+        }
         Column(Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge, color = contentColor)
             supporting?.let {
@@ -171,12 +179,14 @@ fun ListRow(
             }
             badge?.invoke()
         }
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor,
-            textDecoration = if (dimmed) TextDecoration.LineThrough else null
-        )
+        value?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyLarge,
+                color = contentColor,
+                textDecoration = if (dimmed) TextDecoration.LineThrough else null
+            )
+        }
         trailing?.let {
             Spacer(Modifier.width(4.dp))
             it()

@@ -13,6 +13,7 @@ import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.StatementSource
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
+import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.TransactionType
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
@@ -183,6 +184,11 @@ class FakeTransactionDataSource : TransactionLocalDataSource {
         }
         return Result.Success(Unit)
     }
+
+    // Export is a Settings concern and is covered by its own tests against a fake of its own;
+    // nothing in the import path under test here reads it.
+    override suspend fun exportRows(): Result<List<TransactionExportRow>, DataError.Local> =
+        Result.Success(emptyList())
 
     // Mirrors the DAO's `AND isExcluded = 0`: an excluded row is not waiting to be mapped.
     override suspend fun unmappedCount(sessionId: Long): Result<Int, DataError.Local> =
