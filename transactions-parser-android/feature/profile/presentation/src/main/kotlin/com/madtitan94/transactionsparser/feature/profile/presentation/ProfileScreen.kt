@@ -9,9 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -38,7 +39,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.designsystem.theme.TransactionsParserTheme
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
@@ -48,6 +48,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun ProfileRoot(
+    onBack: () -> Unit,
     viewModel: ProfileViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -66,6 +67,7 @@ fun ProfileRoot(
     ProfileScreen(
         state = state,
         snackbarHostState = snackbarHostState,
+        onBack = onBack,
         onAction = viewModel::onAction
     )
 }
@@ -75,11 +77,24 @@ fun ProfileRoot(
 fun ProfileScreen(
     state: ProfileState,
     snackbarHostState: SnackbarHostState,
+    onBack: () -> Unit,
     onAction: (ProfileAction) -> Unit
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.profile_title)) })
+            TopAppBar(
+                title = { Text(stringResource(R.string.profile_title)) },
+                // Profile is pushed from Settings now rather than being a tab, so it needs a way
+                // back that isn't the system gesture alone.
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.profile_back)
+                        )
+                    }
+                }
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -162,27 +177,6 @@ fun ProfileScreen(
                 }
             }
 
-            OutlinedButton(
-                onClick = { onAction(ProfileAction.OnLogoutClick) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                Text(
-                    text = stringResource(R.string.profile_logout),
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
-
-        if (state.showLogoutConfirm) {
-            AppAlertDialog(
-                title = stringResource(R.string.profile_logout_confirm_title),
-                message = stringResource(R.string.profile_logout_confirm_message),
-                confirmLabel = stringResource(R.string.profile_logout),
-                dismissLabel = stringResource(R.string.profile_cancel),
-                onConfirm = { onAction(ProfileAction.OnConfirmLogout) },
-                onDismiss = { onAction(ProfileAction.OnDismissLogoutConfirm) }
-            )
         }
     }
 }
@@ -261,6 +255,7 @@ private fun ProfileScreenPreview() {
                 mobile = "9766789876"
             ),
             snackbarHostState = SnackbarHostState(),
+            onBack = {},
             onAction = {}
         )
     }

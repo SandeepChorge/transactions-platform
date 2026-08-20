@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -196,20 +197,44 @@ private fun SessionCard(
             }
 
             Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(
-                    R.string.session_mapping_progress,
-                    session.mappedCount,
-                    session.transactionCount
-                ),
-                style = MaterialTheme.typography.bodySmall
-            )
-            if (session.transactionCount > 0) {
-                Spacer(Modifier.height(4.dp))
-                LinearProgressIndicator(
-                    progress = { session.mappedCount.toFloat() / session.transactionCount },
-                    modifier = Modifier.fillMaxWidth()
+            if (session.transactionCount > 0 && session.countedCount == 0) {
+                // Everything here is excluded — usually a statement that repeats an earlier one.
+                // "0 of 0 mapped" would read as an import that found nothing, so say what happened.
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.session_none_counted,
+                        session.transactionCount,
+                        session.transactionCount
+                    ),
+                    style = MaterialTheme.typography.bodySmall
                 )
+            } else {
+                Text(
+                    text = stringResource(
+                        R.string.session_mapping_progress,
+                        session.mappedCount,
+                        session.countedCount
+                    ),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                // Only worth saying when some rows are left out; otherwise the counts agree already.
+                if (session.transactionCount > session.countedCount) {
+                    Text(
+                        text = stringResource(
+                            R.string.session_not_counted,
+                            session.transactionCount - session.countedCount
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (session.countedCount > 0) {
+                    Spacer(Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { session.mappedCount.toFloat() / session.countedCount },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
@@ -230,7 +255,20 @@ private fun SessionsHistoryScreenPreview() {
                         uploadedLabel = "12 Jul 2026, 2:41 PM",
                         periodLabel = "01 Jul 2026 – 31 Jul 2026",
                         transactionCount = 5,
+                        countedCount = 4,
                         mappedCount = 2,
+                        isPending = true
+                    ),
+                    // A re-upload of a statement already imported: nothing counted, nothing to map.
+                    SessionSummaryUi(
+                        id = 2,
+                        fileName = "PhonePe_Statement_Jun2026.pdf",
+                        sourceLabel = "PhonePe",
+                        uploadedLabel = "12 Jul 2026, 2:39 PM",
+                        periodLabel = "01 Jun 2026 – 30 Jun 2026",
+                        transactionCount = 12,
+                        countedCount = 0,
+                        mappedCount = 0,
                         isPending = true
                     )
                 )

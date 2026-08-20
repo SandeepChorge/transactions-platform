@@ -11,6 +11,11 @@
     <string name="sessions_empty_cancelled">Cancelled sessions will appear here.</string>
     <string name="session_uploaded_at">Uploaded %1$s</string>
     <string name="session_mapping_progress">%1$d of %2$d transactions mapped</string>
+    <string name="session_not_counted">%1$d not counted</string>
+    <plurals name="session_none_counted">
+        <item quantity="one">%1$d transaction imported — it isn\'t counted, so there\'s nothing to map.</item>
+        <item quantity="other">%1$d transactions imported — none are counted, so there\'s nothing to map.</item>
+    </plurals>
     <string name="cancel_session_title">Cancel session</string>
     <string name="cancel_session_message">This session will be moved to Cancelled and its transactions will no longer count. You can\'t undo this.</string>
     <string name="cancel_session_confirm">Cancel session</string>

@@ -12,6 +12,6 @@
     <string name="category_name_required">Enter a category name.</string>
     <string name="category_unused">No payees linked</string>
     <string name="category_linked_payees">%1$d payees linked</string>
-    <string name="category_delete_confirm">Delete category \"%1$s\"? This can\'t be undone.</string>
+    <string name="category_delete_confirm">Delete category \"%1$s\"? You can bring it back from Settings › Recently deleted.</string>
     <string name="category_delete_blocked">Can\'t delete — %1$d payees are linked to this category.</string>
 </resources>

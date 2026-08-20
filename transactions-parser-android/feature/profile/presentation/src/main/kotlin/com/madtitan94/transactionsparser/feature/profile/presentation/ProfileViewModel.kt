@@ -31,8 +31,7 @@ data class ProfileState(
     val isEditing: Boolean = false,
     val nameError: UiText? = null,
     val mobileError: UiText? = null,
-    val isSaving: Boolean = false,
-    val showLogoutConfirm: Boolean = false
+    val isSaving: Boolean = false
 )
 
 sealed interface ProfileAction {
@@ -42,9 +41,6 @@ sealed interface ProfileAction {
     data class OnMobileChange(val mobile: String) : ProfileAction
     data class OnGenderSelect(val gender: Gender?) : ProfileAction
     data object OnSaveClick : ProfileAction
-    data object OnLogoutClick : ProfileAction
-    data object OnConfirmLogout : ProfileAction
-    data object OnDismissLogoutConfirm : ProfileAction
 }
 
 sealed interface ProfileEvent {
@@ -120,12 +116,6 @@ class ProfileViewModel(
                 _state.update { it.copy(gender = action.gender) }
             }
             ProfileAction.OnSaveClick -> save()
-            ProfileAction.OnLogoutClick -> _state.update { it.copy(showLogoutConfirm = true) }
-            ProfileAction.OnConfirmLogout -> {
-                _state.update { it.copy(showLogoutConfirm = false) }
-                viewModelScope.launch { sessionStorage.clear() }
-            }
-            ProfileAction.OnDismissLogoutConfirm -> _state.update { it.copy(showLogoutConfirm = false) }
         }
     }
 

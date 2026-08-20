@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -28,6 +28,8 @@ import com.madtitan94.transactionsparser.feature.categories.presentation.navigat
 import com.madtitan94.transactionsparser.feature.categories.presentation.navigation.categoriesGraph
 import com.madtitan94.transactionsparser.feature.profile.presentation.navigation.ProfileRoute
 import com.madtitan94.transactionsparser.feature.profile.presentation.navigation.profileGraph
+import com.madtitan94.transactionsparser.feature.settings.presentation.navigation.SettingsRoute
+import com.madtitan94.transactionsparser.feature.settings.presentation.navigation.settingsGraph
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.SessionDetailRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.SessionsHistoryRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.sessionsGraph
@@ -60,7 +62,9 @@ private val BOTTOM_BAR_ITEMS = listOf(
     BottomBarItem(SessionsHistoryRoute, SessionsHistoryRoute::class, R.string.tab_statements, Icons.AutoMirrored.Filled.ReceiptLong),
     BottomBarItem(UploadRoute, UploadRoute::class, R.string.tab_upload, Icons.Default.UploadFile),
     BottomBarItem(CategoriesRoute, CategoriesRoute::class, R.string.tab_categories, Icons.Default.Category),
-    BottomBarItem(ProfileRoute, ProfileRoute::class, R.string.tab_profile, Icons.Default.Person)
+    // Profile is no longer a tab of its own — it is reached from Settings, which is now the
+    // single place account-level actions live (profile, export, recovery, logout).
+    BottomBarItem(SettingsRoute, SettingsRoute::class, R.string.tab_settings, Icons.Default.Settings)
 )
 
 @Composable
@@ -106,7 +110,12 @@ private fun MainScaffold() {
                 }
             )
             categoriesGraph()
-            profileGraph()
+            profileGraph(navController)
+            settingsGraph(
+                navController = navController,
+                appVersion = BuildConfig.VERSION_NAME,
+                onOpenProfile = { navController.navigate(ProfileRoute) }
+            )
         }
     }
 }

@@ -79,9 +79,15 @@ interface PayeeDao {
     suspend fun update(payee: PayeeEntity)
 }
 
+/**
+ * [countedCount] and [mappedCount] respect the user's exclusions; [transactionCount] covers every
+ * row, so a session whose transactions all repeat an earlier import still reports what it imported
+ * instead of reading as an empty — or failed — upload.
+ */
 data class SessionSummaryRow(
     @Embedded val session: SessionEntity,
     val transactionCount: Int,
+    val countedCount: Int,
     val mappedCount: Int
 )
 
@@ -91,9 +97,12 @@ interface SessionDao {
         """
         SELECT s.*,
                COUNT(t.id) AS transactionCount,
-               COUNT(t.payeeId) AS mappedCount
+               IFNULL(SUM(CASE WHEN t.isExcluded = 0 THEN 1 ELSE 0 END), 0) AS countedCount,
+               IFNULL(
+                   SUM(CASE WHEN t.isExcluded = 0 AND t.payeeId IS NOT NULL THEN 1 ELSE 0 END), 0
+               ) AS mappedCount
         FROM sessions s
-        LEFT JOIN transactions t ON t.sessionId = s.id AND t.isDeleted = 0 AND t.isExcluded = 0
+        LEFT JOIN transactions t ON t.sessionId = s.id AND t.isDeleted = 0
         WHERE s.ownerId = :ownerId AND s.isDeleted = 0 AND s.status = :status
         GROUP BY s.id
         ORDER BY s.uploadedAtMillis DESC
@@ -136,6 +145,21 @@ data class PeriodTotalRow(
     val startMillis: Long,
     val countedTotalPaise: Long?,
     val countedCount: Int
+)
+
+/** One export row with the payee mapping and statement already joined in. */
+data class TransactionExportRowEntity(
+    val dateTimeUtcMillis: Long,
+    val rawPayee: String,
+    val alias: String?,
+    val category: String?,
+    val amountPaise: Long,
+    val type: String,
+    val transactionRef: String?,
+    val utr: String?,
+    val isDuplicate: Boolean,
+    val isExcluded: Boolean,
+    val statementFileName: String
 )
 
 /** Milliseconds in a day — the divisor that floors a timestamp to its day. */
@@ -211,6 +235,37 @@ interface TransactionDao {
         """
     )
     fun observePayeeMonthTotals(ownerId: String, normalizedPayee: String): Flow<List<PeriodTotalRow>>
+
+    /**
+     * Every row of this account, with its mapping resolved, for CSV export.
+     *
+     * `LEFT JOIN` throughout: an unmapped payee has no `payees` row and must still export, with
+     * empty alias and category cells. Excluded rows are exported too — the flag rides along as a
+     * column so the file agrees with the app instead of quietly holding fewer transactions than
+     * the screen shows.
+     */
+    @Query(
+        """
+        SELECT t.dateTimeUtcMillis AS dateTimeUtcMillis,
+               t.rawPayee AS rawPayee,
+               p.alias AS alias,
+               c.name AS category,
+               t.amountPaise AS amountPaise,
+               t.type AS type,
+               t.transactionRef AS transactionRef,
+               t.utr AS utr,
+               t.isDuplicate AS isDuplicate,
+               t.isExcluded AS isExcluded,
+               s.fileName AS statementFileName
+        FROM transactions t
+        LEFT JOIN payees p ON p.id = t.payeeId AND p.isDeleted = 0
+        LEFT JOIN categories c ON c.id = p.categoryId AND c.isDeleted = 0
+        LEFT JOIN sessions s ON s.id = t.sessionId
+        WHERE t.ownerId = :ownerId AND t.isDeleted = 0
+        ORDER BY t.dateTimeUtcMillis DESC, t.id DESC
+        """
+    )
+    suspend fun exportRows(ownerId: String): List<TransactionExportRowEntity>
 
     @Insert
     suspend fun insertAll(transactions: List<TransactionEntity>)
