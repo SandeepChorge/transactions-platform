@@ -127,7 +127,19 @@ jobs:
 
   android-release:
     needs: [android, release-gate]
-    if: needs.release-gate.outputs.build == 'true' && needs.android.result == 'success'
+    # always() is required for the same reason it is on `android`, one level further out.
+    # GitHub's implicit success() walks the whole ancestor graph, not just the direct
+    # needs: on workflow_dispatch `changes` is skipped, and that skip propagates down
+    # through `android` — which survives it via always() — to kill this job, even though
+    # both jobs this one names succeeded. The result was a dispatch that resolved
+    # build=true and then released nothing, with every job green.
+    #
+    # This does not weaken the gate. Both real conditions are still asserted explicitly
+    # below, and a cancelled run leaves android.result as 'cancelled', which fails them.
+    if: >-
+      always()
+      && needs.release-gate.outputs.build == 'true'
+      && needs.android.result == 'success'
     runs-on: ubuntu-latest
     defaults:
       run:
