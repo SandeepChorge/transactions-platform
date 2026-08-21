@@ -46,6 +46,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SettingsRoot(
     appVersion: String,
+    appVersionCode: Int,
     onOpenProfile: () -> Unit,
     onOpenRecentlyDeleted: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel()
@@ -81,6 +82,7 @@ fun SettingsRoot(
     SettingsScreen(
         state = state,
         appVersion = appVersion,
+        appVersionCode = appVersionCode,
         snackbarHostState = snackbarHostState,
         onOpenProfile = onOpenProfile,
         onOpenRecentlyDeleted = onOpenRecentlyDeleted,
@@ -95,6 +97,7 @@ private const val CSV_MIME_TYPE = "text/csv"
 private fun SettingsScreen(
     state: SettingsState,
     appVersion: String,
+    appVersionCode: Int,
     snackbarHostState: SnackbarHostState,
     onOpenProfile: () -> Unit,
     onOpenRecentlyDeleted: () -> Unit,
@@ -157,7 +160,7 @@ private fun SettingsScreen(
             HorizontalDivider()
 
             Text(
-                text = stringResource(R.string.settings_version, appVersion),
+                text = stringResource(R.string.settings_version, appVersion, appVersionCode),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

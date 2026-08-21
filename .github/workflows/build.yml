@@ -1,12 +1,27 @@
-name: Build
+name: Build & Release
+
+# The filename must stay build.yml. GitHub keys a workflow by its file path, so renaming
+# this file registers a new workflow and restarts github.run_number at 1 — and run_number
+# is the source of both versionCode and the patch component of versionName. See issue #9.
 
 on:
   push:
     branches: [main]
+  # 'closed' is needed for the RELEASE_ANDROID_BUILD flag: a push event carries no pull
+  # request description, so this is the only event that exposes the body to read it from.
   pull_request:
+    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Where to send the signed artifacts"
+        type: choice
+        options: [none, firebase, play, both]
+        default: "none"
 
 jobs:
   changes:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       android: ${{ steps.filter.outputs.android }}
@@ -17,22 +32,33 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          # Positive patterns only. These filters previously carried '!.../**/*.md'
+          # exclusions, which made all three of them match everything: paths-filter ORs
+          # its patterns rather than subtracting the negations, so '!web/**/*.md' matched
+          # every file that is not a markdown file under web/ — including every Android
+          # source file. All three filters had been returning true on every run.
+          #
+          # The cost of dropping them is that a markdown-only change inside a project
+          # directory now runs that project's job. That is a cheap `./gradlew test`,
+          # and far cheaper than a filter that silently does nothing.
           filters: |
             android:
               - 'transactions-parser-android/**'
-              - '!transactions-parser-android/**/*.md'
             web:
               - 'transactions-parser-web/**'
               - 'shared/api-contract/**'
-              - '!transactions-parser-web/**/*.md'
             api:
               - 'services/transactions-api/**'
               - 'shared/api-contract/**'
-              - '!services/transactions-api/**/*.md'
 
   android:
     needs: changes
-    if: needs.changes.outputs.android == 'true'
+    # always() is required because `changes` is skipped entirely on workflow_dispatch,
+    # and a skipped dependency would otherwise skip this job too.
+    if: >-
+      always()
+      && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true')
+      && (github.event.action != 'closed' || github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,9 +74,160 @@ jobs:
         run: echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" >> gradle.properties
       - run: ./gradlew test --no-daemon
 
+  # Cheap job: decides whether this run releases anything, and says so out loud.
+  # Split from the build so that a merged pull request with no flag costs seconds
+  # rather than a full signed build.
+  release-gate:
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.action == 'closed' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      channel: ${{ steps.decide.outputs.channel }}
+    steps:
+      - name: Resolve channel
+        id: decide
+        env:
+          # Read through the environment, never interpolated into the script body: a pull
+          # request description is attacker-controllable text and `${{ }}` inside a run
+          # block is substituted before the shell ever sees it.
+          PR_BODY: ${{ github.event.pull_request.body }}
+          DISPATCH_CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUILD=true
+            CHANNEL="$DISPATCH_CHANNEL"
+            REASON="Manual dispatch, channel \`$CHANNEL\`."
+          # The flag must sit alone on its own line. A plain substring match would fire on
+          # any description that merely *mentions* the flag — including a pull request
+          # documenting how the flag works, which is how this was found.
+          #
+          # Case-insensitive, and tolerant of spacing, on purpose: the failure mode here is
+          # a typo, and a flag that silently does nothing is indistinguishable from a
+          # working pipeline with nothing to ship — hence the outcome is always written below.
+          elif printf '%s' "$PR_BODY" | tr -d '\r' \
+            | grep -qiE '^[[:space:]]*RELEASE_ANDROID_BUILD[[:space:]]*=[[:space:]]*true[[:space:]]*$'; then
+            BUILD=true
+            CHANNEL=play
+            REASON="\`RELEASE_ANDROID_BUILD=true\` found in the description of #${{ github.event.pull_request.number }} — releasing to the Play **internal** track."
+          else
+            BUILD=false
+            CHANNEL=none
+            REASON="No \`RELEASE_ANDROID_BUILD=true\` in the description of #${{ github.event.pull_request.number }} — nothing built, nothing published."
+          fi
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Release decision"
+            echo ""
+            echo "$REASON"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  android-release:
+    needs: [android, release-gate]
+    if: needs.release-gate.outputs.build == 'true' && needs.android.result == 'success'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: transactions-parser-android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build exactly what landed on main, not the pull request's merge preview.
+          ref: main
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Write gradle.properties
+        run: echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" >> gradle.properties
+
+      - name: Calculate version
+        id: version
+        run: |
+          set -euo pipefail
+          MAJOR=$(grep -E '^major=' version.properties | cut -d= -f2)
+          MINOR=$(grep -E '^minor=' version.properties | cut -d= -f2)
+          SHIFT=$(grep -E '^codeShift=' version.properties | cut -d= -f2)
+          PATCH=${{ github.run_number }}
+          echo "code=$((PATCH + SHIFT))" >> "$GITHUB_OUTPUT"
+          echo "name=${MAJOR}.${MINOR}.${PATCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 is not set. Add it before cutting a release."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          # Exported rather than passed inline so the path never appears in a log line.
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed APK and AAB
+        env:
+          APP_VERSION_CODE: ${{ steps.version.outputs.code }}
+          APP_VERSION_STRING: ${{ steps.version.outputs.name }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        # APK for Firebase, AAB for Play — both from one run, so the two channels can
+        # never be serving different builds of the same version.
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.version.outputs.name }}
+          path: |
+            transactions-parser-android/app/build/outputs/apk/release/*.apk
+            transactions-parser-android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
+      - name: Record version and checksums
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| versionName | \`${{ steps.version.outputs.name }}\` |"
+            echo "| versionCode | \`${{ steps.version.outputs.code }}\` |"
+            echo "| Channel | \`${{ needs.release-gate.outputs.channel }}\` |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo ""
+            echo "**Artifact checksums**"
+            echo ""
+            echo '```'
+            find app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \) -exec shasum -a 256 {} \;
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Distribution is deliberately not wired yet — issue #9 Phases 5 and 6. Both need
+      # console setup and secrets that do not exist, and a half-wired upload step would
+      # fail in a way that reads as a pipeline bug rather than missing configuration.
+      - name: Distribution not yet enabled
+        if: needs.release-gate.outputs.channel != 'none'
+        run: |
+          {
+            echo ""
+            echo "> Channel \`${{ needs.release-gate.outputs.channel }}\` was requested, but distribution"
+            echo "> is not wired up yet (issue #9, Phases 5 and 6). The signed artifacts above are"
+            echo "> attached to this run — download the AAB from there for the manual first Play upload."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   web:
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +235,7 @@ jobs:
 
   api:
     needs: changes
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
