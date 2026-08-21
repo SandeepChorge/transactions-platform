@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
+import com.madtitan94.transactionsparser.core.database.entity.PayeeIdentifierEntity
 import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
 import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
 import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
@@ -55,28 +56,118 @@ interface CategoryDao {
     suspend fun linkedPayeeCount(ownerId: String, id: Long): Int
 }
 
+private const val PAYEE_BY_IDENTIFIER =
+    "SELECT p.* FROM payees p " +
+        "JOIN payee_identifiers i ON i.payeeId = p.id AND i.ownerId = p.ownerId " +
+        "WHERE p.ownerId = :ownerId AND p.isDeleted = 0 AND i.normalizedName = :normalizedName " +
+        "LIMIT 1"
+
+/** One statement name and the payee it resolves to. */
+data class PayeeByIdentifierRow(
+    val normalizedName: String,
+    @Embedded val payee: PayeeEntity
+)
+
 @Dao
 interface PayeeDao {
-    @Query("SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 ORDER BY alias COLLATE NOCASE")
-    fun observeAll(ownerId: String): Flow<List<PayeeEntity>>
-
+    /**
+     * Every mapped statement name in the account, each with its payee — one row per identifier,
+     * so a payee that owns several appears once per name. That shape is what auto-map suggestions
+     * need: they start from a name on a statement and ask who it is.
+     */
     @Query(
-        "SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 " +
-            "AND normalizedName = :normalizedName LIMIT 1"
+        "SELECT i.normalizedName AS normalizedName, p.* FROM payee_identifiers i " +
+            "JOIN payees p ON p.id = i.payeeId AND p.ownerId = i.ownerId " +
+            "WHERE i.ownerId = :ownerId AND p.isDeleted = 0"
     )
+    fun observeByIdentifier(ownerId: String): Flow<List<PayeeByIdentifierRow>>
+
+    /**
+     * The payee a statement name resolves to, looked up through its identifiers rather than
+     * through a name column on the payee itself — so once a name has been merged into another
+     * payee, it resolves to the payee that now owns it instead of to the one it was created as.
+     *
+     * `LIMIT 1` is belt and braces: `index_payee_identifiers_ownerId_normalizedName` is unique,
+     * so a name can only match one identifier per account.
+     */
+    @Query(PAYEE_BY_IDENTIFIER)
     fun observeByNormalizedName(ownerId: String, normalizedName: String): Flow<PayeeEntity?>
 
+    @Query(PAYEE_BY_IDENTIFIER)
+    suspend fun findByNormalizedName(ownerId: String, normalizedName: String): PayeeEntity?
+
+    /** Every payee in the account, alias order — what alias typeahead matches against. */
     @Query(
         "SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 " +
-            "AND normalizedName = :normalizedName LIMIT 1"
+            "ORDER BY alias COLLATE NOCASE"
     )
-    suspend fun findByNormalizedName(ownerId: String, normalizedName: String): PayeeEntity?
+    fun observeAll(ownerId: String): Flow<List<PayeeEntity>>
+
+    /**
+     * The payee already answering to this alias, if any.
+     *
+     * `COLLATE NOCASE` so "Swiggy" and "swiggy" are recognised as the same person — the prompt
+     * that offers to merge them is only worth having if it fires on the spelling a user types,
+     * not just on an exact byte match.
+     */
+    @Query(
+        "SELECT * FROM payees WHERE ownerId = :ownerId AND isDeleted = 0 " +
+            "AND alias = :alias COLLATE NOCASE LIMIT 1"
+    )
+    suspend fun findByAlias(ownerId: String, alias: String): PayeeEntity?
 
     @Insert
     suspend fun insert(payee: PayeeEntity): Long
 
     @Update
     suspend fun update(payee: PayeeEntity)
+
+    /**
+     * Hands every identifier of one payee to another. Runs before [delete] in a merge: the
+     * identifier FK is `RESTRICT`, so a merge that skipped this step fails loudly at the delete
+     * instead of quietly taking the names with it.
+     */
+    @Query(
+        "UPDATE payee_identifiers SET payeeId = :targetId " +
+            "WHERE ownerId = :ownerId AND payeeId = :sourceId"
+    )
+    suspend fun repointIdentifiers(ownerId: String, sourceId: Long, targetId: Long)
+
+    /**
+     * Moves the transactions already assigned to one payee onto another.
+     *
+     * Lives on `PayeeDao` despite writing `transactions`: a merge necessarily rewrites three
+     * tables, and keeping all three statements here lets one data source run them inside a single
+     * `withTransaction` rather than reaching across data sources for a half of the operation.
+     */
+    @Query(
+        "UPDATE transactions SET payeeId = :targetId " +
+            "WHERE ownerId = :ownerId AND payeeId = :sourceId"
+    )
+    suspend fun repointTransactions(ownerId: String, sourceId: Long, targetId: Long)
+
+    /** Hard delete — the merged-away payee has no identifiers and nothing left to recover. */
+    @Query("DELETE FROM payees WHERE ownerId = :ownerId AND id = :id")
+    suspend fun delete(ownerId: String, id: Long)
+}
+
+@Dao
+interface PayeeIdentifierDao {
+    /**
+     * Every statement name owned by whoever owns [normalizedName], the name itself included.
+     * Empty for an unmapped name, which owns no identifier — the detail screen shows the section
+     * only when there is more than one, so that degenerate case needs no special handling.
+     */
+    @Query(
+        "SELECT * FROM payee_identifiers WHERE ownerId = :ownerId AND payeeId IN (" +
+            "SELECT payeeId FROM payee_identifiers " +
+            "WHERE ownerId = :ownerId AND normalizedName = :normalizedName) " +
+            "ORDER BY rawName COLLATE NOCASE"
+    )
+    fun observeLinkedTo(ownerId: String, normalizedName: String): Flow<List<PayeeIdentifierEntity>>
+
+    @Insert
+    suspend fun insert(identifier: PayeeIdentifierEntity): Long
 }
 
 /**
@@ -165,6 +256,30 @@ data class TransactionExportRowEntity(
 /** Milliseconds in a day — the divisor that floors a timestamp to its day. */
 private const val DAY_MILLIS = 86_400_000
 
+/**
+ * Matches every transaction belonging to the same payee as `:normalizedPayee` — that name and
+ * every other statement name its payee owns.
+ *
+ * The union of "itself" and "its siblings" is what lets one predicate serve both cases. A mapped
+ * name matches the whole identifier set, which is the Phase 5 fix: after a merge, one identifier's
+ * history no longer hides the rest. An unmapped name owns no identifier at all, so the subquery is
+ * empty and only the first branch fires — it still has a detail screen, showing exactly itself.
+ *
+ * `:includeLinkedNames` collapses the predicate back to a single name, which is what the detail
+ * screen's per-identifier filter binds. One parameterised query rather than an exact-match twin of
+ * each of the four, so a filtered header can never drift from the filtered list it sits above.
+ *
+ * Deliberately matched by name rather than by `transactions.payeeId`: a row imported before its
+ * payee was ever mapped keeps a null `payeeId`, and dropping that row out of the payee's own
+ * history would be a regression on every account with pre-mapping statements.
+ */
+private const val SAME_PAYEE_NAMES =
+    "(normalizedPayee = :normalizedPayee OR (:includeLinkedNames = 1 AND normalizedPayee IN (" +
+        "SELECT sibling.normalizedName FROM payee_identifiers self " +
+        "JOIN payee_identifiers sibling " +
+        "ON sibling.payeeId = self.payeeId AND sibling.ownerId = self.ownerId " +
+        "WHERE self.ownerId = :ownerId AND self.normalizedName = :normalizedPayee)))"
+
 @Dao
 interface TransactionDao {
     @Query(
@@ -175,14 +290,19 @@ interface TransactionDao {
 
     /**
      * One payee's history across every session, keyed on the statement name rather than the
-     * mapping, so an unmapped payee has a detail view too. Excluded rows are deliberately kept
-     * in the list: hiding them would leave no way to reverse an exclusion the user disagrees with.
+     * mapping, so an unmapped payee has a detail view too — see [SAME_PAYEE_NAMES] for how a
+     * merged payee's other names join in. Excluded rows are deliberately kept in the list: hiding
+     * them would leave no way to reverse an exclusion the user disagrees with.
      */
     @Query(
         "SELECT * FROM transactions WHERE ownerId = :ownerId AND isDeleted = 0 " +
-            "AND normalizedPayee = :normalizedPayee ORDER BY dateTimeUtcMillis DESC, id DESC"
+            "AND $SAME_PAYEE_NAMES ORDER BY dateTimeUtcMillis DESC, id DESC"
     )
-    fun pagingByPayee(ownerId: String, normalizedPayee: String): PagingSource<Int, TransactionEntity>
+    fun pagingByPayee(
+        ownerId: String,
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): PagingSource<Int, TransactionEntity>
 
     @Query(
         """
@@ -195,10 +315,14 @@ interface TransactionDao {
                MIN(dateTimeUtcMillis) AS firstMillis,
                MAX(dateTimeUtcMillis) AS lastMillis
         FROM transactions
-        WHERE ownerId = :ownerId AND isDeleted = 0 AND normalizedPayee = :normalizedPayee
+        WHERE ownerId = :ownerId AND isDeleted = 0 AND $SAME_PAYEE_NAMES
         """
     )
-    fun observePayeeTotals(ownerId: String, normalizedPayee: String): Flow<PayeeTotalsRow?>
+    fun observePayeeTotals(
+        ownerId: String,
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<PayeeTotalsRow?>
 
     /**
      * Day subtotals, bucketed by flooring the timestamp to a whole day.
@@ -214,12 +338,16 @@ interface TransactionDao {
                SUM(CASE WHEN isExcluded = 0 THEN amountPaise ELSE 0 END) AS countedTotalPaise,
                SUM(CASE WHEN isExcluded = 0 THEN 1 ELSE 0 END) AS countedCount
         FROM transactions
-        WHERE ownerId = :ownerId AND isDeleted = 0 AND normalizedPayee = :normalizedPayee
+        WHERE ownerId = :ownerId AND isDeleted = 0 AND $SAME_PAYEE_NAMES
         GROUP BY startMillis
         ORDER BY startMillis DESC
         """
     )
-    fun observePayeeDayTotals(ownerId: String, normalizedPayee: String): Flow<List<PeriodTotalRow>>
+    fun observePayeeDayTotals(
+        ownerId: String,
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotalRow>>
 
     /** Months need calendar arithmetic rather than a divisor, hence `start of month`. */
     @Query(
@@ -229,12 +357,16 @@ interface TransactionDao {
                SUM(CASE WHEN isExcluded = 0 THEN amountPaise ELSE 0 END) AS countedTotalPaise,
                SUM(CASE WHEN isExcluded = 0 THEN 1 ELSE 0 END) AS countedCount
         FROM transactions
-        WHERE ownerId = :ownerId AND isDeleted = 0 AND normalizedPayee = :normalizedPayee
+        WHERE ownerId = :ownerId AND isDeleted = 0 AND $SAME_PAYEE_NAMES
         GROUP BY startMillis
         ORDER BY startMillis DESC
         """
     )
-    fun observePayeeMonthTotals(ownerId: String, normalizedPayee: String): Flow<List<PeriodTotalRow>>
+    fun observePayeeMonthTotals(
+        ownerId: String,
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotalRow>>
 
     /**
      * Every row of this account, with its mapping resolved, for CSV export.
@@ -363,6 +495,9 @@ interface LegacyOwnershipDao {
 
     @Query("UPDATE payees SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
     suspend fun claimPayees(legacyOwnerId: String, ownerId: String)
+
+    @Query("UPDATE payee_identifiers SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
+    suspend fun claimPayeeIdentifiers(legacyOwnerId: String, ownerId: String)
 
     @Query("UPDATE sessions SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")
     suspend fun claimSessions(legacyOwnerId: String, ownerId: String)

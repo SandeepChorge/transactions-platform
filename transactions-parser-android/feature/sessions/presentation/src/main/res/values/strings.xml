@@ -72,6 +72,14 @@
     <string name="payee_row_skip">Don\'t count</string>
     <string name="payee_row_count">Count</string>
     <string name="payee_not_counted">%1$d not counted</string>
+    <string name="payee_linked_identifiers">Also known as</string>
+    <string name="payee_filter_all">All names</string>
+    <string name="payee_linked">Linked to the existing payee</string>
+    <string name="payee_suggestions_title">Existing payees</string>
+    <string name="payee_merge_title">\"%1$s\" already exists</string>
+    <string name="payee_merge_message">Link this statement name to the payee already called \"%1$s\", so their history is counted together? Keeping them separate leaves two payees with the same name.</string>
+    <string name="payee_merge_confirm">Link to it</string>
+    <string name="payee_merge_keep_separate">Keep separate</string>
     <plurals name="payee_counted_transactions">
         <item quantity="one">%1$d transaction counted</item>
         <item quantity="other">%1$d transactions counted</item>

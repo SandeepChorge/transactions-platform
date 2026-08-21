@@ -35,12 +35,13 @@ class LegacyDataClaimer(
             .distinct()
 
         database.withTransaction {
-            // Payees and transactions reference categories/sessions by id, not ownerId, so the
-            // order doesn't matter — but a single transaction means a crash mid-claim can't
-            // leave half the data stranded under the old owner.
+            // Payees, identifiers and transactions reference their parents by id, not by
+            // ownerId, so the order doesn't matter — but a single transaction means a crash
+            // mid-claim can't leave half the data stranded under the old owner.
             sources.forEach { from ->
                 dao.claimCategories(from, ownerId)
                 dao.claimPayees(from, ownerId)
+                dao.claimPayeeIdentifiers(from, ownerId)
                 dao.claimSessions(from, ownerId)
                 dao.claimTransactions(from, ownerId)
                 dao.claimUploadLogs(from, ownerId)

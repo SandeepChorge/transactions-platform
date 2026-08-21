@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
 import com.madtitan94.transactionsparser.core.designsystem.components.EmptyState
 import com.madtitan94.transactionsparser.core.designsystem.components.ListRow
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
@@ -103,7 +104,7 @@ private fun RecentlyDeletedScreen(
                         dimmed = true,
                         trailing = {
                             TextButton(
-                                onClick = { onAction(RecentlyDeletedAction.OnRestore(category.id)) }
+                                onClick = { onAction(RecentlyDeletedAction.OnRestoreClick(category)) }
                             ) {
                                 Text(stringResource(R.string.recently_deleted_restore))
                             }
@@ -112,6 +113,17 @@ private fun RecentlyDeletedScreen(
                     HorizontalDivider()
                 }
             }
+        }
+
+        state.pendingRestore?.let { prompt ->
+            AppAlertDialog(
+                title = stringResource(R.string.recently_deleted_restore),
+                message = stringResource(R.string.recently_deleted_restore_confirm, prompt.name),
+                confirmLabel = stringResource(R.string.recently_deleted_restore),
+                dismissLabel = stringResource(R.string.settings_cancel),
+                onConfirm = { onAction(RecentlyDeletedAction.OnConfirmRestore) },
+                onDismiss = { onAction(RecentlyDeletedAction.OnDismissRestore) }
+            )
         }
     }
 }

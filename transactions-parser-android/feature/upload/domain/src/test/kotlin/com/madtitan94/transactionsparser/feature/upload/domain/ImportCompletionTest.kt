@@ -44,14 +44,8 @@ class ImportCompletionTest {
 
     private fun knownPayees(vararg rawNames: String) = FakePayeeDataSource(
         rawNames.mapIndexed { index, raw ->
-            Payee(
-                id = index + 1L,
-                rawName = raw,
-                normalizedName = raw.uppercase(),
-                alias = raw,
-                categoryId = 1L
-            )
-        }
+            raw.uppercase() to Payee(id = index + 1L, alias = raw, categoryId = 1L)
+        }.toMap()
     )
 
     @Test

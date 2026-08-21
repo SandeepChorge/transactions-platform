@@ -7,11 +7,13 @@ import com.madtitan94.transactionsparser.core.database.dao.SessionSummaryRow
 import com.madtitan94.transactionsparser.core.database.dao.TransactionExportRowEntity
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
+import com.madtitan94.transactionsparser.core.database.entity.PayeeIdentifierEntity
 import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
 import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
 import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
@@ -27,21 +29,13 @@ import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 fun CategoryEntity.toCategory() = Category(id = id, name = name)
 fun Category.toCategoryEntity(ownerId: String) = CategoryEntity(id = id, ownerId = ownerId, name = name)
 
-fun PayeeEntity.toPayee() = Payee(
-    id = id,
-    rawName = rawName,
-    normalizedName = normalizedName,
-    alias = alias,
-    categoryId = categoryId
-)
+fun PayeeEntity.toPayee() = Payee(id = id, alias = alias, categoryId = categoryId)
 
-fun Payee.toPayeeEntity(ownerId: String) = PayeeEntity(
+fun PayeeIdentifierEntity.toPayeeIdentifier() = PayeeIdentifier(
     id = id,
-    ownerId = ownerId,
+    payeeId = payeeId,
     rawName = rawName,
-    normalizedName = normalizedName,
-    alias = alias,
-    categoryId = categoryId
+    normalizedName = normalizedName
 )
 
 fun SessionEntity.toStatementSession() = StatementSession(

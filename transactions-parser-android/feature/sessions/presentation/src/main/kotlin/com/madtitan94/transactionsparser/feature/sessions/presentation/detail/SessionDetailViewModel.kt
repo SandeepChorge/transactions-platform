@@ -19,10 +19,15 @@ import com.madtitan94.transactionsparser.core.presentation.formatHourOfDay
 import com.madtitan94.transactionsparser.core.presentation.formatPaise
 import com.madtitan94.transactionsparser.core.presentation.formatStatementDate
 import com.madtitan94.transactionsparser.core.presentation.toUiText
+import com.madtitan94.transactionsparser.feature.sessions.domain.AliasSuggester
 import com.madtitan94.transactionsparser.feature.sessions.domain.DuplicateSelection
+import com.madtitan94.transactionsparser.feature.sessions.domain.MappingDecider
+import com.madtitan94.transactionsparser.feature.sessions.domain.MappingDecision
 import com.madtitan94.transactionsparser.feature.sessions.domain.PayeeGroup
 import com.madtitan94.transactionsparser.feature.sessions.domain.PayeeGrouper
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.AliasSuggestionUi
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.MergePrompt
 import com.madtitan94.transactionsparser.feature.sessions.presentation.history.toLabel
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.SessionDetailRoute
 import kotlinx.coroutines.channels.Channel
@@ -35,7 +40,15 @@ import kotlinx.coroutines.launch
 
 enum class MappingStatus { UNMAPPED, SUGGESTED, SAVED }
 
-data class PayeeEdit(val alias: String? = null, val categoryId: Long? = null)
+/**
+ * [linkTargetId] is set by picking a typeahead suggestion: saving then links this statement name
+ * to that existing payee rather than creating a second one under the same alias.
+ */
+data class PayeeEdit(
+    val alias: String? = null,
+    val categoryId: Long? = null,
+    val linkTargetId: Long? = null
+)
 
 data class PayeeGroupUi(
     val key: String,
@@ -52,7 +65,9 @@ data class PayeeGroupUi(
     /** Flagged repeats in this group; 0 hides the duplicate badge and its control entirely. */
     val duplicateCount: Int = 0,
     val excludedDuplicateCount: Int = 0,
-    val duplicateSelection: DuplicateSelection = DuplicateSelection.NONE
+    val duplicateSelection: DuplicateSelection = DuplicateSelection.NONE,
+    /** Existing payees matching the alias being typed. Empty until something is typed. */
+    val suggestions: List<AliasSuggestionUi> = emptyList()
 ) {
     val canSave: Boolean
         get() = aliasInput.isNotBlank() && selectedCategoryId != null && !isSaving && status != MappingStatus.SAVED
@@ -75,7 +90,10 @@ data class SessionDetailState(
     val transactionCount: Int = 0,
     val newCategoryForKey: String? = null,
     val newCategoryName: String = "",
-    val newCategoryError: UiText? = null
+    val newCategoryError: UiText? = null,
+    /** The alias collision awaiting an answer, and which group raised it. */
+    val mergePrompt: MergePrompt? = null,
+    val mergePromptKey: String? = null
 )
 
 sealed interface SessionDetailAction {
@@ -92,6 +110,11 @@ sealed interface SessionDetailAction {
     data class OnNewCategoryNameChange(val name: String) : SessionDetailAction
     data object OnCreateCategory : SessionDetailAction
     data object OnDismissNewCategory : SessionDetailAction
+    data class OnSuggestionPick(val key: String, val payeeId: Long) : SessionDetailAction
+    /** Answers to the same-name prompt. */
+    data object OnConfirmMerge : SessionDetailAction
+    data object OnKeepSeparate : SessionDetailAction
+    data object OnDismissMergePrompt : SessionDetailAction
 }
 
 sealed interface SessionDetailEvent {
@@ -126,6 +149,19 @@ class SessionDetailViewModel(
     private val edits = MutableStateFlow<Map<String, PayeeEdit>>(emptyMap())
     private val savingKeys = MutableStateFlow<Set<String>>(emptySet())
 
+    /**
+     * The two views of the account's payees the group list needs at once: which statement names
+     * are already mapped, and every payee an alias could be suggested from. Paired up here so
+     * `observeGroups` stays within `combine`'s five-flow arity.
+     *
+     * Declared above `init` deliberately: property initialisers run in declaration order, so a
+     * flow the init block collects has to exist by the time it runs.
+     */
+    private val payeePool = combine(
+        payees.observeByIdentifier(),
+        payees.observeAll()
+    ) { byName, all -> byName to all }
+
     init {
         loadSessionHeader()
         observeGroups()
@@ -154,15 +190,16 @@ class SessionDetailViewModel(
         viewModelScope.launch {
             combine(
                 transactions.observeBySession(sessionId),
-                payees.observeAll(),
+                payeePool,
                 categories.observeAll(),
                 edits,
                 savingKeys
-            ) { txns, allPayees, cats, currentEdits, saving ->
-                val knownByName = allPayees.associateBy(Payee::normalizedName)
+            ) { txns, (knownByName, allPayees), cats, currentEdits, saving ->
                 val groups = PayeeGrouper.group(txns, knownByName)
                 GroupsSnapshot(
-                    groups = groups.map { it.toUi(currentEdits[it.normalizedPayee], saving) },
+                    groups = groups.map {
+                        it.toUi(currentEdits[it.normalizedPayee], saving, allPayees)
+                    },
                     categories = cats,
                     suggestedCount = groups.count { it.knownPayee != null && !it.isAssigned },
                     duplicateCount = txns.count { it.isDuplicate },
@@ -187,7 +224,10 @@ class SessionDetailViewModel(
 
     fun onAction(action: SessionDetailAction) {
         when (action) {
-            is SessionDetailAction.OnAliasChange -> updateEdit(action.key) { it.copy(alias = action.alias) }
+            // Typing after picking a suggestion means the pick no longer stands.
+            is SessionDetailAction.OnAliasChange -> updateEdit(action.key) {
+                it.copy(alias = action.alias, linkTargetId = null)
+            }
             is SessionDetailAction.OnCategorySelect -> updateEdit(action.key) { it.copy(categoryId = action.categoryId) }
             is SessionDetailAction.OnSaveClick -> save(action.key)
             SessionDetailAction.OnConfirmAllSuggested -> confirmAllSuggested()
@@ -203,6 +243,21 @@ class SessionDetailViewModel(
             SessionDetailAction.OnDismissNewCategory -> _state.update {
                 it.copy(newCategoryForKey = null, newCategoryName = "", newCategoryError = null)
             }
+            is SessionDetailAction.OnSuggestionPick -> pickSuggestion(action.key, action.payeeId)
+            SessionDetailAction.OnConfirmMerge -> confirmMerge()
+            SessionDetailAction.OnKeepSeparate -> keepSeparate()
+            SessionDetailAction.OnDismissMergePrompt -> _state.update {
+                it.copy(mergePrompt = null, mergePromptKey = null)
+            }
+        }
+    }
+
+    /** Taking a suggestion adopts that payee's category too — the point is to become them. */
+    private fun pickSuggestion(key: String, payeeId: Long) {
+        val group = _state.value.groups.find { it.key == key } ?: return
+        val picked = group.suggestions.find { it.payeeId == payeeId } ?: return
+        updateEdit(key) {
+            it.copy(alias = picked.alias, categoryId = picked.categoryId, linkTargetId = payeeId)
         }
     }
 
@@ -218,34 +273,102 @@ class SessionDetailViewModel(
         return PayeeEdit(alias = group.aliasInput.ifBlank { null }, categoryId = group.selectedCategoryId)
     }
 
+    /**
+     * A picked suggestion links straight through — the user chose an existing payee by name, and
+     * confirming the merge they just asked for would be a dialog with one answer. A typed alias
+     * that turns out to be taken is the ambiguous case, and that is what raises the prompt.
+     */
     private fun save(key: String) {
         val group = _state.value.groups.find { it.key == key } ?: return
         val alias = group.aliasInput.trim()
         val categoryId = group.selectedCategoryId
         if (alias.isBlank() || categoryId == null) return
 
+        val linkTarget = edits.value[key]?.linkTargetId
+
         viewModelScope.launch {
-            savingKeys.update { it + key }
-            val saveResult = payees.save(
-                Payee(
-                    rawName = group.rawPayee,
-                    normalizedName = key,
-                    alias = alias,
-                    categoryId = categoryId
-                )
+            // Only looked up when it could matter: a picked suggestion decides on its own.
+            val aliasOwner = if (linkTarget == null) {
+                (payees.findByAlias(alias) as? Result.Success)?.data
+            } else {
+                null
+            }
+            val currentPayeeId = (payees.findByNormalizedName(key) as? Result.Success)?.data?.id
+            val decision = MappingDecider.decide(
+                pickedPayeeId = linkTarget,
+                aliasOwner = aliasOwner,
+                currentPayeeId = currentPayeeId
             )
-            when (saveResult) {
-                is Result.Error -> {
-                    _events.send(SessionDetailEvent.ShowMessage(saveResult.error.toUiText()))
-                }
-                is Result.Success -> {
-                    transactions.assignPayee(sessionId, key, saveResult.data)
-                        .onFailure { _events.send(SessionDetailEvent.ShowMessage(it.toUiText())) }
-                        .onSuccess { completeSessionIfFullyMapped() }
+            when (decision) {
+                is MappingDecision.LinkTo -> link(key, group.rawPayee, decision.payeeId)
+                MappingDecision.SaveOwn -> commitSave(key, group.rawPayee, alias, categoryId)
+                is MappingDecision.AskAboutSameName -> _state.update {
+                    it.copy(
+                        mergePrompt = MergePrompt(decision.alias, decision.payeeId),
+                        mergePromptKey = key
+                    )
                 }
             }
-            savingKeys.update { it - key }
         }
+    }
+
+    private fun confirmMerge() {
+        val current = _state.value
+        val prompt = current.mergePrompt ?: return
+        val key = current.mergePromptKey ?: return
+        val group = current.groups.find { it.key == key } ?: return
+        _state.update { it.copy(mergePrompt = null, mergePromptKey = null) }
+        viewModelScope.launch { link(key, group.rawPayee, prompt.targetPayeeId) }
+    }
+
+    private fun keepSeparate() {
+        val current = _state.value
+        val key = current.mergePromptKey ?: return
+        val group = current.groups.find { it.key == key } ?: return
+        val alias = group.aliasInput.trim()
+        val categoryId = group.selectedCategoryId
+        _state.update { it.copy(mergePrompt = null, mergePromptKey = null) }
+        if (alias.isBlank() || categoryId == null) return
+        viewModelScope.launch { commitSave(key, group.rawPayee, alias, categoryId) }
+    }
+
+    private suspend fun commitSave(
+        key: String,
+        rawPayee: String,
+        alias: String,
+        categoryId: Long
+    ) {
+        savingKeys.update { it + key }
+        when (val saveResult = payees.saveMapping(rawPayee, key, alias, categoryId)) {
+            is Result.Error -> {
+                _events.send(SessionDetailEvent.ShowMessage(saveResult.error.toUiText()))
+            }
+            is Result.Success -> assign(key, saveResult.data)
+        }
+        savingKeys.update { it - key }
+    }
+
+    /**
+     * Links the name to an existing payee, then assigns this session's rows to it — the same
+     * second step a fresh mapping takes, so a merged group counts as mapped straight away rather
+     * than waiting for a re-import to notice.
+     */
+    private suspend fun link(key: String, rawPayee: String, targetPayeeId: Long) {
+        savingKeys.update { it + key }
+        payees.linkToPayee(rawPayee, key, targetPayeeId)
+            .onFailure { _events.send(SessionDetailEvent.ShowMessage(it.toUiText())) }
+            .onSuccess {
+                // The pick has been acted on; a later save of this group is an ordinary save.
+                updateEdit(key) { it.copy(linkTargetId = null) }
+                assign(key, targetPayeeId)
+            }
+        savingKeys.update { it - key }
+    }
+
+    private suspend fun assign(key: String, payeeId: Long) {
+        transactions.assignPayee(sessionId, key, payeeId)
+            .onFailure { _events.send(SessionDetailEvent.ShowMessage(it.toUiText())) }
+            .onSuccess { completeSessionIfFullyMapped() }
     }
 
     private fun confirmAllSuggested() {
@@ -311,7 +434,11 @@ class SessionDetailViewModel(
         }
     }
 
-    private fun PayeeGroup.toUi(edit: PayeeEdit?, saving: Set<String>): PayeeGroupUi {
+    private fun PayeeGroup.toUi(
+        edit: PayeeEdit?,
+        saving: Set<String>,
+        allPayees: List<Payee>
+    ): PayeeGroupUi {
         val status = when {
             isAssigned -> MappingStatus.SAVED
             knownPayee != null -> MappingStatus.SUGGESTED
@@ -337,7 +464,12 @@ class SessionDetailViewModel(
             isSaving = normalizedPayee in saving,
             duplicateCount = duplicateCount,
             excludedDuplicateCount = excludedDuplicateCount,
-            duplicateSelection = duplicateSelection
+            duplicateSelection = duplicateSelection,
+            // Only what the user has typed suggests anything: a suggested or saved group would
+            // otherwise open with its own payee offered back to it as a suggestion.
+            suggestions = AliasSuggester.suggest(allPayees, edit?.alias.orEmpty())
+                .filter { it.id != knownPayee?.id }
+                .map { AliasSuggestionUi(it.id, it.alias, it.categoryId) }
         )
     }
 }

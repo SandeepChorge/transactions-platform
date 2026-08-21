@@ -38,6 +38,7 @@ val coreDatabaseModule = module {
 
     single { get<TransactionsDatabase>().categoryDao() }
     single { get<TransactionsDatabase>().payeeDao() }
+    single { get<TransactionsDatabase>().payeeIdentifierDao() }
     single { get<TransactionsDatabase>().sessionDao() }
     single { get<TransactionsDatabase>().transactionDao() }
     single { get<TransactionsDatabase>().uploadLogDao() }
@@ -47,7 +48,7 @@ val coreDatabaseModule = module {
     single { LegacyDataClaimer(get(), get()) }
 
     single<CategoryLocalDataSource> { RoomCategoryDataSource(get(), get()) }
-    single<PayeeLocalDataSource> { RoomPayeeDataSource(get(), get()) }
+    single<PayeeLocalDataSource> { RoomPayeeDataSource(get(), get(), get(), get()) }
     single<SessionLocalDataSource> { RoomSessionDataSource(get(), get()) }
     single<TransactionLocalDataSource> { RoomTransactionDataSource(get(), get()) }
     single<UploadLogLocalDataSource> { RoomUploadLogDataSource(get(), get()) }

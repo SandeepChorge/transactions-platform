@@ -57,6 +57,8 @@ import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
 import com.madtitan94.transactionsparser.feature.sessions.domain.DuplicateSelection
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.AliasSuggestions
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.MergePromptDialog
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -167,6 +169,15 @@ fun SessionDetailScreen(
 
     if (state.newCategoryForKey != null) {
         NewCategoryDialog(state = state, onAction = onAction)
+    }
+
+    state.mergePrompt?.let { prompt ->
+        MergePromptDialog(
+            prompt = prompt,
+            onConfirmMerge = { onAction(SessionDetailAction.OnConfirmMerge) },
+            onKeepSeparate = { onAction(SessionDetailAction.OnKeepSeparate) },
+            onDismiss = { onAction(SessionDetailAction.OnDismissMergePrompt) }
+        )
     }
 }
 
@@ -371,6 +382,16 @@ private fun PayeeGroupCard(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (group.suggestions.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    AliasSuggestions(
+                        suggestions = group.suggestions,
+                        onPick = {
+                            onAction(SessionDetailAction.OnSuggestionPick(group.key, it))
+                        }
+                    )
+                }
 
                 Spacer(Modifier.height(8.dp))
                 CategoryDropdown(
