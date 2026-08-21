@@ -6,6 +6,7 @@ import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocal
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import androidx.paging.PagingData
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
@@ -107,17 +108,25 @@ class FakeTransactionDataSource : TransactionLocalDataSource {
         MutableStateFlow(transactions.toList()).map { list -> list.filter { it.sessionId == sessionId } }
 
     // Payee Detail reads these; the import path under test here never does.
-    override fun observePagedByPayee(normalizedPayee: String): Flow<PagingData<Transaction>> =
-        MutableStateFlow(PagingData.empty())
+    override fun observePagedByPayee(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<PagingData<Transaction>> = MutableStateFlow(PagingData.empty())
 
-    override fun observePayeeTotals(normalizedPayee: String): Flow<PayeeTotals> =
-        MutableStateFlow(PayeeTotals())
+    override fun observePayeeTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<PayeeTotals> = MutableStateFlow(PayeeTotals())
 
-    override fun observePayeeDayTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
-        MutableStateFlow(emptyList())
+    override fun observePayeeDayTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotal>> = MutableStateFlow(emptyList())
 
-    override fun observePayeeMonthTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
-        MutableStateFlow(emptyList())
+    override fun observePayeeMonthTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotal>> = MutableStateFlow(emptyList())
 
     override suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local> {
         // Ids are assigned on insert, mirroring Room — the detector relies on stored rows having
@@ -201,27 +210,61 @@ class FakeTransactionDataSource : TransactionLocalDataSource {
         }
 }
 
-class FakePayeeDataSource(initial: List<Payee> = emptyList()) : PayeeLocalDataSource {
-    private val payees = initial.toMutableList()
+/** Seeded by statement name, the way `payee_identifiers` keys them. */
+class FakePayeeDataSource(initial: Map<String, Payee> = emptyMap()) : PayeeLocalDataSource {
+    private val byIdentifier = initial.toMutableMap()
 
-    override fun observeAll(): Flow<List<Payee>> = MutableStateFlow(payees.toList())
+    override fun observeByIdentifier(): Flow<Map<String, Payee>> =
+        MutableStateFlow(byIdentifier.toMap())
 
     override fun observeByNormalizedName(normalizedName: String): Flow<Payee?> =
-        MutableStateFlow(payees.find { it.normalizedName == normalizedName })
+        MutableStateFlow(byIdentifier[normalizedName])
 
     override suspend fun findByNormalizedName(normalizedName: String): Result<Payee?, DataError.Local> =
-        Result.Success(payees.find { it.normalizedName == normalizedName })
+        Result.Success(byIdentifier[normalizedName])
 
-    override suspend fun save(payee: Payee): Result<Long, DataError.Local> {
-        val existing = payees.find { it.normalizedName == payee.normalizedName }
-        return if (existing == null) {
-            val saved = payee.copy(id = (payees.maxOfOrNull { it.id } ?: 0L) + 1)
-            payees += saved
-            Result.Success(saved.id)
-        } else {
-            payees.replaceAll { if (it.normalizedName == payee.normalizedName) payee.copy(id = existing.id) else it }
-            Result.Success(existing.id)
-        }
+    override fun observeAll(): Flow<List<Payee>> =
+        MutableStateFlow(byIdentifier.values.distinctBy { it.id }.sortedBy { it.alias })
+
+    override fun observeLinkedIdentifiers(normalizedName: String): Flow<List<PayeeIdentifier>> {
+        val payeeId = byIdentifier[normalizedName]?.id
+            ?: return MutableStateFlow(emptyList())
+        return MutableStateFlow(
+            byIdentifier.filterValues { it.id == payeeId }.map { (name, payee) ->
+                PayeeIdentifier(payeeId = payee.id, rawName = name, normalizedName = name)
+            }
+        )
+    }
+
+    override suspend fun findByAlias(alias: String): Result<Payee?, DataError.Local> =
+        Result.Success(byIdentifier.values.find { it.alias.equals(alias, ignoreCase = true) })
+
+    override suspend fun saveMapping(
+        rawName: String,
+        normalizedName: String,
+        alias: String,
+        categoryId: Long
+    ): Result<Long, DataError.Local> {
+        val id = byIdentifier[normalizedName]?.id
+            ?: ((byIdentifier.values.maxOfOrNull { it.id } ?: 0L) + 1)
+        byIdentifier[normalizedName] = Payee(id = id, alias = alias, categoryId = categoryId)
+        return Result.Success(id)
+    }
+
+    /** Every name the source payee owned moves across, mirroring the merge Room performs. */
+    override suspend fun linkToPayee(
+        rawName: String,
+        normalizedName: String,
+        targetPayeeId: Long
+    ): EmptyResult<DataError.Local> {
+        val target = byIdentifier.values.find { it.id == targetPayeeId }
+            ?: return Result.Error(DataError.Local.UNKNOWN)
+        val sourceId = byIdentifier[normalizedName]?.id
+        byIdentifier.keys
+            .filter { byIdentifier[it]?.id == sourceId }
+            .forEach { byIdentifier[it] = target }
+        byIdentifier[normalizedName] = target
+        return Result.Success(Unit)
     }
 }
 

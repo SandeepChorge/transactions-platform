@@ -8,6 +8,7 @@ import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
+import com.madtitan94.transactionsparser.core.database.entity.PayeeIdentifierEntity
 import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
 import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
 import kotlinx.coroutines.flow.first
@@ -82,18 +83,21 @@ class SessionSummaryQueryTest {
         )
     }
 
-    /** A payee needs a category to hang off, so this makes both. */
+    /** A payee needs a category to hang off and a statement name to be reachable by. */
     private suspend fun insertPayee(): Long {
         val categoryId = database.categoryDao().insert(CategoryEntity(ownerId = OWNER, name = "Food"))
-        return database.payeeDao().insert(
-            PayeeEntity(
+        val payeeId = database.payeeDao().insert(
+            PayeeEntity(ownerId = OWNER, alias = "Corner shop", categoryId = categoryId)
+        )
+        database.payeeIdentifierDao().insert(
+            PayeeIdentifierEntity(
                 ownerId = OWNER,
+                payeeId = payeeId,
                 rawName = "ABC SHOP",
-                normalizedName = "ABC SHOP",
-                alias = "Corner shop",
-                categoryId = categoryId
+                normalizedName = "ABC SHOP"
             )
         )
+        return payeeId
     }
 
     private suspend fun summary() =

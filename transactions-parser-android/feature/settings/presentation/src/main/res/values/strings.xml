@@ -21,6 +21,7 @@
     <string name="recently_deleted_back">Back</string>
     <string name="recently_deleted_category">Category</string>
     <string name="recently_deleted_restore">Restore</string>
+    <string name="recently_deleted_restore_confirm">Restore category \"%1$s\"? It goes back to your categories and can be used for mappings again.</string>
     <string name="recently_deleted_restored">Restored</string>
     <string name="recently_deleted_empty_title">Nothing deleted</string>
     <string name="recently_deleted_empty_description">Anything you delete shows up here so you can bring it back.</string>

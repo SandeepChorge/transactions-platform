@@ -12,15 +12,27 @@ data class Category(
 )
 
 /**
- * A payee mapping created by the user: statement name -> user-known alias + category.
- * [normalizedName] is the dedup key used to auto-map payees on future uploads.
+ * What the user decided about a payee: what to call them and which category they belong to.
+ *
+ * Deliberately holds no statement name. The names live in their own table, one row each, so one
+ * payee can own several — which is what lets two spellings of the same shop become one payee
+ * instead of two. Look one up with [PayeeLocalDataSource.findByNormalizedName].
  */
 data class Payee(
     val id: Long = 0L,
-    val rawName: String,
-    val normalizedName: String,
     val alias: String,
     val categoryId: Long
+)
+
+/**
+ * One statement name a payee answers to. [rawName] is the spelling as printed; [normalizedName]
+ * is what transactions are matched on.
+ */
+data class PayeeIdentifier(
+    val id: Long = 0L,
+    val payeeId: Long,
+    val rawName: String,
+    val normalizedName: String
 )
 
 data class StatementSession(

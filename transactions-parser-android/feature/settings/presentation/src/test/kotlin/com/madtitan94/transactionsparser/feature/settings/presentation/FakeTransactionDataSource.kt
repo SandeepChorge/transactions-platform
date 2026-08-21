@@ -30,10 +30,25 @@ class FakeTransactionDataSource(
     }
 
     override fun observeBySession(sessionId: Long): Flow<List<Transaction>> = unused()
-    override fun observePagedByPayee(normalizedPayee: String): Flow<PagingData<Transaction>> = unused()
-    override fun observePayeeTotals(normalizedPayee: String): Flow<PayeeTotals> = unused()
-    override fun observePayeeDayTotals(normalizedPayee: String): Flow<List<PeriodTotal>> = unused()
-    override fun observePayeeMonthTotals(normalizedPayee: String): Flow<List<PeriodTotal>> = unused()
+    override fun observePagedByPayee(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<PagingData<Transaction>> = unused()
+
+    override fun observePayeeTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<PayeeTotals> = unused()
+
+    override fun observePayeeDayTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotal>> = unused()
+
+    override fun observePayeeMonthTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotal>> = unused()
 
     override suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local> = unused()
 

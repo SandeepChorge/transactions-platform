@@ -9,6 +9,7 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isNull
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
+import com.madtitan94.transactionsparser.core.database.entity.PayeeIdentifierEntity
 import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
 import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
 import kotlinx.coroutines.test.runTest
@@ -91,15 +92,18 @@ class ExportQueryTest {
 
     private suspend fun mapping(alias: String, category: String, payee: String): Long {
         val categoryId = database.categoryDao().insert(CategoryEntity(ownerId = OWNER, name = category))
-        return database.payeeDao().insert(
-            PayeeEntity(
+        val payeeId = database.payeeDao().insert(
+            PayeeEntity(ownerId = OWNER, alias = alias, categoryId = categoryId)
+        )
+        database.payeeIdentifierDao().insert(
+            PayeeIdentifierEntity(
                 ownerId = OWNER,
+                payeeId = payeeId,
                 rawName = payee,
-                normalizedName = payee,
-                alias = alias,
-                categoryId = categoryId
+                normalizedName = payee
             )
         )
+        return payeeId
     }
 
     @Test

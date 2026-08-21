@@ -17,10 +17,17 @@ data class CategoryEntity(
     val deletedAtMillis: Long? = null
 )
 
+/**
+ * The person or business the user knows, independent of what any statement calls them.
+ *
+ * The statement names live in [PayeeIdentifierEntity], one row each — a payee always owns at
+ * least one, and owns several once identifiers have been merged into it. Nothing here is a name
+ * the bank chose, which is what makes merging a re-pointing of rows rather than a rewrite.
+ */
 @Entity(
     tableName = "payees",
     indices = [
-        Index(value = ["ownerId", "normalizedName"], unique = true),
+        Index(value = ["ownerId"]),
         Index(value = ["categoryId"])
     ],
     foreignKeys = [
@@ -35,12 +42,46 @@ data class CategoryEntity(
 data class PayeeEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val ownerId: String,
-    val rawName: String,
-    val normalizedName: String,
     val alias: String,
     val categoryId: Long,
     val isDeleted: Boolean = false,
     val deletedAtMillis: Long? = null
+)
+
+/**
+ * One statement name resolving to one payee — the unit a merge moves.
+ *
+ * [normalizedName] is unique per account, so a statement name can only ever mean one payee;
+ * that uniqueness is what makes auto-mapping on import a single indexed lookup.
+ *
+ * The foreign key is RESTRICT rather than CASCADE on purpose: deleting a payee that still owns
+ * identifiers is a bug in a merge, and the loud version of that bug is a failed delete, not
+ * identifiers disappearing and every future import quietly failing to auto-map.
+ *
+ * No soft-delete columns: an identifier is not something the user deletes on its own. It moves to
+ * another payee or it goes with the payee it belongs to.
+ */
+@Entity(
+    tableName = "payee_identifiers",
+    indices = [
+        Index(value = ["ownerId", "normalizedName"], unique = true),
+        Index(value = ["payeeId"])
+    ],
+    foreignKeys = [
+        ForeignKey(
+            entity = PayeeEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["payeeId"],
+            onDelete = ForeignKey.RESTRICT
+        )
+    ]
+)
+data class PayeeIdentifierEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val ownerId: String,
+    val payeeId: Long,
+    val rawName: String,
+    val normalizedName: String
 )
 
 @Entity(

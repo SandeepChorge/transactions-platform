@@ -6,18 +6,23 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.map
+import androidx.room.withTransaction
+import com.madtitan94.transactionsparser.core.database.TransactionsDatabase
 import com.madtitan94.transactionsparser.core.database.account.ActiveAccountProvider
 import com.madtitan94.transactionsparser.core.database.dao.CategoryDao
 import com.madtitan94.transactionsparser.core.database.dao.PayeeDao
+import com.madtitan94.transactionsparser.core.database.dao.PayeeIdentifierDao
 import com.madtitan94.transactionsparser.core.database.dao.SessionDao
 import com.madtitan94.transactionsparser.core.database.dao.TransactionDao
 import com.madtitan94.transactionsparser.core.database.dao.UploadLogDao
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
+import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
+import com.madtitan94.transactionsparser.core.database.entity.PayeeIdentifierEntity
 import com.madtitan94.transactionsparser.core.database.toCategory
 import com.madtitan94.transactionsparser.core.database.toPayee
+import com.madtitan94.transactionsparser.core.database.toPayeeIdentifier
 import com.madtitan94.transactionsparser.core.database.toPayeeTotals
 import com.madtitan94.transactionsparser.core.database.toPeriodTotal
-import com.madtitan94.transactionsparser.core.database.toPayeeEntity
 import com.madtitan94.transactionsparser.core.database.toSessionEntity
 import com.madtitan94.transactionsparser.core.database.toSessionSummary
 import com.madtitan94.transactionsparser.core.database.toStatementSession
@@ -34,6 +39,7 @@ import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocal
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
@@ -120,13 +126,15 @@ class RoomCategoryDataSource(
 }
 
 class RoomPayeeDataSource(
+    private val database: TransactionsDatabase,
     private val dao: PayeeDao,
+    private val identifiers: PayeeIdentifierDao,
     private val activeAccount: ActiveAccountProvider
 ) : PayeeLocalDataSource {
 
-    override fun observeAll(): Flow<List<Payee>> =
-        activeAccount.flowForOwner(dao::observeAll)
-            .map { entities -> entities.map { it.toPayee() } }
+    override fun observeByIdentifier(): Flow<Map<String, Payee>> =
+        activeAccount.flowForOwner(dao::observeByIdentifier)
+            .map { rows -> rows.associate { it.normalizedName to it.payee.toPayee() } }
 
     override fun observeByNormalizedName(normalizedName: String): Flow<Payee?> =
         activeAccount.flowForOwner { ownerId -> dao.observeByNormalizedName(ownerId, normalizedName) }
@@ -137,15 +145,85 @@ class RoomPayeeDataSource(
             dao.findByNormalizedName(activeAccount.currentOwnerId(), normalizedName)?.toPayee()
         }
 
-    override suspend fun save(payee: Payee): Result<Long, DataError.Local> =
+    override fun observeAll(): Flow<List<Payee>> =
+        activeAccount.flowForOwner(dao::observeAll)
+            .map { rows -> rows.map { it.toPayee() } }
+
+    override fun observeLinkedIdentifiers(normalizedName: String): Flow<List<PayeeIdentifier>> =
+        activeAccount.flowForOwner { ownerId -> identifiers.observeLinkedTo(ownerId, normalizedName) }
+            .map { rows -> rows.map { it.toPayeeIdentifier() } }
+
+    override suspend fun findByAlias(alias: String): Result<Payee?, DataError.Local> =
+        safeSuspendDbCall {
+            dao.findByAlias(activeAccount.currentOwnerId(), alias)?.toPayee()
+        }
+
+    /**
+     * The payee and its first identifier are written in one transaction: a payee with no
+     * identifier is unreachable by every lookup in the app, so a crash between the two writes
+     * would strand a mapping the user believes they made.
+     */
+    override suspend fun saveMapping(
+        rawName: String,
+        normalizedName: String,
+        alias: String,
+        categoryId: Long
+    ): Result<Long, DataError.Local> =
         safeSuspendDbCall {
             val ownerId = activeAccount.currentOwnerId()
-            val existing = dao.findByNormalizedName(ownerId, payee.normalizedName)
-            if (existing == null) {
-                dao.insert(payee.toPayeeEntity(ownerId))
-            } else {
-                dao.update(payee.toPayeeEntity(ownerId).copy(id = existing.id))
-                existing.id
+            database.withTransaction {
+                val existing = dao.findByNormalizedName(ownerId, normalizedName)
+                if (existing == null) {
+                    val payeeId = dao.insert(
+                        PayeeEntity(ownerId = ownerId, alias = alias, categoryId = categoryId)
+                    )
+                    identifiers.insert(
+                        PayeeIdentifierEntity(
+                            ownerId = ownerId,
+                            payeeId = payeeId,
+                            rawName = rawName,
+                            normalizedName = normalizedName
+                        )
+                    )
+                    payeeId
+                } else {
+                    dao.update(existing.copy(alias = alias, categoryId = categoryId))
+                    existing.id
+                }
+            }
+        }
+
+    /**
+     * Identifiers move before the payee is deleted, and both happen in one transaction: their FK
+     * is `RESTRICT`, so a half-finished merge either rolls back whole or fails at the delete —
+     * never leaves a name pointing at a payee that is no longer there.
+     */
+    override suspend fun linkToPayee(
+        rawName: String,
+        normalizedName: String,
+        targetPayeeId: Long
+    ): EmptyResult<DataError.Local> =
+        safeSuspendDbCall {
+            val ownerId = activeAccount.currentOwnerId()
+            database.withTransaction<Unit> {
+                val current = dao.findByNormalizedName(ownerId, normalizedName)
+                when {
+                    current == null -> identifiers.insert(
+                        PayeeIdentifierEntity(
+                            ownerId = ownerId,
+                            payeeId = targetPayeeId,
+                            rawName = rawName,
+                            normalizedName = normalizedName
+                        )
+                    )
+                    // Already this payee's name — linking it again is a no-op, not an error.
+                    current.id == targetPayeeId -> Unit
+                    else -> {
+                        dao.repointIdentifiers(ownerId, sourceId = current.id, targetId = targetPayeeId)
+                        dao.repointTransactions(ownerId, sourceId = current.id, targetId = targetPayeeId)
+                        dao.delete(ownerId, current.id)
+                    }
+                }
             }
         }
 }
@@ -182,23 +260,39 @@ class RoomTransactionDataSource(
      * The Pager is rebuilt when the account changes rather than reused, so an in-flight page
      * load can't deliver the previous account's rows into a list already showing the new one.
      */
-    override fun observePagedByPayee(normalizedPayee: String): Flow<PagingData<Transaction>> =
+    override fun observePagedByPayee(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<PagingData<Transaction>> =
         activeAccount.flowForOwner { ownerId ->
             Pager(PagingConfig(pageSize = PAGE_SIZE, enablePlaceholders = false)) {
-                dao.pagingByPayee(ownerId, normalizedPayee)
+                dao.pagingByPayee(ownerId, normalizedPayee, includeLinkedNames)
             }.flow.map { paging -> paging.map { it.toTransaction() } }
         }
 
-    override fun observePayeeTotals(normalizedPayee: String): Flow<PayeeTotals> =
-        activeAccount.flowForOwner { ownerId -> dao.observePayeeTotals(ownerId, normalizedPayee) }
-            .map { it?.toPayeeTotals() ?: PayeeTotals() }
+    override fun observePayeeTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<PayeeTotals> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observePayeeTotals(ownerId, normalizedPayee, includeLinkedNames)
+        }.map { it?.toPayeeTotals() ?: PayeeTotals() }
 
-    override fun observePayeeDayTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
-        activeAccount.flowForOwner { ownerId -> dao.observePayeeDayTotals(ownerId, normalizedPayee) }
-            .map { rows -> rows.map { it.toPeriodTotal() } }
+    override fun observePayeeDayTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observePayeeDayTotals(ownerId, normalizedPayee, includeLinkedNames)
+        }.map { rows -> rows.map { it.toPeriodTotal() } }
 
-    override fun observePayeeMonthTotals(normalizedPayee: String): Flow<List<PeriodTotal>> =
-        activeAccount.flowForOwner { ownerId -> dao.observePayeeMonthTotals(ownerId, normalizedPayee) }
+    override fun observePayeeMonthTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean
+    ): Flow<List<PeriodTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observePayeeMonthTotals(ownerId, normalizedPayee, includeLinkedNames)
+        }
             .map { rows -> rows.map { it.toPeriodTotal() } }
 
     override suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local> =

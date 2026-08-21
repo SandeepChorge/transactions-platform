@@ -85,13 +85,7 @@ class PayeeGrouperTest {
 
     @Test
     fun `attaches known payee mapping for auto-map suggestions`() {
-        val known = Payee(
-            id = 3L,
-            rawName = "Blinkit",
-            normalizedName = "BLINKIT",
-            alias = "Groceries app",
-            categoryId = 2L
-        )
+        val known = Payee(id = 3L, alias = "Groceries app", categoryId = 2L)
 
         val groups = PayeeGrouper.group(
             transactions = listOf(txn("Blinkit", 20_500, hour = 21)),

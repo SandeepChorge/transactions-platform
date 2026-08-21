@@ -2,6 +2,8 @@ package com.madtitan94.transactionsparser.feature.sessions.presentation.payee
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +22,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +58,8 @@ import com.madtitan94.transactionsparser.core.presentation.formatPaise
 import com.madtitan94.transactionsparser.core.presentation.formatStatementDayHeader
 import com.madtitan94.transactionsparser.core.presentation.formatStatementMonth
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.AliasSuggestions
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.MergePromptDialog
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -128,6 +133,12 @@ private fun PayeeDetailScreen(
                 PayeeHeader(state)
             }
 
+            if (state.showsLinkedIdentifiers) {
+                item(key = "identifiers") {
+                    LinkedIdentifiers(state = state, onAction = onAction)
+                }
+            }
+
             if (!state.isMapped) {
                 item(key = "mapping") {
                     MappingEditor(state = state, onAction = onAction)
@@ -136,8 +147,54 @@ private fun PayeeDetailScreen(
 
             transactionRows(state = state, rows = rows, onAction = onAction)
         }
+
+        state.mergePrompt?.let { prompt ->
+            MergePromptDialog(
+                prompt = prompt,
+                onConfirmMerge = { onAction(PayeeDetailAction.OnConfirmMerge) },
+                onKeepSeparate = { onAction(PayeeDetailAction.OnKeepSeparate) },
+                onDismiss = { onAction(PayeeDetailAction.OnDismissMergePrompt) }
+            )
+        }
     }
 }
+
+/**
+ * The statement names this payee answers to, doubling as the history filter. Shown only when
+ * there is more than one — with a single name the row would say nothing the title doesn't.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LinkedIdentifiers(
+    state: PayeeDetailState,
+    onAction: (PayeeDetailAction) -> Unit
+) {
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        Text(
+            text = stringResource(R.string.payee_linked_identifiers),
+            style = MaterialTheme.typography.titleSmall
+        )
+        Spacer(Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = state.identifierFilter == null,
+                onClick = { onAction(PayeeDetailAction.OnFilterIdentifier(null)) },
+                label = { Text(stringResource(R.string.payee_filter_all)) }
+            )
+            state.linkedIdentifiers.forEach { identifier ->
+                FilterChip(
+                    selected = state.identifierFilter == identifier.normalizedName,
+                    onClick = {
+                        onAction(PayeeDetailAction.OnFilterIdentifier(identifier.normalizedName))
+                    },
+                    label = { Text(identifier.rawName) }
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
 
 /** A run of loaded rows that share a day, as a half-open index range into the paged list. */
 private data class DayBlock(val dayStartMillis: Long, val from: Int, val until: Int)
@@ -330,6 +387,10 @@ private fun MappingEditor(
                 label = { Text(stringResource(R.string.session_alias_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
+            )
+            AliasSuggestions(
+                suggestions = state.aliasSuggestions,
+                onPick = { onAction(PayeeDetailAction.OnSuggestionPick(it)) }
             )
             CategoryPicker(state = state, onAction = onAction)
             TextButton(

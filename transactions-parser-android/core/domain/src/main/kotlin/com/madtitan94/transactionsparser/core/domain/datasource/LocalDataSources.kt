@@ -3,6 +3,7 @@ package com.madtitan94.transactionsparser.core.domain.datasource
 import androidx.paging.PagingData
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
@@ -32,12 +33,51 @@ interface CategoryLocalDataSource {
 }
 
 interface PayeeLocalDataSource {
-    fun observeAll(): Flow<List<Payee>>
+    /** Statement name -> the payee it resolves to, for every mapped name in the account. */
+    fun observeByIdentifier(): Flow<Map<String, Payee>>
     /** Null until this statement name is mapped, so a detail screen can offer to map it. */
     fun observeByNormalizedName(normalizedName: String): Flow<Payee?>
     suspend fun findByNormalizedName(normalizedName: String): Result<Payee?, DataError.Local>
-    /** Inserts or updates by [Payee.normalizedName]; returns the payee id. */
-    suspend fun save(payee: Payee): Result<Long, DataError.Local>
+
+    /** Every payee in the account, alias order — the pool alias typeahead suggests from. */
+    fun observeAll(): Flow<List<Payee>>
+
+    /**
+     * The statement names owned by whoever owns [normalizedName], that name included. Empty for
+     * an unmapped name; one entry for a payee with a single identifier.
+     */
+    fun observeLinkedIdentifiers(normalizedName: String): Flow<List<PayeeIdentifier>>
+
+    /**
+     * The payee already using this alias, matched case-insensitively, or null if it is free.
+     * Drives the prompt that offers to merge rather than create a second payee of the same name.
+     */
+    suspend fun findByAlias(alias: String): Result<Payee?, DataError.Local>
+
+    /**
+     * Points one statement name at an alias and category, creating the payee the first time that
+     * name is mapped and updating whichever payee already owns it after that. Returns the payee id.
+     */
+    suspend fun saveMapping(
+        rawName: String,
+        normalizedName: String,
+        alias: String,
+        categoryId: Long
+    ): Result<Long, DataError.Local>
+
+    /**
+     * Makes [normalizedName] one of [targetPayeeId]'s statement names.
+     *
+     * If the name is not mapped yet it simply joins the target. If it already belongs to another
+     * payee, that payee is merged away: its identifiers and its assigned transactions move to the
+     * target and its now-empty row is deleted, so the history of both spellings ends up under one
+     * payee instead of split across two.
+     */
+    suspend fun linkToPayee(
+        rawName: String,
+        normalizedName: String,
+        targetPayeeId: Long
+    ): EmptyResult<DataError.Local>
 }
 
 interface SessionLocalDataSource {
@@ -54,15 +94,32 @@ interface TransactionLocalDataSource {
      * One payee's transactions across every session, newest first, loaded a page at a time.
      * Keyed on the statement name so an unmapped payee has a history too. Excluded rows are
      * included — the list is where the user sees and reverses that decision.
+     *
+     * [includeLinkedNames] is what makes this the *payee's* history rather than one spelling's:
+     * on by default, it pulls in every other statement name the same payee owns. The detail
+     * screen turns it off to filter down to a single identifier.
      */
-    fun observePagedByPayee(normalizedPayee: String): Flow<PagingData<Transaction>>
+    fun observePagedByPayee(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean = true
+    ): Flow<PagingData<Transaction>>
 
     /** Header aggregates for one payee, computed in SQL over all of their rows. */
-    fun observePayeeTotals(normalizedPayee: String): Flow<PayeeTotals>
+    fun observePayeeTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean = true
+    ): Flow<PayeeTotals>
 
     /** Per-day and per-month subtotals for one payee, for the list's section headers. */
-    fun observePayeeDayTotals(normalizedPayee: String): Flow<List<PeriodTotal>>
-    fun observePayeeMonthTotals(normalizedPayee: String): Flow<List<PeriodTotal>>
+    fun observePayeeDayTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean = true
+    ): Flow<List<PeriodTotal>>
+
+    fun observePayeeMonthTotals(
+        normalizedPayee: String,
+        includeLinkedNames: Boolean = true
+    ): Flow<List<PeriodTotal>>
 
     suspend fun insertAll(transactions: List<Transaction>): EmptyResult<DataError.Local>
     /**

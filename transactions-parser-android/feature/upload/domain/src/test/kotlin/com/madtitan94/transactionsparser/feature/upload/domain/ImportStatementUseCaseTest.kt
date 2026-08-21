@@ -50,9 +50,7 @@ class ImportStatementUseCaseTest {
     @Test
     fun `known payees are auto-mapped on re-upload`() = runTest {
         val payees = FakePayeeDataSource(
-            initial = listOf(
-                Payee(id = 5, rawName = "Blinkit", normalizedName = "BLINKIT", alias = "Groceries", categoryId = 1)
-            )
+            initial = mapOf("BLINKIT" to Payee(id = 5, alias = "Groceries", categoryId = 1))
         )
 
         val result = useCase(payees = payees)("/tmp/x.pdf", "statement.pdf")
