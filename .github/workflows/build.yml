@@ -32,18 +32,24 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          # Positive patterns only. These filters previously carried '!.../**/*.md'
+          # exclusions, which made all three of them match everything: paths-filter ORs
+          # its patterns rather than subtracting the negations, so '!web/**/*.md' matched
+          # every file that is not a markdown file under web/ — including every Android
+          # source file. All three filters had been returning true on every run.
+          #
+          # The cost of dropping them is that a markdown-only change inside a project
+          # directory now runs that project's job. That is a cheap `./gradlew test`,
+          # and far cheaper than a filter that silently does nothing.
           filters: |
             android:
               - 'transactions-parser-android/**'
-              - '!transactions-parser-android/**/*.md'
             web:
               - 'transactions-parser-web/**'
               - 'shared/api-contract/**'
-              - '!transactions-parser-web/**/*.md'
             api:
               - 'services/transactions-api/**'
               - 'shared/api-contract/**'
-              - '!services/transactions-api/**/*.md'
 
   android:
     needs: changes
