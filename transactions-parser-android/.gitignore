@@ -10,6 +10,11 @@
 .DS_Store
 /build
 **/build/
+# Android Studio's "Generate Signed Bundle / APK" writes here, which is outside build/
+# and so not covered by the rule above. These are signed, distributable artifacts.
+# Scoped to the app module rather than **/release/, which would also swallow a
+# src/release/ build-variant source set.
+/app/release/
 /captures
 .externalNativeBuild
 .cxx

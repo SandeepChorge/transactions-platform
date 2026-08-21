@@ -114,6 +114,7 @@ private fun MainScaffold() {
             settingsGraph(
                 navController = navController,
                 appVersion = BuildConfig.VERSION_NAME,
+                appVersionCode = BuildConfig.VERSION_CODE,
                 onOpenProfile = { navController.navigate(ProfileRoute) }
             )
         }
