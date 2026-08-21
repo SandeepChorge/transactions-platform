@@ -79,6 +79,44 @@ cd transactions-parser-android
 
 Run `test` and `verifyRoomMigrations` before calling any phase done. Run the instrumented suite too whenever `core:database` changed.
 
+### Keeping tool output small
+
+The expensive thing in this repo is not reading code — there are only 106 Kotlin files,
+and the whole source tree is small. It is unbounded tool output: a full `logcat` dump,
+raw Gradle chatter, or a screenshot per verification step. Cap it at the source.
+
+- **Never run `adb logcat -d` unbounded.** Always bound and filter:
+
+  ```bash
+  adb -s emulator-5556 logcat -d -t 200 | grep -i transactionsparser
+  ```
+
+- **Filter Gradle.** Full output only when the grep is not enough to explain a failure:
+
+  ```bash
+  ./gradlew test verifyRoomMigrations assembleDebug 2>&1 | grep -E "^e:|FAILED|BUILD"
+  ```
+
+  `--console=plain` also helps when a task's progress bars are the noise.
+
+- **Verifying UI state is not the same as looking at the UI.** To confirm a label,
+  a row count, or whether a control is enabled, dump the hierarchy and grep it —
+  it is far cheaper than an image:
+
+  ```bash
+  adb -s emulator-5556 shell uiautomator dump /sdcard/ui.xml
+  adb -s emulator-5556 shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"'
+  ```
+
+  Use `screencap` only for genuine visual checks — layout, spacing, theming.
+
+- **Read regions, not whole files.** `sed -n '120,180p' path/to/File.kt` over `cat`,
+  for the large ones: `Daos.kt`, `RoomDataSources.kt`, `SessionDetailViewModel.kt`,
+  `SessionDetailScreen.kt`, `PayeeDetailViewModel.kt`, `PayeeDetailScreen.kt`.
+
+- **`/clear` at phase boundaries.** One PR per phase means the previous phase's context
+  has no value in the next one, but it is resent on every turn until cleared.
+
 ### Test conventions that will bite you
 
 - **Unit tests use JUnit 5** (`org.junit.jupiter.api.Test`). Importing `org.junit.Test` gives `Unresolved reference 'Test'`. This includes `core:parsing`, which is easy to assume otherwise.
