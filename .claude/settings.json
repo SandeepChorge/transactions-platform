@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(adb -s emulator-5556 shell input *)",
+      "Bash(adb -s emulator-5556 exec-out screencap *)",
+      "Bash(adb -s emulator-5556 shell am *)",
+      "Bash(adb -s emulator-5556 logcat *)",
+      "Bash(adb -s emulator-5556 shell cat *)",
+      "Bash(adb -s emulator-5556 shell uiautomator *)",
+      "Bash(adb -s emulator-5556 shell dumpsys *)",
+      "Bash(adb -s emulator-5556 shell screencap *)",
+      "Bash(adb -s emulator-5556 shell ls *)",
+      "Bash(adb -s emulator-5556 shell pidof *)",
+      "Bash(adb -s emulator-5556 shell getprop *)",
+      "Bash(adb devices *)",
+
+      "Bash(./gradlew test)",
+      "Bash(./gradlew test *)",
+      "Bash(./gradlew verifyRoomMigrations)",
+      "Bash(./gradlew verifyRoomMigrations *)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(./gradlew assembleDebug *)",
+      "Bash(./gradlew :app:installDebug)",
+      "Bash(./gradlew :app:installDebug *)",
+      "Bash(./gradlew :core:database:connectedDebugAndroidTest)",
+      "Bash(./gradlew :core:database:connectedDebugAndroidTest *)",
+      "Bash(./gradlew :core:database:verifyRoomMigrations)",
+
+      "Bash(git check-ignore *)",
+
+      "mcp__ccd_session__mark_chapter",
+      "mcp__ccd_session_mgmt__search_session_transcripts"
+    ]
+  }
+}
