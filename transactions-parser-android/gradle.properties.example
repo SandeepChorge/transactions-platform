@@ -1,7 +1,15 @@
 # Project-wide Gradle settings.
 # Copy this file to gradle.properties and fill in real values.
 # gradle.properties is gitignored — never commit it.
-org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+#
+# CI does not hand-write gradle.properties; it copies this file and substitutes the
+# client ID, so these settings apply there too. Anything build-affecting belongs here
+# rather than only in a local gradle.properties, or CI silently builds differently.
+#
+# MaxMetaspaceSize is not optional: Gradle's stock 384m is exhausted by a full
+# `assembleRelease bundleRelease` (KSP plus dex merging across 15 modules), and the
+# daemon dies mid-build rather than reporting anything useful about the cause.
+org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
 # org.gradle.parallel=true
 kotlin.code.style=official
 
