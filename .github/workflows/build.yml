@@ -69,9 +69,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      # gradle.properties is gitignored (holds the Google OAuth client ID) — inject it from a repo secret.
+      # gradle.properties is gitignored (it holds the Google OAuth client ID), so CI has to
+      # create it. Derive it from the tracked example rather than writing just the one
+      # property we need: appending only the client ID left CI on Gradle's stock 512m heap
+      # and 384m metaspace while developers build with 2048m/768m, and the release build
+      # died inside the daemon with nothing pointing at the two environments differing.
+      # Anything build-affecting therefore belongs in gradle.properties.example.
       - name: Write gradle.properties
-        run: echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" >> gradle.properties
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          sed "s|^GOOGLE_WEB_CLIENT_ID=.*|GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}|" \
+            gradle.properties.example > gradle.properties
+          if ! grep -q '^GOOGLE_WEB_CLIENT_ID=.\+' gradle.properties; then
+            echo "::error::The GOOGLE_WEB_CLIENT_ID secret is empty. The build would succeed and Google Sign-In would fail at runtime."
+            exit 1
+          fi
       - run: ./gradlew test --no-daemon
 
   # Cheap job: decides whether this run releases anything, and says so out loud.
@@ -155,8 +169,18 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # Same derivation as the `android` job — see the comment there.
       - name: Write gradle.properties
-        run: echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" >> gradle.properties
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          sed "s|^GOOGLE_WEB_CLIENT_ID=.*|GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}|" \
+            gradle.properties.example > gradle.properties
+          if ! grep -q '^GOOGLE_WEB_CLIENT_ID=.\+' gradle.properties; then
+            echo "::error::The GOOGLE_WEB_CLIENT_ID secret is empty. A release build would ship with Google Sign-In broken."
+            exit 1
+          fi
 
       - name: Calculate version
         id: version
