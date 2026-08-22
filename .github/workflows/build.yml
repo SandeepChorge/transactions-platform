@@ -248,17 +248,75 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Distribution is deliberately not wired yet — issue #9 Phases 5 and 6. Both need
-      # console setup and secrets that do not exist, and a half-wired upload step would
-      # fail in a way that reads as a pipeline bug rather than missing configuration.
-      - name: Distribution not yet enabled
-        if: needs.release-gate.outputs.channel != 'none'
+      # Uploaded with firebase-tools directly rather than a third-party action. By this
+      # point the job has already held the signing key, so every additional action running
+      # here is one more supply chain with access to the release path — the CLI keeps that
+      # surface to npm alone.
+      - name: Distribute to Firebase App Distribution
+        if: needs.release-gate.outputs.channel == 'firebase' || needs.release-gate.outputs.channel == 'both'
+        env:
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$FIREBASE_APP_ID" ]; then
+            echo "::error::FIREBASE_APP_ID is not set. Add it before dispatching with channel 'firebase'."
+            exit 1
+          fi
+
+          # A truncated or mis-pasted service account key is indistinguishable from a good
+          # one until the upload dies with a bare 403 that names nothing. Assert the two
+          # fields that must exist, so the failure points at the secret instead.
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/firebase-sa.json"
+          if ! jq -e '.client_email and .private_key' "$RUNNER_TEMP/firebase-sa.json" >/dev/null 2>&1; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is not a service account key — no client_email/private_key. Re-paste the whole JSON file, braces included."
+            exit 1
+          fi
+
+          # The only trace a tester has of what they are running. A static string here
+          # would make two builds of the same version indistinguishable on the device.
+          printf '%s (build %s)\n\nCommit: %s\nBuild:  %s\n' \
+            "$VERSION_NAME" "$VERSION_CODE" "$GITHUB_SHA" "$RUN_URL" \
+            > "$RUNNER_TEMP/release-notes.txt"
+
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+
+          # TODO: pin this to the exact version once the first green run reports it below.
+          # Unpinned is a deliberate stopgap, not an oversight — see docs/ci.md.
+          npx --yes firebase-tools --version
+
+          # 'testers' is the group alias, not its display name. The two can differ, and a
+          # wrong alias fails as "group not found" rather than uploading to nobody.
+          npx --yes firebase-tools appdistribution:distribute \
+            app/build/outputs/apk/release/app-release.apk \
+            --app "$FIREBASE_APP_ID" \
+            --groups testers \
+            --release-notes-file "$RUNNER_TEMP/release-notes.txt"
+
+          {
+            echo ""
+            echo "Distributed \`$VERSION_NAME\` to the **testers** group on Firebase App Distribution."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove Firebase credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"
+
+      # Play is still Phase 6 — it needs the app created in Play Console and one manual AAB
+      # upload before anything automated can target it. Reported rather than silently
+      # skipped, so a 'play' dispatch cannot look like a success that shipped nothing.
+      - name: Play distribution not yet enabled
+        if: needs.release-gate.outputs.channel == 'play' || needs.release-gate.outputs.channel == 'both'
         run: |
           {
             echo ""
-            echo "> Channel \`${{ needs.release-gate.outputs.channel }}\` was requested, but distribution"
-            echo "> is not wired up yet (issue #9, Phases 5 and 6). The signed artifacts above are"
-            echo "> attached to this run — download the AAB from there for the manual first Play upload."
+            echo "> Channel \`${{ needs.release-gate.outputs.channel }}\` requested Play, but the Play"
+            echo "> upload is not wired up yet (issue #9, Phase 6). The signed AAB above is attached"
+            echo "> to this run — download it from there for the manual first Play upload."
           } >> "$GITHUB_STEP_SUMMARY"
 
   web:
