@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "368689223649",
+    "project_id": "transactionparser-502216",
+    "storage_bucket": "transactionparser-502216.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:368689223649:android:0bdade4b46e8ce4282a4a0",
+        "android_client_info": {
+          "package_name": "com.madtitan94.transactionsparser"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "368689223649-rj42c1numvur4gmsek0qpig4tmjvmf51.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZeujYfnwUY7zuIzXMY-JayfHAK99-aFw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "368689223649-rj42c1numvur4gmsek0qpig4tmjvmf51.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
