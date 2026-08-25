@@ -39,9 +39,10 @@ display name. A wrong alias fails as "group not found"; it does not silently upl
 
 The upload uses `firebase-tools` through `npx` rather than a third-party action, because this job
 has already handled the signing key by the time it runs and every extra action is another
-dependency with access to that path. **It is currently unpinned** — the version is printed at the
-start of the step, and should be pinned to that exact value once a run has confirmed it works.
-Unpinned means a broken upstream release can break releases without any change on our side.
+dependency with access to that path. It is **pinned to `15.28.1`**, the version that made the first
+green upload. Without a pin `npx` resolves `latest` on every run, so an upstream release could break
+a release build with no change on our side. Bump it deliberately, and re-run a dispatch after doing
+so — the step still prints `--version` first, which is what confirms the pin took effect.
 
 Unlike `gradle.properties`, `google-services.json` is **committed**. Its contents ship inside every
 APK and the API key in it is restricted by package name plus signing fingerprint, so treating it as

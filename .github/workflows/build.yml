@@ -285,13 +285,14 @@ jobs:
 
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
 
-          # TODO: pin this to the exact version once the first green run reports it below.
-          # Unpinned is a deliberate stopgap, not an oversight — see docs/ci.md.
-          npx --yes firebase-tools --version
+          # Pinned to the version that made the first green upload (run 32868396249). npx
+          # resolves 'latest' otherwise, so an upstream release could break a release run
+          # with no change on our side. Bump deliberately, not by drift.
+          npx --yes firebase-tools@15.28.1 --version
 
           # 'testers' is the group alias, not its display name. The two can differ, and a
           # wrong alias fails as "group not found" rather than uploading to nobody.
-          npx --yes firebase-tools appdistribution:distribute \
+          npx --yes firebase-tools@15.28.1 appdistribution:distribute \
             app/build/outputs/apk/release/app-release.apk \
             --app "$FIREBASE_APP_ID" \
             --groups testers \
