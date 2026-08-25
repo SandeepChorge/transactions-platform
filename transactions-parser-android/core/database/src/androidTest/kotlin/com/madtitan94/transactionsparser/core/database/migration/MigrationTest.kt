@@ -11,8 +11,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Guards the upgrade path for people who already have data. The seed rows below are copied
- * from a real v1 database export, so a regression here means real transactions would be lost.
+ * Guards the upgrade path for people who already have data, one migration at a time.
+ *
+ * The seed rows below have the exact shape of a real v1 export but none of its content — this
+ * repository is public, so payee names, transaction references and UTRs are all made up. See
+ * [MigrationFixtureTest] for the same path driven with a whole database's worth of rows.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -29,15 +32,15 @@ class MigrationTest {
             db.execSQL("INSERT INTO categories VALUES(1,'Grocery')")
             db.execSQL("INSERT INTO categories VALUES(17,'Gas bill')")
             db.execSQL(
-                "INSERT INTO payees VALUES(80,'PRAJAKTA ENTERPRISES','PRAJAKTA ENTERPRISES','Prajakta',1)"
+                "INSERT INTO payees VALUES(80,'HARBOUR ROAD SUPPLY','HARBOUR ROAD SUPPLY','Harbour road',1)"
             )
             db.execSQL(
                 "INSERT INTO sessions VALUES(1,'PhonePe_Statement_Jun2026_Jun2026.pdf','PHONEPE'," +
                     "1783874080900,1780272000000,1782777600000,'COMPLETED')"
             )
             db.execSQL(
-                "INSERT INTO transactions VALUES(3,1,1782644460000,'PRAJAKTA ENTERPRISES'," +
-                    "'PRAJAKTA ENTERPRISES',20000,'DEBIT','T2606281101277674481567','026430027128',80)"
+                "INSERT INTO transactions VALUES(3,1,1782644460000,'HARBOUR ROAD SUPPLY'," +
+                    "'HARBOUR ROAD SUPPLY',20000,'DEBIT','T9900112233445566778899','000111222333',80)"
             )
             db.execSQL(
                 "INSERT INTO upload_logs VALUES(1,'PhonePe_Statement_Jun2026_Jun2026.pdf'," +
@@ -59,8 +62,8 @@ class MigrationTest {
         ).use { cursor ->
             cursor.moveToFirst()
             assertThat(cursor.getLong(0)).isEqualTo(20000L)
-            assertThat(cursor.getString(1)).isEqualTo("PRAJAKTA ENTERPRISES")
-            assertThat(cursor.getString(2)).isEqualTo("T2606281101277674481567")
+            assertThat(cursor.getString(1)).isEqualTo("HARBOUR ROAD SUPPLY")
+            assertThat(cursor.getString(2)).isEqualTo("T9900112233445566778899")
             assertThat(cursor.getLong(3)).isEqualTo(80L)
             assertThat(cursor.getString(4)).isEqualTo(LEGACY_OWNER_ID)
             assertThat(cursor.getInt(5)).isEqualTo(0)
@@ -101,15 +104,15 @@ class MigrationTest {
         helper.createDatabase(TEST_DB, 1).use { db ->
             db.execSQL("INSERT INTO categories VALUES(1,'Grocery')")
             db.execSQL(
-                "INSERT INTO payees VALUES(80,'PRAJAKTA ENTERPRISES','PRAJAKTA ENTERPRISES','Prajakta',1)"
+                "INSERT INTO payees VALUES(80,'HARBOUR ROAD SUPPLY','HARBOUR ROAD SUPPLY','Harbour road',1)"
             )
             db.execSQL(
                 "INSERT INTO sessions VALUES(1,'PhonePe_Statement_Jun2026_Jun2026.pdf','PHONEPE'," +
                     "1783874080900,1780272000000,1782777600000,'COMPLETED')"
             )
             db.execSQL(
-                "INSERT INTO transactions VALUES(3,1,1782644460000,'PRAJAKTA ENTERPRISES'," +
-                    "'PRAJAKTA ENTERPRISES',20000,'DEBIT','T2606281101277674481567','026430027128',80)"
+                "INSERT INTO transactions VALUES(3,1,1782644460000,'HARBOUR ROAD SUPPLY'," +
+                    "'HARBOUR ROAD SUPPLY',20000,'DEBIT','T9900112233445566778899','000111222333',80)"
             )
         }
 
@@ -121,7 +124,7 @@ class MigrationTest {
         ).use { cursor ->
             cursor.moveToFirst()
             assertThat(cursor.getLong(0)).isEqualTo(20000L)
-            assertThat(cursor.getString(1)).isEqualTo("T2606281101277674481567")
+            assertThat(cursor.getString(1)).isEqualTo("T9900112233445566778899")
             // History is left alone: an upgrade must not silently change a total already seen.
             assertThat(cursor.getInt(2)).isEqualTo(0)
             assertThat(cursor.isNull(3)).isEqualTo(true)
@@ -167,7 +170,7 @@ class MigrationTest {
         helper.createDatabase(TEST_DB, 1).use { db ->
             db.execSQL("INSERT INTO categories VALUES(1,'Grocery')")
             db.execSQL(
-                "INSERT INTO payees VALUES(80,'PRAJAKTA ENTERPRISES','PRAJAKTA ENTERPRISES','Prajakta',1)"
+                "INSERT INTO payees VALUES(80,'HARBOUR ROAD SUPPLY','HARBOUR ROAD SUPPLY','Harbour road',1)"
             )
             db.execSQL("INSERT INTO payees VALUES(81,'Blinkit','BLINKIT','Groceries app',1)")
             db.execSQL(
@@ -175,8 +178,8 @@ class MigrationTest {
                     "1783874080900,1780272000000,1782777600000,'COMPLETED')"
             )
             db.execSQL(
-                "INSERT INTO transactions VALUES(3,1,1782644460000,'PRAJAKTA ENTERPRISES'," +
-                    "'PRAJAKTA ENTERPRISES',20000,'DEBIT','T2606281101277674481567','026430027128',80)"
+                "INSERT INTO transactions VALUES(3,1,1782644460000,'HARBOUR ROAD SUPPLY'," +
+                    "'HARBOUR ROAD SUPPLY',20000,'DEBIT','T9900112233445566778899','000111222333',80)"
             )
         }
 
@@ -186,7 +189,7 @@ class MigrationTest {
         db.query("SELECT id, alias, categoryId, ownerId FROM payees ORDER BY id").use { cursor ->
             cursor.moveToFirst()
             assertThat(cursor.getLong(0)).isEqualTo(80L)
-            assertThat(cursor.getString(1)).isEqualTo("Prajakta")
+            assertThat(cursor.getString(1)).isEqualTo("Harbour road")
             assertThat(cursor.getLong(2)).isEqualTo(1L)
             assertThat(cursor.getString(3)).isEqualTo(LEGACY_OWNER_ID)
             cursor.moveToNext()
@@ -201,8 +204,8 @@ class MigrationTest {
             assertThat(cursor.count).isEqualTo(2)
             cursor.moveToFirst()
             assertThat(cursor.getLong(0)).isEqualTo(80L)
-            assertThat(cursor.getString(1)).isEqualTo("PRAJAKTA ENTERPRISES")
-            assertThat(cursor.getString(2)).isEqualTo("PRAJAKTA ENTERPRISES")
+            assertThat(cursor.getString(1)).isEqualTo("HARBOUR ROAD SUPPLY")
+            assertThat(cursor.getString(2)).isEqualTo("HARBOUR ROAD SUPPLY")
             assertThat(cursor.getString(3)).isEqualTo(LEGACY_OWNER_ID)
             cursor.moveToNext()
             assertThat(cursor.getLong(0)).isEqualTo(81L)

@@ -46,15 +46,15 @@ class DatabaseWiringTest {
         helper.createDatabase(TEST_DB, 1).use { db ->
             db.execSQL("INSERT INTO categories VALUES(1,'Grocery')")
             db.execSQL(
-                "INSERT INTO payees VALUES(80,'PRAJAKTA ENTERPRISES','PRAJAKTA ENTERPRISES','Prajakta',1)"
+                "INSERT INTO payees VALUES(80,'HARBOUR ROAD SUPPLY','HARBOUR ROAD SUPPLY','Harbour road',1)"
             )
             db.execSQL(
                 "INSERT INTO sessions VALUES(1,'june.pdf','PHONEPE',1783874080900," +
                     "1780272000000,1782777600000,'COMPLETED')"
             )
             db.execSQL(
-                "INSERT INTO transactions VALUES(3,1,1782644460000,'PRAJAKTA ENTERPRISES'," +
-                    "'PRAJAKTA ENTERPRISES',20000,'DEBIT','T260628','026430027128',80)"
+                "INSERT INTO transactions VALUES(3,1,1782644460000,'HARBOUR ROAD SUPPLY'," +
+                    "'HARBOUR ROAD SUPPLY',20000,'DEBIT','T990011','000111222333',80)"
             )
         }
 
@@ -68,7 +68,7 @@ class DatabaseWiringTest {
         ).use { cursor ->
             cursor.moveToFirst()
             assertThat(cursor.getLong(0)).isEqualTo(20000L)
-            assertThat(cursor.getString(1)).isEqualTo("T260628")
+            assertThat(cursor.getString(1)).isEqualTo("T990011")
         }
     }
 
