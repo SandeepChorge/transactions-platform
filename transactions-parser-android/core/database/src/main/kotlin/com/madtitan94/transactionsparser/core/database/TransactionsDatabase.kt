@@ -2,6 +2,7 @@ package com.madtitan94.transactionsparser.core.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.madtitan94.transactionsparser.core.database.dao.BackupDao
 import com.madtitan94.transactionsparser.core.database.dao.CategoryDao
 import com.madtitan94.transactionsparser.core.database.dao.LegacyOwnershipDao
 import com.madtitan94.transactionsparser.core.database.dao.PayeeDao
@@ -36,4 +37,5 @@ abstract class TransactionsDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun uploadLogDao(): UploadLogDao
     abstract fun legacyOwnershipDao(): LegacyOwnershipDao
+    abstract fun backupDao(): BackupDao
 }

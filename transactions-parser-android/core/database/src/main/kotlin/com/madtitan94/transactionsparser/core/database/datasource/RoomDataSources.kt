@@ -9,6 +9,7 @@ import androidx.paging.map
 import androidx.room.withTransaction
 import com.madtitan94.transactionsparser.core.database.TransactionsDatabase
 import com.madtitan94.transactionsparser.core.database.account.ActiveAccountProvider
+import com.madtitan94.transactionsparser.core.database.dao.BackupDao
 import com.madtitan94.transactionsparser.core.database.dao.CategoryDao
 import com.madtitan94.transactionsparser.core.database.dao.PayeeDao
 import com.madtitan94.transactionsparser.core.database.dao.PayeeIdentifierDao
@@ -18,6 +19,15 @@ import com.madtitan94.transactionsparser.core.database.dao.UploadLogDao
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeEntity
 import com.madtitan94.transactionsparser.core.database.entity.PayeeIdentifierEntity
+import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
+import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
+import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
+import com.madtitan94.transactionsparser.core.database.toBackupCategory
+import com.madtitan94.transactionsparser.core.database.toBackupPayee
+import com.madtitan94.transactionsparser.core.database.toBackupPayeeIdentifier
+import com.madtitan94.transactionsparser.core.database.toBackupSession
+import com.madtitan94.transactionsparser.core.database.toBackupTransaction
+import com.madtitan94.transactionsparser.core.database.toBackupUploadLog
 import com.madtitan94.transactionsparser.core.database.toCategory
 import com.madtitan94.transactionsparser.core.database.toPayee
 import com.madtitan94.transactionsparser.core.database.toPayeeIdentifier
@@ -32,6 +42,13 @@ import com.madtitan94.transactionsparser.core.database.toTransactionExportRow
 import com.madtitan94.transactionsparser.core.database.toTransactionKey
 import com.madtitan94.transactionsparser.core.database.toUploadLog
 import com.madtitan94.transactionsparser.core.database.toUploadLogEntity
+import com.madtitan94.transactionsparser.core.domain.backup.BackupCategory
+import com.madtitan94.transactionsparser.core.domain.backup.BackupSnapshot
+import com.madtitan94.transactionsparser.core.domain.backup.BackupTables
+import com.madtitan94.transactionsparser.core.domain.backup.IdentifierConflict
+import com.madtitan94.transactionsparser.core.domain.backup.RestorePayload
+import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
+import com.madtitan94.transactionsparser.core.domain.datasource.BackupLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
@@ -377,4 +394,214 @@ class RoomUploadLogDataSource(
 
     override suspend fun log(log: UploadLog): EmptyResult<DataError.Local> =
         safeSuspendDbCall { dao.insert(log.toUploadLogEntity(activeAccount.currentOwnerId())) }
+}
+
+class RoomBackupDataSource(
+    private val database: TransactionsDatabase,
+    private val dao: BackupDao,
+    private val categories: CategoryDao,
+    private val activeAccount: ActiveAccountProvider
+) : BackupLocalDataSource {
+
+    override suspend fun snapshot(): Result<BackupSnapshot, DataError.Local> =
+        safeSuspendDbCall {
+            val ownerId = activeAccount.currentOwnerId()
+            // All six reads share one transaction so they see one moment. Without it a payee
+            // could be merged away between reading `payees` and reading `payee_identifiers`,
+            // and the backup would carry an identifier pointing at a payee it does not contain.
+            database.withTransaction {
+                BackupSnapshot(
+                    // Read from the open database rather than from a constant here, so it cannot
+                    // drift from the version Room actually migrated to.
+                    schemaVersion = database.openHelper.readableDatabase.version,
+                    tables = BackupTables(
+                        categories = dao.categories(ownerId).map { it.toBackupCategory() },
+                        payees = dao.payees(ownerId).map { it.toBackupPayee() },
+                        payeeIdentifiers = dao.payeeIdentifiers(ownerId)
+                            .map { it.toBackupPayeeIdentifier() },
+                        sessions = dao.sessions(ownerId).map { it.toBackupSession() },
+                        transactions = dao.transactions(ownerId).map { it.toBackupTransaction() },
+                        uploadLogs = dao.uploadLogs(ownerId).map { it.toBackupUploadLog() }
+                    )
+                )
+            }
+        }
+
+    override suspend fun schemaVersion(): Result<Int, DataError.Local> =
+        safeSuspendDbCall { database.openHelper.readableDatabase.version }
+
+    override suspend fun restore(payload: RestorePayload): Result<RestoreReport, DataError.Local> =
+        safeSuspendDbCall {
+            val ownerId = activeAccount.currentOwnerId()
+            // One transaction around the whole write. A restore that half-succeeded would leave
+            // the user unable to tell what arrived, and running it again would double whatever did.
+            database.withTransaction { write(ownerId, payload) }
+        }
+
+    /**
+     * Writes every table in dependency order, remapping the file's ids to the ones this database
+     * assigns as it goes.
+     *
+     * `ownerId` is stamped here and nowhere else — the file has no owner field to read, so a
+     * restore cannot produce rows belonging to an account that is not signed in.
+     */
+    private suspend fun write(ownerId: String, payload: RestorePayload): RestoreReport {
+        // Read the local side first, before anything is inserted, so these describe what the
+        // account already had rather than what this restore is adding.
+        val localCategories = dao.categories(ownerId)
+        val localPayeeAliases = dao.payees(ownerId).associate { it.id to it.alias }
+        val localIdentifiers = dao.payeeIdentifiers(ownerId).associateBy { it.normalizedName }
+
+        // Matched case-insensitively even though the unique index is exact: the app orders and
+        // presents category names with NOCASE, so ending up with "Food" beside "food" would look
+        // like a bug rather than like two categories.
+        val localByName = localCategories.associateBy { it.name.lowercase() }
+        val reusedCategories = mutableMapOf<Long, Long>()
+        val newCategories = mutableListOf<BackupCategory>()
+        payload.categories.forEach { fileCategory ->
+            val local = localByName[fileCategory.name.lowercase()]
+            if (local == null) {
+                newCategories += fileCategory
+            } else {
+                reusedCategories[fileCategory.id] = local.id
+                // A category the file has in use must not end up in Recently deleted here, or the
+                // payees restored under it would hang off a row the user has already thrown away.
+                if (local.isDeleted && !fileCategory.isDeleted) categories.restore(ownerId, local.id)
+            }
+        }
+        val categoryIds = reusedCategories + newCategories.map { it.id }.zip(
+            dao.insertCategories(
+                newCategories.map {
+                    CategoryEntity(
+                        ownerId = ownerId,
+                        name = it.name,
+                        isDeleted = it.isDeleted,
+                        deletedAtMillis = it.deletedAtMillis
+                    )
+                }
+            )
+        )
+
+        val payeeIds = payload.payees.map { it.id }.zip(
+            dao.insertPayees(
+                payload.payees.map {
+                    PayeeEntity(
+                        ownerId = ownerId,
+                        alias = it.alias,
+                        categoryId = categoryIds.getValue(it.categoryId),
+                        isDeleted = it.isDeleted,
+                        deletedAtMillis = it.deletedAtMillis
+                    )
+                }
+            )
+        ).toMap()
+
+        // A statement name can only mean one payee per account, so where the file disagrees with
+        // what is already here the local mapping stands and the disagreement is reported. Silently
+        // repointing it would change what the user's existing transactions resolve to.
+        val conflicts = mutableListOf<IdentifierConflict>()
+        val newIdentifiers = payload.payeeIdentifiers.filter { fileIdentifier ->
+            val local = localIdentifiers[fileIdentifier.normalizedName]
+            if (local == null) {
+                true
+            } else {
+                conflicts += IdentifierConflict(
+                    normalizedName = fileIdentifier.normalizedName,
+                    keptPayeeAlias = localPayeeAliases[local.payeeId] ?: local.rawName,
+                    filePayeeAlias = payload.payees.first { it.id == fileIdentifier.payeeId }.alias
+                )
+                false
+            }
+        }
+        dao.insertPayeeIdentifiers(
+            newIdentifiers.map {
+                PayeeIdentifierEntity(
+                    ownerId = ownerId,
+                    payeeId = payeeIds.getValue(it.payeeId),
+                    rawName = it.rawName,
+                    normalizedName = it.normalizedName
+                )
+            }
+        )
+
+        val sessionIds = payload.sessions.map { it.id }.zip(
+            dao.insertSessions(
+                payload.sessions.map {
+                    SessionEntity(
+                        ownerId = ownerId,
+                        fileName = it.fileName,
+                        source = it.source,
+                        uploadedAtMillis = it.uploadedAtMillis,
+                        periodStartMillis = it.periodStartMillis,
+                        periodEndMillis = it.periodEndMillis,
+                        status = it.status,
+                        isDeleted = it.isDeleted,
+                        deletedAtMillis = it.deletedAtMillis
+                    )
+                }
+            )
+        ).toMap()
+
+        val newTransactionIds = dao.insertTransactions(
+            payload.transactions.map { row ->
+                TransactionEntity(
+                    ownerId = ownerId,
+                    sessionId = sessionIds.getValue(row.source.sessionId),
+                    dateTimeUtcMillis = row.source.dateTimeUtcMillis,
+                    rawPayee = row.source.rawPayee,
+                    normalizedPayee = row.source.normalizedPayee,
+                    amountPaise = row.source.amountPaise,
+                    type = row.source.type,
+                    transactionRef = row.source.transactionRef,
+                    utr = row.source.utr,
+                    payeeId = row.source.payeeId?.let(payeeIds::getValue),
+                    isDuplicate = row.isDuplicate,
+                    // Only a row this account already had can be pointed at yet; a repeat of
+                    // another row from the same file is linked below, once that row has an id.
+                    duplicateOfTransactionId = row.duplicateOfLocalId,
+                    isExcluded = row.isExcluded,
+                    isDeleted = row.source.isDeleted,
+                    deletedAtMillis = row.source.deletedAtMillis
+                )
+            }
+        )
+        val transactionIds = payload.transactions.map { it.source.id }.zip(newTransactionIds).toMap()
+
+        payload.transactions.forEachIndexed { index, row ->
+            if (row.duplicateOfLocalId != null) return@forEachIndexed
+            val target = row.source.duplicateOfTransactionId?.let(transactionIds::get)
+                ?: return@forEachIndexed
+            dao.linkDuplicate(ownerId, newTransactionIds[index], target)
+        }
+
+        dao.insertUploadLogs(
+            payload.uploadLogs.map {
+                UploadLogEntity(
+                    ownerId = ownerId,
+                    fileName = it.fileName,
+                    uploadedAtMillis = it.uploadedAtMillis,
+                    success = it.success,
+                    source = it.source,
+                    failureReason = it.failureReason,
+                    sessionId = it.sessionId?.let(sessionIds::getValue),
+                    isDeleted = it.isDeleted,
+                    deletedAtMillis = it.deletedAtMillis
+                )
+            }
+        )
+
+        return RestoreReport(
+            categoriesInserted = newCategories.size,
+            categoriesReused = reusedCategories.size,
+            payees = payload.payees.size,
+            payeeIdentifiers = newIdentifiers.size,
+            sessions = payload.sessions.size,
+            transactions = payload.transactions.size,
+            uploadLogs = payload.uploadLogs.size,
+            // Flags the file already carried describe an import that happened elsewhere; what the
+            // user needs to know is how much of this file this account already had.
+            duplicatesFlagged = payload.transactions.count { it.isDuplicate && !it.source.isDuplicate },
+            identifierConflicts = conflicts
+        )
+    }
 }

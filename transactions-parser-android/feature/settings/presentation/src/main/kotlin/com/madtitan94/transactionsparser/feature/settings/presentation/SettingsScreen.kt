@@ -12,9 +12,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.RestoreFromTrash
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
 import com.madtitan94.transactionsparser.core.designsystem.components.ListRow
+import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
+import com.madtitan94.transactionsparser.core.presentation.formatInstantDate
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -70,12 +74,41 @@ fun SettingsRoot(
         )
     }
 
+    // A second launcher rather than a shared one: CreateDocument takes its MIME type at
+    // construction, and offering a backup under text/csv would have the picker suggest the wrong
+    // extension and file apps open it in a spreadsheet.
+    val backupPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(JSON_MIME_TYPE)
+    ) { uri ->
+        viewModel.onAction(
+            if (uri == null) {
+                SettingsAction.OnBackupCancelled
+            } else {
+                SettingsAction.OnBackupDestinationChosen(uri.toString())
+            }
+        )
+    }
+
+    // OpenDocument rather than GetContent: it returns a document the app can re-read and does not
+    // copy the file, and the picker is again the whole permission story.
+    val restorePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        // Backing out of the picker is not an error and needs no message; nothing has started yet.
+        if (uri != null) viewModel.onAction(SettingsAction.OnRestoreSourceChosen(uri.toString()))
+    }
+
     ObserveAsEvents(viewModel.events) { event ->
         when (event) {
             is SettingsEvent.ShowMessage -> scope.launch {
                 snackbarHostState.showSnackbar(event.message.asString(context))
             }
             is SettingsEvent.LaunchExportPicker -> exportPicker.launch(event.suggestedFileName)
+            is SettingsEvent.LaunchBackupPicker -> backupPicker.launch(event.suggestedFileName)
+            // Not restricted to application/json: a backup that arrived by email or cloud drive is
+            // routinely offered as application/octet-stream, and a filter that hides the user's own
+            // file is worse than validating whatever they pick.
+            SettingsEvent.LaunchRestorePicker -> restorePicker.launch(arrayOf("*/*"))
         }
     }
 
@@ -91,6 +124,10 @@ fun SettingsRoot(
 }
 
 private const val CSV_MIME_TYPE = "text/csv"
+private const val JSON_MIME_TYPE = "application/json"
+
+/** Enough to see the shape of the problem; the rest is a number, not a list worth scrolling. */
+private const val MAX_LISTED_CONFLICTS = 5
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,6 +164,37 @@ private fun SettingsScreen(
                 supporting = stringResource(R.string.settings_export_supporting),
                 onClick = { onAction(SettingsAction.OnExportClick) },
                 trailing = if (state.isExporting) {
+                    { CircularProgressIndicator(Modifier.size(20.dp)) }
+                } else {
+                    null
+                }
+            )
+            HorizontalDivider()
+
+            // Separate from Export on purpose. Export produces a report to read; this produces a
+            // file that can restore the app. Folding them into one row would leave the user
+            // guessing which of the two they just got.
+            SettingsRow(
+                icon = Icons.Default.Backup,
+                title = stringResource(R.string.settings_backup),
+                supporting = stringResource(R.string.settings_backup_supporting),
+                onClick = { onAction(SettingsAction.OnBackupClick) },
+                trailing = if (state.isBackingUp) {
+                    { CircularProgressIndicator(Modifier.size(20.dp)) }
+                } else {
+                    null
+                }
+            )
+            HorizontalDivider()
+
+            SettingsRow(
+                icon = Icons.Default.Restore,
+                title = stringResource(R.string.settings_restore),
+                supporting = stringResource(R.string.settings_restore_supporting),
+                onClick = { onAction(SettingsAction.OnRestoreClick) },
+                // Reading and writing are the two stages with nothing to decide, so they show the
+                // same spinner the neighbouring actions use rather than a dialog of their own.
+                trailing = if (state.restore.isBusy) {
                     { CircularProgressIndicator(Modifier.size(20.dp)) }
                 } else {
                     null
@@ -180,7 +248,120 @@ private fun SettingsScreen(
                 onDismiss = { onAction(SettingsAction.OnDismissLogoutConfirm) }
             )
         }
+
+        RestoreDialogs(
+            stage = state.restore,
+            signedInEmail = state.email,
+            onAction = onAction
+        )
     }
+}
+
+/**
+ * The three points in a restore where the user decides something.
+ *
+ * Everything shown here is read from a file that has already been fully validated, so the counts
+ * are facts rather than estimates — and nothing has been written to the database yet at either of
+ * the first two.
+ */
+@Composable
+private fun RestoreDialogs(
+    stage: RestoreStage,
+    signedInEmail: String,
+    onAction: (SettingsAction) -> Unit
+) {
+    when (stage) {
+        is RestoreStage.AccountMismatch -> AppAlertDialog(
+            title = stringResource(R.string.settings_restore_account_title),
+            message = stringResource(
+                R.string.settings_restore_account_message,
+                stage.preview.account?.email.orEmpty(),
+                signedInEmail
+            ),
+            confirmLabel = stringResource(R.string.settings_restore_account_continue),
+            dismissLabel = stringResource(R.string.settings_cancel),
+            onConfirm = { onAction(SettingsAction.OnRestoreAccountAccepted) },
+            onDismiss = { onAction(SettingsAction.OnRestoreDismissed) }
+        )
+
+        is RestoreStage.Confirm -> AppAlertDialog(
+            title = stringResource(R.string.settings_restore_confirm_title),
+            message = stringResource(
+                R.string.settings_restore_confirm_message,
+                formatInstantDate(stage.preview.exportedAtMillis),
+                stage.preview.appVersionName,
+                stage.preview.summary.transactions,
+                stage.preview.summary.payees,
+                stage.preview.summary.payeeIdentifiers,
+                stage.preview.summary.categories,
+                stage.preview.summary.sessions
+            ),
+            confirmLabel = stringResource(R.string.settings_restore_confirm_action),
+            dismissLabel = stringResource(R.string.settings_cancel),
+            onConfirm = { onAction(SettingsAction.OnRestoreConfirmed) },
+            onDismiss = { onAction(SettingsAction.OnRestoreDismissed) }
+        )
+
+        is RestoreStage.Done -> AppAlertDialog(
+            title = stringResource(R.string.settings_restore_done_title),
+            message = restoreReportText(stage.report),
+            confirmLabel = stringResource(R.string.settings_restore_done_action),
+            onConfirm = { onAction(SettingsAction.OnRestoreDismissed) },
+            onDismiss = { onAction(SettingsAction.OnRestoreDismissed) }
+        )
+
+        RestoreStage.Idle, RestoreStage.Reading, RestoreStage.Writing -> Unit
+    }
+}
+
+/**
+ * The result, including every identifier the restore declined to repoint.
+ *
+ * The conflicts are listed rather than counted because each one is a mapping the user will find
+ * behaving differently from the device the backup came from, and a bare number gives them nothing
+ * to go and look at.
+ */
+@Composable
+private fun restoreReportText(report: RestoreReport): String {
+    val summary = stringResource(
+        R.string.settings_restore_done_message,
+        report.transactions,
+        report.duplicatesFlagged,
+        report.payees,
+        report.payeeIdentifiers,
+        report.sessions,
+        report.categoriesInserted,
+        report.categoriesReused
+    )
+    if (report.identifierConflicts.isEmpty()) return summary
+
+    // getString rather than stringResource: joinToString's lambda is not inline, so a composable
+    // call inside it would not compile.
+    val context = LocalContext.current
+    // Restoring a backup onto the account it came from makes every mapped name a conflict, which on
+    // a real account is dozens of them — more than a dialog can show, and past the first few the
+    // list stops telling the reader anything the count does not.
+    val shown = report.identifierConflicts.take(MAX_LISTED_CONFLICTS)
+    val lines = shown.joinToString("\n") { conflict ->
+        context.getString(
+            R.string.settings_restore_done_conflict_line,
+            conflict.normalizedName,
+            conflict.keptPayeeAlias,
+            conflict.filePayeeAlias
+        )
+    } + if (report.identifierConflicts.size > shown.size) {
+        "\n" + context.getString(
+            R.string.settings_restore_done_conflicts_more,
+            report.identifierConflicts.size - shown.size
+        )
+    } else {
+        ""
+    }
+    return summary + stringResource(
+        R.string.settings_restore_done_conflicts,
+        report.identifierConflicts.size,
+        lines
+    )
 }
 
 /**

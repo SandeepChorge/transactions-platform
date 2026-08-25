@@ -1,6 +1,9 @@
 package com.madtitan94.transactionsparser.core.domain.datasource
 
 import androidx.paging.PagingData
+import com.madtitan94.transactionsparser.core.domain.backup.BackupSnapshot
+import com.madtitan94.transactionsparser.core.domain.backup.RestorePayload
+import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
@@ -147,6 +150,45 @@ interface TransactionLocalDataSource {
      * than one that is merely a few seconds old.
      */
     suspend fun exportRows(): Result<List<TransactionExportRow>, DataError.Local>
+}
+
+/**
+ * Reads every table of the active account, whole, for a backup.
+ *
+ * Separate from the per-entity data sources because it wants the opposite of what they offer: they
+ * expose the rows a screen should show, filtered to what is not deleted and shaped for rendering.
+ * A backup wants the rows as stored — soft-deleted ones included, so Settings › Recently deleted
+ * survives a restore, and every column present, so nothing has to be reconstructed later.
+ */
+interface BackupLocalDataSource {
+    /**
+     * One consistent read of all six tables.
+     *
+     * Consistency is the point of doing it in one call: six independent reads could each see a
+     * different moment, and a backup describing a state the database was never in would restore
+     * with dangling references.
+     */
+    suspend fun snapshot(): Result<BackupSnapshot, DataError.Local>
+
+    /**
+     * The schema version this build's database is at, for deciding whether a file is readable.
+     *
+     * Asked of the database rather than held as a constant in the domain layer so it cannot drift
+     * from the version Room actually migrated to.
+     */
+    suspend fun schemaVersion(): Result<Int, DataError.Local>
+
+    /**
+     * Writes a validated backup into the active account, in one transaction.
+     *
+     * Additive: nothing is cleared first, and overlap is handled by the duplicate flags already
+     * decided in [payload] rather than by deleting anything. Every id in the file is remapped to
+     * one this database assigns — the file's ids belong to another database and mean nothing here.
+     *
+     * All or nothing, because a half-restored account is worse than a failed restore: the user
+     * cannot tell which half arrived, and running it again would double what did.
+     */
+    suspend fun restore(payload: RestorePayload): Result<RestoreReport, DataError.Local>
 }
 
 interface UploadLogLocalDataSource {

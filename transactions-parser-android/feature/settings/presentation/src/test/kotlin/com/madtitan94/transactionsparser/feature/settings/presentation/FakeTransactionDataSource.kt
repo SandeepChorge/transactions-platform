@@ -13,12 +13,15 @@ import com.madtitan94.transactionsparser.core.domain.util.Result
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Only [exportRows] matters to Settings; the rest of the interface exists so the class compiles.
- * Anything Settings does not call throws rather than returning a plausible-looking empty value,
- * so a future call that quietly relies on one fails loudly instead of passing for a bad reason.
+ * Only [exportRows] and [findDuplicateKeys] matter to Settings — one for the CSV export, the other
+ * for the duplicate check a restore runs before it writes. The rest of the interface exists so the
+ * class compiles, and throws rather than returning a plausible-looking empty value, so a future
+ * call that quietly relies on one fails loudly instead of passing for a bad reason.
  */
 class FakeTransactionDataSource(
-    private val rows: Result<List<TransactionExportRow>, DataError.Local>
+    private val rows: Result<List<TransactionExportRow>, DataError.Local>,
+    private val duplicateKeys: Result<List<TransactionKey>, DataError.Local> =
+        Result.Success(emptyList())
 ) : TransactionLocalDataSource {
 
     var exportCount = 0
@@ -54,7 +57,7 @@ class FakeTransactionDataSource(
 
     override suspend fun findDuplicateKeys(
         candidates: List<Transaction>
-    ): Result<List<TransactionKey>, DataError.Local> = unused()
+    ): Result<List<TransactionKey>, DataError.Local> = duplicateKeys
 
     override suspend fun setExcluded(id: Long, isExcluded: Boolean): EmptyResult<DataError.Local> = unused()
 

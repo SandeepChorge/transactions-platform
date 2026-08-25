@@ -166,5 +166,17 @@ data class UserSession(
     val photoUrl: String?
 )
 
+/**
+ * The running app's own version, as a value rather than as `BuildConfig`.
+ *
+ * A library module has no `BuildConfig` of the app it is installed in, so anything below `:app`
+ * that needs to record which build produced something — a backup file, for instance — has to be
+ * given it. Bound once in the application's Koin module, where `BuildConfig` does exist.
+ */
+data class AppVersion(
+    val versionName: String,
+    val versionCode: Int
+)
+
 fun normalizePayee(raw: String): String =
     raw.trim().replace(Regex("\\s+"), " ").uppercase()

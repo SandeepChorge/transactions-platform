@@ -6,6 +6,25 @@
     <string name="settings_export">Export</string>
     <string name="settings_export_supporting">Save all transactions as a CSV file</string>
     <string name="settings_export_done">Exported %1$d transactions</string>
+    <string name="settings_backup">Back up all data</string>
+    <string name="settings_backup_supporting">Save a file that can restore this app on another device or account</string>
+    <string name="settings_backup_done">Backed up %1$d transactions</string>
+    <string name="settings_restore">Restore from backup</string>
+    <string name="settings_restore_supporting">Add the contents of a backup file to this account</string>
+    <!-- Names both accounts, because "a different account" is not enough to decide with: the
+         whole point of the feature is moving data between two the user owns. -->
+    <string name="settings_restore_account_title">This backup belongs to another account</string>
+    <string name="settings_restore_account_message">It was exported from %1$s. Restoring it adds that data to %2$s, which is the account signed in here.</string>
+    <string name="settings_restore_account_continue">Continue</string>
+    <string name="settings_restore_confirm_title">Restore this backup?</string>
+    <string name="settings_restore_confirm_message">Exported %1$s from app version %2$s.\n\n%3$d transactions\n%4$d payees across %5$d statement names\n%6$d categories\n%7$d statements\n\nNothing is deleted. Anything this account already has is kept and flagged as a duplicate.</string>
+    <string name="settings_restore_confirm_action">Restore</string>
+    <string name="settings_restore_done_title">Restore complete</string>
+    <string name="settings_restore_done_message">%1$d transactions added, %2$d of which this account already had — those are flagged as duplicates and left out of totals.\n\n%3$d payees, %4$d statement names, %5$d statements.\n%6$d categories created, %7$d already existed and were reused.</string>
+    <string name="settings_restore_done_conflicts">\n\n%1$d statement names already point at a different payee here and were left as they are:\n%2$s</string>
+    <string name="settings_restore_done_conflict_line">• %1$s stays with %2$s (the backup had it as %3$s)</string>
+    <string name="settings_restore_done_conflicts_more">• and %1$d more</string>
+    <string name="settings_restore_done_action">Done</string>
     <string name="settings_recently_deleted">Recently deleted</string>
     <string name="settings_recently_deleted_supporting">Bring back something you removed</string>
     <string name="settings_syncing">Syncing</string>

@@ -3,6 +3,7 @@ package com.madtitan94.transactionsparser.core.presentation
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -38,6 +39,16 @@ fun formatStatementDayHeader(utcMillis: Long): String = dayHeaderFormat.format(s
 
 /** "June 2026" — the month header a day run rolls up into. */
 fun formatStatementMonth(utcMillis: Long): String = monthFormat.format(statementDateTime(utcMillis))
+
+/**
+ * "26 Aug 2026" for a real instant — the moment a file was written, say.
+ *
+ * Deliberately not [formatStatementDate]: that one reads UTC back because a statement timestamp is
+ * a printed wall clock stored as-if-UTC. A wall-clock reading of a genuine instant would show the
+ * wrong day to anyone east or west of Greenwich.
+ */
+fun formatInstantDate(epochMillis: Long): String =
+    dateFormat.format(LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneId.systemDefault()))
 
 fun formatHourOfDay(hour: Int): String {
     val h = hour % 12
