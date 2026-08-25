@@ -12,4 +12,14 @@
     <string name="error_unrecognized_format">This document doesn\'t look like a supported transaction statement. Currently PhonePe and Google Pay statements are supported.</string>
     <string name="error_no_transactions">No transactions were found in this statement.</string>
     <string name="error_storage_failure">The statement was parsed but couldn\'t be saved. Please try again.</string>
+
+    <string name="error_backup_not_a_backup">This file isn\'t a backup, or part of it is missing.</string>
+    <string name="error_backup_unsupported_format">This backup uses format version %1$d, which this app can\'t read.</string>
+    <string name="error_backup_newer_schema">This backup was written by a newer version of the app. Update the app and try again.</string>
+    <string name="error_backup_broken_references">This backup is damaged: %1$d links point at data it doesn\'t contain (for example %2$s).</string>
+    <string name="error_backup_duplicate_ids">This backup is damaged: %1$s contains %2$d repeated ids.</string>
+    <string name="error_backup_unknown_value">This backup contains a value this app doesn\'t recognise: %1$s = %2$s.</string>
+    <string name="error_backup_invalid_value">This backup contains an impossible value in %1$s (%2$s).</string>
+    <string name="error_backup_conflicting_names">This backup maps the name %1$s to two different payees.</string>
+    <string name="error_backup_could_not_read">The file couldn\'t be read. Pick it again, or check it isn\'t larger than 64 MB.</string>
 </resources>

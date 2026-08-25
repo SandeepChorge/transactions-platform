@@ -3,8 +3,14 @@ package com.madtitan94.transactionsparser
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.madtitan94.transactionsparser.core.database.account.LegacyDataClaimer
+import com.madtitan94.transactionsparser.core.domain.backup.CreateBackupUseCase
+import com.madtitan94.transactionsparser.core.domain.backup.ReadBackupUseCase
+import com.madtitan94.transactionsparser.core.domain.backup.RestoreBackupUseCase
+import com.madtitan94.transactionsparser.core.domain.datasource.DocumentReader
 import com.madtitan94.transactionsparser.core.domain.datasource.DocumentWriter
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionStorage
+import com.madtitan94.transactionsparser.core.domain.model.AppVersion
+import com.madtitan94.transactionsparser.core.presentation.AndroidDocumentReader
 import com.madtitan94.transactionsparser.core.presentation.AndroidDocumentWriter
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -55,4 +61,11 @@ val appModule = module {
     // Bound here rather than in core:presentation so that module stays free of a DI framework;
     // :app is already where the cross-cutting singletons are assembled.
     single<DocumentWriter> { AndroidDocumentWriter(androidContext()) }
+    single<DocumentReader> { AndroidDocumentReader(androidContext()) }
+    // BuildConfig belongs to the application, so this is the only place that can supply it —
+    // a library module has no BuildConfig of the app it ends up inside.
+    single { AppVersion(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE) }
+    factory { CreateBackupUseCase(get(), get(), get(), get()) }
+    factory { ReadBackupUseCase(get(), get(), get()) }
+    factory { RestoreBackupUseCase(get(), get()) }
 }

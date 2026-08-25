@@ -4,6 +4,7 @@ import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSo
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.duplicate.DuplicateDetector
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession

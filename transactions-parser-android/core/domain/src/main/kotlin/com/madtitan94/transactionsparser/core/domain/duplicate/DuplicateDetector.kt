@@ -1,4 +1,4 @@
-package com.madtitan94.transactionsparser.feature.upload.domain
+package com.madtitan94.transactionsparser.core.domain.duplicate
 
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
@@ -11,6 +11,11 @@ import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
  *
  * Pure by design: it takes the existing keys as an argument rather than querying, so every rule
  * below is testable without a database.
+ *
+ * Lives here rather than in `feature:upload` because two features now import transactions — a PDF
+ * statement and a backup file — and they must agree on what counts as a repeat. A restore that
+ * deduplicated differently from an upload would leave the same rows counted twice depending on how
+ * they arrived.
  */
 object DuplicateDetector {
 

@@ -488,6 +488,73 @@ interface UploadLogDao {
     suspend fun insert(log: UploadLogEntity)
 }
 
+/**
+ * Whole-table reads for a backup.
+ *
+ * Every query here deliberately omits the `isDeleted = 0` filter that the feature DAOs apply. A
+ * backup is a copy of the database, not of what a screen shows: dropping soft-deleted rows would
+ * quietly empty Settings › Recently deleted on the far side of a restore, and there would be no
+ * way to notice until someone went looking for something they deleted.
+ *
+ * Ordered by id so two backups of the same data produce the same file, which is what makes a
+ * round-trip test meaningful and a diff of two backups readable.
+ */
+@Dao
+interface BackupDao {
+    @Query("SELECT * FROM categories WHERE ownerId = :ownerId ORDER BY id")
+    suspend fun categories(ownerId: String): List<CategoryEntity>
+
+    @Query("SELECT * FROM payees WHERE ownerId = :ownerId ORDER BY id")
+    suspend fun payees(ownerId: String): List<PayeeEntity>
+
+    @Query("SELECT * FROM payee_identifiers WHERE ownerId = :ownerId ORDER BY id")
+    suspend fun payeeIdentifiers(ownerId: String): List<PayeeIdentifierEntity>
+
+    @Query("SELECT * FROM sessions WHERE ownerId = :ownerId ORDER BY id")
+    suspend fun sessions(ownerId: String): List<SessionEntity>
+
+    @Query("SELECT * FROM transactions WHERE ownerId = :ownerId ORDER BY id")
+    suspend fun transactions(ownerId: String): List<TransactionEntity>
+
+    @Query("SELECT * FROM upload_logs WHERE ownerId = :ownerId ORDER BY id")
+    suspend fun uploadLogs(ownerId: String): List<UploadLogEntity>
+
+    // The restore side. Every insert returns the ids SQLite assigned, in the order the rows were
+    // given, because that mapping from the file's ids to this database's is the whole job — the
+    // file's ids belong to another database and every reference between the tables has to be
+    // rebuilt against these.
+
+    @Insert
+    suspend fun insertCategories(rows: List<CategoryEntity>): List<Long>
+
+    @Insert
+    suspend fun insertPayees(rows: List<PayeeEntity>): List<Long>
+
+    @Insert
+    suspend fun insertPayeeIdentifiers(rows: List<PayeeIdentifierEntity>): List<Long>
+
+    @Insert
+    suspend fun insertSessions(rows: List<SessionEntity>): List<Long>
+
+    @Insert
+    suspend fun insertTransactions(rows: List<TransactionEntity>): List<Long>
+
+    @Insert
+    suspend fun insertUploadLogs(rows: List<UploadLogEntity>): List<Long>
+
+    /**
+     * Points a restored duplicate at the row it repeats, once both have real ids.
+     *
+     * Has to be a second pass: the reference is to another row in the same table, so at insert time
+     * the row it names may not exist yet.
+     */
+    @Query(
+        "UPDATE transactions SET duplicateOfTransactionId = :targetId " +
+            "WHERE id = :id AND ownerId = :ownerId"
+    )
+    suspend fun linkDuplicate(ownerId: String, id: Long, targetId: Long)
+}
+
 @Dao
 interface LegacyOwnershipDao {
     @Query("UPDATE categories SET ownerId = :ownerId WHERE ownerId = :legacyOwnerId")

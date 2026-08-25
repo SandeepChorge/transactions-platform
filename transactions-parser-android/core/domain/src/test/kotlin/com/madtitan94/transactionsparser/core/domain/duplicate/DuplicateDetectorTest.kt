@@ -1,4 +1,4 @@
-package com.madtitan94.transactionsparser.feature.upload.domain
+package com.madtitan94.transactionsparser.core.domain.duplicate
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
