@@ -307,18 +307,68 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/firebase-sa.json"
 
-      # Play is still Phase 6 — it needs the app created in Play Console and one manual AAB
-      # upload before anything automated can target it. Reported rather than silently
-      # skipped, so a 'play' dispatch cannot look like a success that shipped nothing.
-      - name: Play distribution not yet enabled
+      # Uploaded with fastlane supply rather than a third-party publish action, for the same
+      # reason the Firebase step uses the CLI: this job has already decoded and used the
+      # signing key, so anything else executing here is one more supply chain sitting on the
+      # release path. One pinned gem, bumped deliberately rather than by drift.
+      - name: Upload to Play internal track
         if: needs.release-gate.outputs.channel == 'play' || needs.release-gate.outputs.channel == 'both'
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          set -euo pipefail
+
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not set. Add it before dispatching with channel 'play'."
+            exit 1
+          fi
+
+          # Same assertion as the Firebase step, for the same reason: a truncated key fails
+          # as a bare 403 that names nothing. Point at the secret instead.
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/play-sa.json"
+          if ! jq -e '.client_email and .private_key' "$RUNNER_TEMP/play-sa.json" >/dev/null 2>&1; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not a service account key — no client_email/private_key. Re-paste the whole JSON file, braces included."
+            exit 1
+          fi
+
+          # supply reads changelogs from <metadata_path>/android/<lang>/changelogs/<code>.txt.
+          # Built here rather than committed so the notes carry the commit and the run, which
+          # is the only trace of what a given build actually contains.
+          CHANGELOG_DIR="$RUNNER_TEMP/play-metadata/android/en-US/changelogs"
+          mkdir -p "$CHANGELOG_DIR"
+          printf '%s (build %s)\n\nCommit: %s\nBuild:  %s\n' \
+            "$VERSION_NAME" "$VERSION_CODE" "$GITHUB_SHA" "$RUN_URL" \
+            > "$CHANGELOG_DIR/$VERSION_CODE.txt"
+
+          gem install fastlane -v 2.228.0 --no-document
+          fastlane supply --version
+
+          # The skip_upload_* flags are not optional tidiness. supply's default is to sync
+          # store metadata, images and screenshots from disk — and with none present that
+          # syncs *emptiness* over the live listing. Only the changelog is opted in.
+          fastlane supply \
+            --package_name com.madtitan94.transactionsparser \
+            --aab app/build/outputs/bundle/release/app-release.aab \
+            --track internal \
+            --release_status completed \
+            --json_key "$RUNNER_TEMP/play-sa.json" \
+            --metadata_path "$RUNNER_TEMP/play-metadata" \
+            --skip_upload_apk true \
+            --skip_upload_metadata true \
+            --skip_upload_images true \
+            --skip_upload_screenshots true
+
           {
             echo ""
-            echo "> Channel \`${{ needs.release-gate.outputs.channel }}\` requested Play, but the Play"
-            echo "> upload is not wired up yet (issue #9, Phase 6). The signed AAB above is attached"
-            echo "> to this run — download it from there for the manual first Play upload."
+            echo "Uploaded \`$VERSION_NAME\` (code \`$VERSION_CODE\`) to the Play **internal** track."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove Play credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/play-sa.json"
 
   web:
     needs: changes
