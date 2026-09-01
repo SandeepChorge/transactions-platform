@@ -318,6 +318,8 @@ jobs:
           VERSION_NAME: ${{ steps.version.outputs.name }}
           VERSION_CODE: ${{ steps.version.outputs.code }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # No analytics call-home from the job that holds the signing key.
+          FASTLANE_OPT_OUT_USAGE: "1"
         run: |
           set -euo pipefail
 
@@ -334,10 +336,13 @@ jobs:
             exit 1
           fi
 
-          # supply reads changelogs from <metadata_path>/android/<lang>/changelogs/<code>.txt.
+          # supply reads changelogs from <metadata_path>/<lang>/changelogs/<code>.txt. The
+          # 'android' segment people expect here belongs to supply's *default* path
+          # (fastlane/metadata/android) — appending it to an explicit --metadata_path makes
+          # supply read 'android' as a language code, and Play rejects it as Invalid request.
           # Built here rather than committed so the notes carry the commit and the run, which
           # is the only trace of what a given build actually contains.
-          CHANGELOG_DIR="$RUNNER_TEMP/play-metadata/android/en-US/changelogs"
+          CHANGELOG_DIR="$RUNNER_TEMP/play-metadata/en-US/changelogs"
           mkdir -p "$CHANGELOG_DIR"
           printf '%s (build %s)\n\nCommit: %s\nBuild:  %s\n' \
             "$VERSION_NAME" "$VERSION_CODE" "$GITHUB_SHA" "$RUN_URL" \
@@ -347,7 +352,12 @@ jobs:
           # default gem dir (/var/lib/gems) is not writable by the runner user, and the
           # alternative — sudo — would install a gem as root onto a job that has just
           # handled the signing key. Contained here, and gone with the runner.
+          # GEM_PATH is set alongside GEM_HOME, not decoration: with GEM_HOME alone the
+          # system gem dir stays on RubyGems' search path and it activates the highest
+          # fastlane it can see — the runner's preinstalled one — so the -v pin silently
+          # does nothing. Narrowing GEM_PATH is what makes the pinned version the only one.
           export GEM_HOME="$RUNNER_TEMP/gems"
+          export GEM_PATH="$GEM_HOME"
           export PATH="$GEM_HOME/bin:$PATH"
           gem install fastlane -v 2.228.0 --no-document
           fastlane supply --version
