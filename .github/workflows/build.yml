@@ -343,6 +343,12 @@ jobs:
             "$VERSION_NAME" "$VERSION_CODE" "$GITHUB_SHA" "$RUN_URL" \
             > "$CHANGELOG_DIR/$VERSION_CODE.txt"
 
+          # Installed into a run-scoped GEM_HOME rather than the system one. The runner's
+          # default gem dir (/var/lib/gems) is not writable by the runner user, and the
+          # alternative — sudo — would install a gem as root onto a job that has just
+          # handled the signing key. Contained here, and gone with the runner.
+          export GEM_HOME="$RUNNER_TEMP/gems"
+          export PATH="$GEM_HOME/bin:$PATH"
           gem install fastlane -v 2.228.0 --no-document
           fastlane supply --version
 
