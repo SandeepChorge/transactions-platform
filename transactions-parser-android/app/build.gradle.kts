@@ -65,11 +65,18 @@ android {
             // still works. CI cannot reach that state — see the guard below.
             signingConfig = signingConfigs.findByName("release")
 
-            // Stays false deliberately (issue #9 Phase 7), not by default. PdfBox-Android
-            // resolves font and CMap resources by name and the nine @Serializable navigation
-            // routes are resolved reflectively; both break under R8 at runtime only. R8 is
-            // enabled as its own phase, once internal testing exists to validate it.
-            isMinifyEnabled = false
+            // R8 on as of issue #9 Phase 7. The hazards it was held back for are all
+            // runtime-only — PdfBox-Android resolving fonts and CMaps by name, and the
+            // eighteen @Serializable classes (nine navigation routes, nine backup-format
+            // models) reached through generated serializers. None of them can fail this
+            // build; they fail on a device or, worse, in a backup file. The keep rules
+            // are in proguard-rules.pro and the phase's verify step is what proves them.
+            isMinifyEnabled = true
+
+            // Only meaningful with minification on, and it is the half that touches
+            // PdfBox's shipped assets least: resource shrinking works on res/, while
+            // PdfBox reads its fonts and CMaps out of assets/, which is not shrunk.
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

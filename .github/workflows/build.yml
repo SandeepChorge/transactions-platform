@@ -229,6 +229,28 @@ jobs:
             transactions-parser-android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
+      # mapping.txt is the only thing that can turn an obfuscated stack trace from a
+      # published build back into source, and R8 does not write it twice — once this
+      # runner is torn down it is gone for good. Archived as its own artifact rather than
+      # folded into the release one so it can be fetched without the 23 MB AAB.
+      #
+      # if-no-files-found: error doubles as the guard that R8 is still on: if someone sets
+      # isMinifyEnabled back to false, no mapping is produced and this step fails loudly,
+      # instead of the run going green and shipping an unshrunk build unnoticed.
+      #
+      # The .aab carries its own copy in BUNDLE-METADATA, so Play deobfuscates Play-channel
+      # crashes without this. The Firebase APK channel carries nothing — this artifact is
+      # the only mapping that exists for a build a tester installs from an invite.
+      - name: Archive R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-${{ steps.version.outputs.name }}
+          path: transactions-parser-android/app/build/outputs/mapping/release/
+          if-no-files-found: error
+          # The ceiling GitHub allows. A crash report can easily arrive months after the
+          # build that produced it, and the default 90 is already the maximum here.
+          retention-days: 90
+
       - name: Record version and checksums
         run: |
           set -euo pipefail

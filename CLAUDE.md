@@ -2,27 +2,50 @@
 
 Operational context for anyone — human or agent — picking up work here cold. Edit freely; this is meant to be corrected as things change.
 
-This file covers **how to work here**. It deliberately does not describe *what* is being built or *what is left* — that lives in the tracking issue below, which is the single source of truth.
+This file covers **how to work here**. It deliberately does not describe *what* is being built or *what is left* — that lives in the tracking issues below, which are the single source of truth.
 
 ---
 
 ## Where the work is tracked
 
-**[Issue #1 — Transactions Parser: V2 Improvements](https://github.com/SandeepChorge/transactions-platform/issues/1)**
+Three issues, each the single source of truth for its own scope. None of them describes
+*how* to work here — that is this file's job, and the split is deliberate.
 
-Read it first. It carries:
+| Issue | Scope | State |
+|---|---|---|
+| [#1 — V2 Improvements](https://github.com/SandeepChorge/transactions-platform/issues/1) | The 8 original app requirements, Phase 0 → Phase 5 | **Closed 2026-08-31.** History, not a work list |
+| [#9 — Versioning, Signing & Distribution](https://github.com/SandeepChorge/transactions-platform/issues/9) | The release pipeline, Phase 1 → Phase 8 | Open — Phase 6 nearly done, Phase 7–8 not started |
+| [#16 — Dashboard & Insights (V3)](https://github.com/SandeepChorge/transactions-platform/issues/16) | Dashboard, search, budgets, widgets, Phase 6 → Phase 12 | Open — not started |
 
-- All 8 original requirements, verbatim, in Part 1
-- The open technical questions and their answers, in Part 2
-- A six-phase plan (Phase 0 → Phase 5) with a checkbox per item
-- **Deviations recorded inline on the items they belong to** — where the implementation departs from the requirement text, and why
-- A **"Done in #N"** paragraph closing each finished phase, with test counts and what was verified on a real device
+**Read #9 and #16 before starting anything.** #1 is worth reading for context on why the
+app is shaped the way it is, but every box in it is ticked and shipped.
 
-Ticked boxes mean shipped and merged. Phase 5 (payee merge / multi-identifier support) is the only phase still open.
+> **Phase numbers collide across issues.** #9 counts 1→8 and #16 counts 6→12, so "Phase 7"
+> is R8 shrinking in one and the dashboard settings screen in the other. Always say which
+> issue a phase belongs to.
 
-One pull request per phase — #2, #3, #4, #5, #6 — each following the same description pattern: an opening tie to #1, then `Summary`, `What this affects`, `What was asked for, and what we built instead`, `What we achieved`, `Test plan`, `Follow-up`. Read the most recent one before writing a new one.
+All three carry the same structure, and it is worth matching when you add to them:
+requirements verbatim first, then the decisions taken and why, then a phased plan with a
+checkbox per item. **Deviations are recorded inline on the item they belong to** — where
+the implementation departs from the requirement text, and why — and a **"Done in #N"**
+paragraph closes each finished phase with test counts and what was verified on a real
+device. Recording what was *not* done, and what is proven versus merely merged, matters
+more here than a tidy checklist.
 
-> **Known stale:** issue #1 still ends with a *Process* section saying "No commits or pushes from me — you commit and push yourself." That is no longer how this works; the current convention is to commit, open the PR, and tick the issue checklist as one wrap-up step.
+### Convention for finishing a phase
+
+One pull request per phase. Commit, open the PR, and tick the issue's checklist as one
+wrap-up step — do not leave the ticking for later.
+
+PR descriptions follow the pattern set by #2–#7 and continued in #10–#21: an opening tie
+to the issue, then `Summary`, `What this affects`, `What was asked for, and what we built
+instead`, `What we achieved`, `Test plan`, `Follow-up`. Read the most recent PR before
+writing a new one.
+
+A merged PR is not a finished phase. The Play upload step merged green in #19 and then
+failed three CI runs in a row on things no local check could have caught — gem
+permissions, a metadata path, and a version pin that silently did nothing. Fixes landed
+in #20 and #21. Tick a box against a verified run, not against a merge.
 
 ---
 
@@ -58,7 +81,7 @@ ANDROID_SERIAL=emulator-5556 ./gradlew :core:database:connectedDebugAndroidTest
 adb -s emulator-5556 shell am start -n com.madtitan94.transactionsparser/.MainActivity
 ```
 
-> emulator-5556 currently holds a **600-row synthetic statement dated Jan–Jul 2024**, imported to exercise deep pagination in Phase 4. That is test data. The real statements are May/June 2026 — the fixture was dated 2024 specifically to keep the two apart. It was never committed to the repo.
+> emulator-5556 currently holds a **600-row synthetic statement dated Jan–Jul 2024**, imported to exercise deep pagination in #1's Phase 4. That is test data. The real statements are May/June 2026 — the fixture was dated 2024 specifically to keep the two apart. It was never committed to the repo.
 
 ---
 
@@ -81,7 +104,7 @@ Run `test` and `verifyRoomMigrations` before calling any phase done. Run the ins
 
 ### Keeping tool output small
 
-The expensive thing in this repo is not reading code — there are only 106 Kotlin files,
+The expensive thing in this repo is not reading code — there are only ~126 Kotlin files,
 and the whole source tree is small. It is unbounded tool output: a full `logcat` dump,
 raw Gradle chatter, or a screenshot per verification step. Cap it at the source.
 
@@ -127,7 +150,7 @@ raw Gradle chatter, or a screenshot per verification step. Cap it at the source.
 
 Existing local data must never be lost on upgrade — that is requirement 7, and there is machinery in place to enforce it. Every schema change needs all four of these:
 
-1. Bump the version in `TransactionsDatabase.kt`. The exported schema history lands in `core/database/schemas/` (currently `1.json`, `2.json`, `3.json`) and **is committed**.
+1. Bump the version in `TransactionsDatabase.kt`. The exported schema history lands in `core/database/schemas/` (currently `1.json` through `4.json`) and **is committed**.
 2. Write the `Migration` in `core/database/.../migration/Migrations.kt` and add it to `ALL_MIGRATIONS`.
 3. Add a `MigrationTest` case using Room's `MigrationTestHelper` — `MigrationTest.kt` is the template, and it checks data survives, not just that the migration runs.
 4. Run `./gradlew verifyRoomMigrations`. It diffs the schema history against the registered migrations and fails the build if a version pair has no path. It is wired into `check`, so CI blocks on it too.
@@ -145,7 +168,9 @@ Two traps worth knowing:
 - **`isDuplicate` is a system fact; `isExcluded` is a user decision.** `isExcluded` is initialized from `isDuplicate` at import and then owned by the user. Aggregates filter on `isExcluded`, never on `isDuplicate` — that separation is what lets a user's "count this anyway" override survive a later import.
 - **Account scoping is enforced in the data layer, not above it.** Every method in `core/database/.../RoomDataSources.kt` resolves `ownerId` through `ActiveAccountProvider` internally. ViewModels and use cases neither pass it nor filter on it, and must not start.
 - **Soft delete is only wired up for categories.** All five tables carry `isDeleted` / `deletedAtMillis`, but only `CategoryDao` writes them. Cancelling a session flips its status and leaves `isDeleted = 0`, so a cancelled session is **not** recoverable from Settings › Recently deleted.
-- **A payee is currently identified by its statement name, not by a person.** `PayeeDetailRoute` is keyed on `normalizedPayee`, and the history query is `WHERE normalizedPayee = :x`. That was a deliberate Phase 3 choice — a `PayeeEntity` only exists once an alias and category are saved, so `payeeId` is null for exactly the unmapped payees the detail screen has to support. **It must change in Phase 5.** The moment one payee owns several identifiers, that query shows one identifier's history and silently hides the rest. The change is contained — one route class, four queries, two call sites — but it is a correctness bug, not a polish item, if it is forgotten. Recorded on the Phase 3 checklist item in issue #1.
+- **A payee is still identified by its statement name — and that is now correct, not a shortcut.** `PayeeDetailRoute` is keyed on `normalizedPayee`, and the payee-scoped queries match on names rather than on `transactions.payeeId`. Matching on `payeeId` would look tidier and would be a regression: a row imported before its payee was ever mapped keeps a null `payeeId`, and would drop out of that payee's own history. #1's Phase 5 fixed the real bug — a merged payee hiding its other identifiers' history — by joining siblings in through `payee_identifiers`, not by re-keying on the mapping.
+  - **Any new payee-scoped query must use the `SAME_PAYEE_NAMES` predicate** in `core/database/.../dao/Daos.kt`, never a bare `normalizedPayee = :x`. The bare form silently shows one identifier of a merged payee and hides the rest — which is exactly the bug that was fixed. Its `:includeLinkedNames` flag collapses it back to one name for the detail screen's per-identifier filter, so one parameterised predicate serves both and a filtered header cannot drift from the list beneath it.
+  - The two remaining bare matches (`setDuplicatesExcluded`, `assignPayee`) are session-scoped *writes* on one exact name. Those are meant to be exact — do not "fix" them.
 - **Exclusions belong in aggregates, not in JOIN conditions.** Putting `AND t.isExcluded = 0` in a `LEFT JOIN` collapses an all-excluded parent to zero rows and makes a successful import look like a failed one. Use conditional aggregation, and wrap `SUM` in `IFNULL` — a `LEFT JOIN` with no matches yields NULL from `SUM` (but 0 from `COUNT`), which fails to bind to a non-null `Int`.
 
 ---
