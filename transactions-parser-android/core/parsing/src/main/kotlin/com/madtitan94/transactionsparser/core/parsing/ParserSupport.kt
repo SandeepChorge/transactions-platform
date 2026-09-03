@@ -17,7 +17,9 @@ internal object ParserSupport {
         "July" to 7, "August" to 8, "September" to 9, "October" to 10, "November" to 11, "December" to 12
     )
 
-    private val timeRegex = Regex("""\b(\d{1,2}):(\d{2})\s*([AP]M)\b""")
+    val TIME_REGEX = Regex("""\b(\d{1,2}):(\d{2})\s*([AP]M)\b""")
+
+    val WHITESPACE_REGEX = Regex("""\s+""")
 
     /** "2,580" -> 258000; "2,580.50" -> 258050. Null when not a parsable amount. */
     fun amountToPaise(raw: String): Long? {
@@ -27,7 +29,7 @@ internal object ParserSupport {
 
     /** First hh:mm AM/PM occurrence in [chunk], or midnight when absent. */
     fun parseTime(chunk: String): LocalTime {
-        val match = timeRegex.find(chunk) ?: return LocalTime.MIDNIGHT
+        val match = TIME_REGEX.find(chunk) ?: return LocalTime.MIDNIGHT
         val (h, m, meridiem) = match.destructured
         var hour = h.toInt() % 12
         if (meridiem == "PM") hour += 12

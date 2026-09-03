@@ -30,6 +30,17 @@ class ImportDuplicateTest {
     /** The first ten days of June — the overlap case, re-uploaded after the full month. */
     private val juneFirstTen = june.take(2)
 
+    /**
+     * The same June statement as a fixed parser reads it: every row [june] already had, plus two it
+     * used to drop. A recovery re-import is a strict *superset* of what is stored, which is the
+     * opposite shape from [juneFirstTen] and behaves differently — the rows that matter are the
+     * ones with no counterpart in the database.
+     */
+    private val juneAfterParserFix = june + listOf(
+        ParsedTransaction(25L, "Payment to Acme Insurance", 128_789, TransactionType.DEBIT, "OLEX-JUN-08", "444"),
+        ParsedTransaction(28L, "Mobile recharged 9000000001", 90_400, TransactionType.DEBIT, "NX-JUN-12", "555")
+    )
+
     private fun useCase(parsed: List<ParsedTransaction>) = ImportStatementUseCase(
         extractor = FakeExtractor(Result.Success("PHONEPE_FIXTURE")),
         parserRegistry = StatementParserRegistry(listOf(FakeConfigurableParser(parsed))),
@@ -39,6 +50,9 @@ class ImportDuplicateTest {
         uploadLogs = uploadLogs,
         nowMillis = { 999L }
     )
+
+    private fun countedTotal(): Long =
+        transactions.transactions.filterNot { it.isExcluded }.sumOf { it.amountPaise }
 
     @Test
     fun `re-importing the very same statement flags every row and counts none of them twice`() =
@@ -97,6 +111,63 @@ class ImportDuplicateTest {
 
         assertThat((result as Result.Success).data.duplicateTransactions).isEqualTo(0)
         assertThat(transactions.transactions.any { it.isDuplicate }).isFalse()
+    }
+
+    /**
+     * Re-uploading a statement after a parser fix, which is the only way rows the old parser
+     * dropped ever reach the database. The rows already stored carry issuer references, so they
+     * flag; the recovered rows have never been seen under any identity, so they import live.
+     */
+    @Test
+    fun `a re-import after a parser fix counts only the rows that were missing`() = runTest {
+        useCase(june)("/tmp/june.pdf", "june.pdf")
+        val second = useCase(juneAfterParserFix)("/tmp/june.pdf", "june-reimported.pdf")
+
+        assertThat((second as Result.Success).data.duplicateTransactions).isEqualTo(3)
+
+        val counted = transactions.transactions.filterNot { it.isExcluded }
+        assertThat(counted.size).isEqualTo(5)
+        assertThat(counted.map { it.transactionRef }.toSet()).isEqualTo(
+            setOf("T-JUN-01", "T-JUN-05", "T-JUN-20", "OLEX-JUN-08", "NX-JUN-12")
+        )
+    }
+
+    @Test
+    fun `the recovered rows bring the counted total up to the whole statement`() = runTest {
+        useCase(june)("/tmp/june.pdf", "june.pdf")
+        assertThat(countedTotal()).isEqualTo(77_000L)
+
+        useCase(juneAfterParserFix)("/tmp/june.pdf", "june-reimported.pdf")
+
+        // 77,000 + 128,789 + 90,400 — the two rows the old parser never saw, and nothing counted
+        // twice for the three it did.
+        assertThat(countedTotal()).isEqualTo(296_189L)
+    }
+
+    /**
+     * The guard behind the advice to re-upload rather than start over: importing only ever inserts.
+     * A row already stored keeps its id, its payee mapping and the user's own exclusion decision,
+     * so recovering missing rows cannot cost the work already done on the ones that arrived.
+     */
+    @Test
+    fun `a re-import leaves the rows already stored untouched`() = runTest {
+        useCase(june)("/tmp/june.pdf", "june.pdf")
+
+        // Stand in for the user's own work on the first import: a payee mapped, and a row they
+        // chose to leave out of their totals.
+        transactions.transactions.replaceAll { txn ->
+            when (txn.transactionRef) {
+                "T-JUN-01" -> txn.copy(payeeId = 42L)
+                "T-JUN-05" -> txn.copy(isExcluded = true)
+                else -> txn
+            }
+        }
+        val before = transactions.transactions.toList()
+
+        useCase(juneAfterParserFix)("/tmp/june.pdf", "june-reimported.pdf")
+
+        val after = transactions.transactions.take(before.size)
+        assertThat(after).isEqualTo(before)
     }
 
     @Test

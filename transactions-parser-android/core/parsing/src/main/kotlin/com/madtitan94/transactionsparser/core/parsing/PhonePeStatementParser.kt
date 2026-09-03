@@ -12,11 +12,23 @@ import java.time.LocalDate
 /**
  * Parses PhonePe "Transaction Statement for <mobile>" PDFs.
  *
- * Row shape (as extracted text):
- *   Jul 03, 2026 Paid to SRI DATTA SUPER SHOPPE DEBIT ₹10
- *   01:46 PM Transaction ID T2607031346510066848829
- *   UTR No. 930722951778
- *   Paid by 5969XXXXXXX0143
+ * A row is identified by its columns — date, Type, Amount — never by the phrase that opens the
+ * Transaction Details column. PhonePe writes at least four such phrases ("Paid to", "Received
+ * from", "Payment to", "Mobile recharged") and is free to add more, so treating that vocabulary
+ * as a requirement silently drops rows: a real June 2026 statement lost 5 of 142 that way,
+ * 4.6% of its value, with nothing in the app to show for it.
+ *
+ * PdfBox emits the columns in either of two shapes depending on how it orders the page, and
+ * both must parse identically:
+ *
+ *   Jul 03, 2026 Paid to SRI DATTA SUPER SHOPPE   DEBIT   ₹10
+ *   01:46 PM     Transaction ID T2607031346510066848829
+ *
+ *   Jul 03, 2026 Paid to SRI DATTA SUPER SHOPPE
+ *   01:46 PM
+ *   Transaction ID T2607031346510066848829
+ *   DEBIT
+ *   ₹10
  */
 class PhonePeStatementParser : StatementParser {
 
@@ -24,20 +36,29 @@ class PhonePeStatementParser : StatementParser {
 
     private val rowDateRegex =
         Regex("""\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),\s+(\d{4})\b""")
-    private val anchorRegex = Regex("""(Paid to|Received from)\s+""")
-    private val typeRegex = Regex("""\b(DEBIT|CREDIT)\b""")
-    private val amountRegex = Regex("""(?:₹|INR|Rs\.?)\s*([\d,]+(?:\.\d{1,2})?)""")
-    private val txnIdRegex = Regex("""Transaction ID\s*:?\s*(T\d+)""")
+
+    /**
+     * The Type and Amount columns, matched as one unit.
+     *
+     * Binding them together is the point: a bare `\b(DEBIT|CREDIT)\b` search also matches a payee
+     * such as "SHRIRAM CREDIT CO-OP", and because the details column is printed *before* the type
+     * column, that payee would win the search and flip the row's direction. Direction is only ever
+     * read from the Type column, and the amount that follows it is what identifies that column.
+     */
+    private val typeAmountRegex =
+        Regex("""\b(DEBIT|CREDIT)\s*(?:₹|INR|Rs\.?)\s*([\d,]+(?:\.\d{1,2})?)""")
+
+    /** Stripped from the details text when present, so a known payee reads as a bare name. */
+    private val payeePhraseRegex = Regex("""^(?:Paid to|Received from)\s+""")
+
+    /** Where the details column ends and the per-row reference lines begin. */
+    private val payeeStopRegex = Regex("""Transaction ID|UTR No|Paid by|Jio Prepaid""")
+
+    // Not every reference is a "T…" id — bill payments use OLEX…, recharges NX….
+    private val txnIdRegex = Regex("""Transaction ID\s*:?\s*([A-Za-z0-9]+)""")
     private val utrRegex = Regex("""UTR No\.?\s*:?\s*(\d+)""")
     private val periodRegex =
         Regex("""(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec),?\s+(\d{4})\s*[-–]\s*(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec),?\s+(\d{4})""")
-
-    private val payeeStopTokens = listOf(
-        Regex("""\b(?:DEBIT|CREDIT)\b"""),
-        Regex("""[₹\n]"""),
-        Regex("""Transaction ID"""),
-        Regex("""UTR No""")
-    )
 
     override fun canParse(text: String): Boolean {
         return text.contains("Transaction Statement for", ignoreCase = true) &&
@@ -63,30 +84,49 @@ class PhonePeStatementParser : StatementParser {
         )
     }
 
+    /**
+     * A chunk is a transaction when it carries a date and a Type/Amount pair. Nothing else is
+     * required, and nothing recognisable is dropped for want of a payee we know how to name.
+     */
     private fun parseChunk(dateMatch: MatchResult, chunk: String): ParsedTransaction? {
-        val anchor = anchorRegex.find(chunk) ?: return null
-        val payee = ParserSupport.extractPayee(chunk, anchor.range.last + 1, payeeStopTokens) ?: return null
-        val amountPaise = amountRegex.find(chunk)?.groupValues?.get(1)
-            ?.let(ParserSupport::amountToPaise) ?: return null
+        val typeAmount = typeAmountRegex.find(chunk) ?: return null
+        val amountPaise = ParserSupport.amountToPaise(typeAmount.groupValues[2]) ?: return null
+        val type =
+            if (typeAmount.groupValues[1] == "CREDIT") TransactionType.CREDIT else TransactionType.DEBIT
 
         val (monthName, day, year) = dateMatch.destructured
         val month = ParserSupport.MONTHS[monthName] ?: return null
         val date = runCatching { LocalDate.of(year.toInt(), month, day.toInt()) }.getOrNull() ?: return null
 
-        val type = when {
-            anchor.groupValues[1] == "Received from" -> TransactionType.CREDIT
-            typeRegex.find(chunk)?.groupValues?.get(1) == "CREDIT" -> TransactionType.CREDIT
-            else -> TransactionType.DEBIT
-        }
+        val transactionRef = txnIdRegex.find(chunk)?.groupValues?.get(1)
 
         return ParsedTransaction(
             dateTimeUtcMillis = ParserSupport.toUtcMillis(date, ParserSupport.parseTime(chunk)),
-            rawPayee = payee,
+            // A row with no details text at all still belongs in the statement; its reference is
+            // real, printed, and unique, so it carries the row until the user names it.
+            rawPayee = extractPayee(dateMatch, chunk) ?: transactionRef ?: return null,
             amountPaise = amountPaise,
             type = type,
-            transactionRef = txnIdRegex.find(chunk)?.groupValues?.get(1),
+            transactionRef = transactionRef,
             utr = utrRegex.find(chunk)?.groupValues?.get(1)
         )
+    }
+
+    /**
+     * Whatever the statement printed in the Transaction Details column, with the columns that share
+     * the row removed. A recognised opening phrase is stripped so the payee reads as a bare name;
+     * any other phrasing is kept verbatim — "Payment to Google" is a worse label than "Google" but
+     * an infinitely better one than the row not existing, and the user renames it once through the
+     * alias flow, after which `payee_identifiers` folds later spellings into the same payee.
+     */
+    private fun extractPayee(dateMatch: MatchResult, chunk: String): String? {
+        val afterDate = chunk.substring(dateMatch.value.length)
+        val details = afterDate.take(payeeStopRegex.find(afterDate)?.range?.first ?: afterDate.length)
+            .replace(typeAmountRegex, " ")
+            .replace(ParserSupport.TIME_REGEX, " ")
+            .replace(ParserSupport.WHITESPACE_REGEX, " ")
+            .trim()
+        return details.replaceFirst(payeePhraseRegex, "").trim().ifBlank { null }
     }
 
     private fun parsePeriod(text: String): Pair<Long, Long>? {
