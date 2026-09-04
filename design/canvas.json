@@ -1,0 +1,9 @@
+{
+  "artboards": [
+    { "file": "HomeDark.dc.html",  "x": 0,    "y": 0,    "w": 412,  "h": 892,  "title": "Home — dark" },
+    { "file": "HomeLight.dc.html", "x": 532,  "y": 0,    "w": 412,  "h": 892,  "title": "Home — light" },
+    { "file": "Main.dc.html",      "x": 1100, "y": 0,    "w": 1000, "h": 1560, "title": "Colour tokens" },
+    { "file": "Charts.dc.html",    "x": 0,    "y": 1012, "w": 1000, "h": 1180, "title": "Chart series" }
+  ],
+  "launch": { "view": "canvas" }
+}

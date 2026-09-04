@@ -14,3 +14,7 @@ dist/
 .vscode/
 *.swp
 .claude/settings.local.json
+
+# Design canvas — generated payload (~2.5 MB, regenerate with seed-canvas.mjs)
+design/*.html
+!design/*.dc.html

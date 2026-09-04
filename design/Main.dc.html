@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Sora', system-ui, sans-serif; }
+    a { color: #995C00; } a:hover { color: #705129; }
+  </style>
+</helmet>
+
+<div style="background: #F1F6F3; padding: 40px 44px 48px; box-sizing: border-box; min-height: 100%">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: #995C00">TRANSACTIONS PARSER · COLOUR TOKENS</div>
+    <div style="font-size: 26px; font-weight: 600; color: #161C19; letter-spacing: -0.01em">Two themes, one identity</div>
+    <div style="font-size: 14px; color: #626C66; line-height: 1.55; max-width: 660px">The dark column is transcribed from the app design — these are its exact values, unchanged. The light column is new: same green-tinted ground and same amber, re-stepped for a paper background. Amber itself is the one value that is identical in both, so the app is recognisably itself either way.</div>
+  </div>
+
+  <div style="display: flex; gap: 10px; margin: 22px 0 26px">
+    <div style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 12px; padding: 10px 14px">
+      <div style="width: 22px; height: 22px; border-radius: 6px; background: #0E1512; border: 1px solid #24312B"></div>
+      <div style="font-size: 13px; color: #161C19; font-weight: 500">Dark — shipped design</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 12px; padding: 10px 14px">
+      <div style="width: 22px; height: 22px; border-radius: 6px; background: #F1F6F3; border: 1px solid #D3DBD7"></div>
+      <div style="font-size: 13px; color: #161C19; font-weight: 500">Light — drafted here</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; background: #FFEFD1; border: 1px solid #F5D6A3; border-radius: 12px; padding: 10px 14px">
+      <div style="width: 22px; height: 22px; border-radius: 6px; background: #FFB020"></div>
+      <div style="font-size: 13px; color: #8C5500; font-weight: 500">#FFB020 — shared by both</div>
+    </div>
+  </div>
+
+  <!-- ROW HEADER -->
+  <div style="display: grid; grid-template-columns: 168px 168px 200px minmax(0, 1fr); gap: 0 18px; padding: 0 18px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; color: #828C86">
+    <div>DARK</div><div>LIGHT</div><div>TOKEN</div><div>WHAT IT PAINTS</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 20px">
+
+    <!-- SURFACES -->
+    <div style="background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 2px">
+      <div style="font-size: 13px; font-weight: 600; color: #161C19; padding: 0 0 12px 0">Surfaces</div>
+
+      <div style="display: grid; grid-template-columns: 168px 168px 200px minmax(0, 1fr); gap: 0 18px; align-items: center; padding: 7px 0">
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #0E1512; border: 1px solid #24312B"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#0E1512</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1px solid #D3DBD7"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#F1F6F3</span></div>
+        <div style="font-size: 13px; color: #161C19; font-weight: 500">screen</div>
+        <div style="font-size: 13px; color: #626C66">Screen background, bottom bar</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 168px 168px 200px minmax(0, 1fr); gap: 0 18px; align-items: center; padding: 7px 0">
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #141C18; border: 1px solid #24312B"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#141C18</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D3DBD7"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#FFFFFF</span></div>
+        <div style="font-size: 13px; color: #161C19; font-weight: 500">surface</div>
+        <div style="font-size: 13px; color: #626C66">Cards, sheets, fields, unselected chips</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 168px 168px 200px minmax(0, 1fr); gap: 0 18px; align-items: center; padding: 7px 0">
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #1A2420; border: 1px solid #24312B"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#1A2420</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #E5EBE7; border: 1px solid #D3DBD7"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#E5EBE7</span></div>
+        <div style="font-size: 13px; color: #161C19; font-weight: 500">surfaceAlt</div>
+        <div style="font-size: 13px; color: #626C66">Avatars, progress track, icon wells</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 168px 168px 200px minmax(0, 1fr); gap: 0 18px; align-items: center; padding: 7px 0">
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #111813; border: 1px solid #24312B"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#111813</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><div style="width: 34px; height: 26px; border-radius: 6px; background: #EBF1ED; border: 1px solid #D3DBD7"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #626C66">#EBF1ED</span></div>
+        <div style="font-size: 13px; color: #161C19; font-weight: 500">surfaceSunken</div>
+        <div style="font-size: 13px; color: #626C66">Read-only or disabled field</div>
+      </div>
+    </div>
+
+    <!-- BORDERS + TEXT -->
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+
+      <div style="background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 2px">
+        <div style="font-size: 13px; font-weight: 600; color: #161C19; padding: 0 0 12px 0">Borders</div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 7px 0">
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #0E1512; border: 1px solid #24312B"></div>
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1px solid #D3DBD7"></div>
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #161C19; font-weight: 500">border</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#24312B · #D3DBD7</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 7px 0">
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #0E1512; border: 1px solid #1F2B25"></div>
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1px solid #E2E8E4"></div>
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #161C19; font-weight: 500">borderSubtle</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#1F2B25 · #E2E8E4</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 7px 0">
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #0E1512; border: 1.5px solid #3A4A42"></div>
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1.5px solid #AFBBB4"></div>
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #161C19; font-weight: 500">borderStrong</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#3A4A42 · #AFBBB4</span></div>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 2px">
+        <div style="font-size: 13px; font-weight: 600; color: #161C19; padding: 0 0 12px 0">Text</div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 7px 0">
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #0E1512; border: 1px solid #24312B; display: flex; align-items: center; justify-content: center; color: #E9F1EB; font-size: 13px; font-weight: 600">Aa</div>
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1px solid #D3DBD7; display: flex; align-items: center; justify-content: center; color: #161C19; font-size: 13px; font-weight: 600">Aa</div>
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #161C19; font-weight: 500">textPrimary</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#E9F1EB · #161C19</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 7px 0">
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #0E1512; border: 1px solid #24312B; display: flex; align-items: center; justify-content: center; color: #8B9B92; font-size: 13px">Aa</div>
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1px solid #D3DBD7; display: flex; align-items: center; justify-content: center; color: #626C66; font-size: 13px">Aa</div>
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #161C19; font-weight: 500">textSecondary</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#8B9B92 · #626C66</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 7px 0">
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #0E1512; border: 1px solid #24312B; display: flex; align-items: center; justify-content: center; color: #5F6F67; font-size: 13px">Aa</div>
+          <div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1px solid #D3DBD7; display: flex; align-items: center; justify-content: center; color: #828C86; font-size: 13px">Aa</div>
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #161C19; font-weight: 500">textMuted</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#5F6F67 · #828C86</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEMANTIC TRIO -->
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+
+      <!-- accent -->
+      <div style="background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="font-size: 13px; font-weight: 600; color: #161C19">Accent — amber</div>
+          <div style="font-size: 12px; color: #626C66; line-height: 1.5">Buttons, active nav, selected chips, focus rings.</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="height: 44px; border-radius: 12px; background: #FFB020; color: #0C1210; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center">Same fill in both themes</div>
+          <div style="border-radius: 12px; background: #1D1A10; border: 1px solid #4A3A14; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-size: 12px; font-weight: 600; color: #FFD98A">Dark alert card</div>
+            <div style="font-size: 12px; color: #C7B389; line-height: 1.5">#1D1A10 · #4A3A14 · #FFD98A · #C7B389</div>
+          </div>
+          <div style="border-radius: 12px; background: #FFEFD1; border: 1px solid #F5D6A3; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-size: 12px; font-weight: 600; color: #8C5500">Light alert card</div>
+            <div style="font-size: 12px; color: #705129; line-height: 1.5">#FFEFD1 · #F5D6A3 · #8C5500 · #705129</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding-top: 2px">
+            <div style="width: 34px; height: 26px; border-radius: 6px; background: #F1F6F3; border: 1px solid #D3DBD7; display: flex; align-items: center; justify-content: center; color: #995C00; font-size: 13px; font-weight: 600">Aa</div>
+            <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #161C19; font-weight: 500">accentInk — new</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#995C00 · amber as text on light</span></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <div style="width: 34px; height: 26px; border-radius: 6px; background: #E5EBE7; display: flex; align-items: center; padding: 0 5px; box-sizing: border-box"><div style="height: 6px; width: 100%; border-radius: 3px; background: #C98A12"></div></div>
+            <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #161C19; font-weight: 500">accentGraphic — new</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #828C86">#C98A12 light · #FFB020 dark · bars and fills</span></div>
+          </div>
+          <div style="font-size: 11px; color: #626C66; line-height: 1.55; border-top: 1px solid #E2E8E4; padding-top: 10px">The amber itself never changes — <span style="font-family: 'JetBrains Mono', monospace">#FFB020</span> is the same byte in both themes, and buttons use it as-is either way. Light needs two darker relatives beside it, because amber on paper is too pale to read as text (<span style="font-family: 'JetBrains Mono', monospace">accentInk</span>) or to hold its own as a bar (<span style="font-family: 'JetBrains Mono', monospace">accentGraphic</span>). In dark both collapse back to the accent.</div>
+        </div>
+      </div>
+
+      <!-- success -->
+      <div style="background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="font-size: 13px; font-weight: 600; color: #161C19">Success — mint</div>
+          <div style="font-size: 12px; color: #626C66; line-height: 1.5">Statement read, done ticks — and money <em>in</em>.</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="border-radius: 12px; background: #1A2E24; border: 1px solid #235140; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; color: #6EE7A8">STATEMENT READ</div>
+            <div style="font-size: 12px; color: #A8C9B8; line-height: 1.5">#1A2E24 · #235140 · #6EE7A8 · #A8C9B8</div>
+          </div>
+          <div style="border-radius: 12px; background: #DFF9E9; border: 1px solid #B7E4C9; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; color: #007B48">STATEMENT READ</div>
+            <div style="font-size: 12px; color: #3E6F54; line-height: 1.5">#DFF9E9 · #B7E4C9 · #007B48 · #3E6F54</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- danger -->
+      <div style="background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="font-size: 13px; font-weight: 600; color: #161C19">Danger — coral</div>
+          <div style="font-size: 12px; color: #626C66; line-height: 1.5">Delete, unlink, a failed upload. Never money out.</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="border-radius: 12px; background: #2A1714; border: 1px solid #4A2420; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-size: 12px; font-weight: 600; color: #FF9C8C">Couldn't read this PDF</div>
+            <div style="font-size: 12px; color: #C79086; line-height: 1.5">#2A1714 · #4A2420 · #FF9C8C</div>
+          </div>
+          <div style="border-radius: 12px; background: #FFEDEA; border: 1px solid #F9C6BD; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-size: 12px; font-weight: 600; color: #A52B1E">Couldn't read this PDF</div>
+            <div style="font-size: 12px; color: #8A5548; line-height: 1.5">#FFEDEA · #F9C6BD · #A52B1E</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONEY -->
+    <div style="background: #FFFFFF; border: 1px solid #D3DBD7; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="font-size: 13px; font-weight: 600; color: #161C19">Money in and money out</div>
+        <div style="font-size: 12px; color: #626C66; line-height: 1.55; max-width: 620px">The app design never showed the two side by side, so this is the one decision drafted rather than transcribed. Money out wears plain primary text — spending is not an error. Coral stays reserved for something that actually failed.</div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+        <div style="background: #0E1512; border: 1px solid #24312B; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <span style="font-size: 13px; color: #8B9B92">Received</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; color: #6EE7A8">+ ₹18,400</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <span style="font-size: 13px; color: #8B9B92">Spent</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; color: #E9F1EB">− ₹42,180</span>
+          </div>
+        </div>
+        <div style="background: #F1F6F3; border: 1px solid #D3DBD7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <span style="font-size: 13px; color: #626C66">Received</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; color: #007B48">+ ₹18,400</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <span style="font-size: 13px; color: #626C66">Spent</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; color: #161C19">− ₹42,180</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
