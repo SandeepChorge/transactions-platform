@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.madtitan94.transactionsparser.core.designsystem.components.AppButton
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.designsystem.theme.TransactionsParserTheme
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
@@ -150,13 +151,12 @@ fun ProfileScreen(
 
             if (state.isEditing) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
+                    AppButton(
+                        text = stringResource(R.string.profile_save),
                         onClick = { onAction(ProfileAction.OnSaveClick) },
                         enabled = !state.isSaving,
                         modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.profile_save))
-                    }
+                    )
                     OutlinedButton(
                         onClick = { onAction(ProfileAction.OnCancelEdit) },
                         modifier = Modifier.weight(1f)
@@ -165,16 +165,12 @@ fun ProfileScreen(
                     }
                 }
             } else {
-                Button(
+                AppButton(
+                    text = stringResource(R.string.profile_edit),
                     onClick = { onAction(ProfileAction.OnEditClick) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.profile_edit),
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                )
             }
 
         }

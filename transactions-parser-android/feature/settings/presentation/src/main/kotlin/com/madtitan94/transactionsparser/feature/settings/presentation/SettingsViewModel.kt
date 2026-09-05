@@ -14,6 +14,8 @@ import com.madtitan94.transactionsparser.core.domain.export.TransactionCsv
 import com.madtitan94.transactionsparser.core.domain.util.Result
 import com.madtitan94.transactionsparser.core.presentation.UiText
 import com.madtitan94.transactionsparser.core.presentation.toUiText
+import com.madtitan94.transactionsparser.feature.settings.domain.ThemePreference
+import com.madtitan94.transactionsparser.feature.settings.domain.ThemeStorage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +31,9 @@ data class SettingsState(
     val showLogoutConfirm: Boolean = false,
     val isExporting: Boolean = false,
     val isBackingUp: Boolean = false,
-    val restore: RestoreStage = RestoreStage.Idle
+    val restore: RestoreStage = RestoreStage.Idle,
+    val theme: ThemePreference = ThemePreference.SYSTEM,
+    val showThemePicker: Boolean = false
 )
 
 /**
@@ -80,6 +84,9 @@ sealed interface SettingsAction {
     data object OnRestoreConfirmed : SettingsAction
     /** Backing out at any point before the write, and dismissing the report after it. */
     data object OnRestoreDismissed : SettingsAction
+    data object OnThemeClick : SettingsAction
+    data class OnThemeSelected(val preference: ThemePreference) : SettingsAction
+    data object OnThemePickerDismissed : SettingsAction
 }
 
 sealed interface SettingsEvent {
@@ -96,7 +103,8 @@ class SettingsViewModel(
     private val documentWriter: DocumentWriter,
     private val createBackup: CreateBackupUseCase,
     private val readBackup: ReadBackupUseCase,
-    private val restoreBackup: RestoreBackupUseCase
+    private val restoreBackup: RestoreBackupUseCase,
+    private val themeStorage: ThemeStorage
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsState())
@@ -107,6 +115,17 @@ class SettingsViewModel(
 
     init {
         observeSession()
+        observeTheme()
+    }
+
+    // Observed rather than read once, so the row still shows the truth if the preference is
+    // changed somewhere else while this screen is open.
+    private fun observeTheme() {
+        viewModelScope.launch {
+            themeStorage.observeTheme().collect { preference ->
+                _state.update { it.copy(theme = preference) }
+            }
+        }
     }
 
     private fun observeSession() {
@@ -142,7 +161,18 @@ class SettingsViewModel(
             SettingsAction.OnRestoreAccountAccepted -> acceptRestoreAccount()
             SettingsAction.OnRestoreConfirmed -> writeRestore()
             SettingsAction.OnRestoreDismissed -> _state.update { it.copy(restore = RestoreStage.Idle) }
+            SettingsAction.OnThemeClick -> _state.update { it.copy(showThemePicker = true) }
+            SettingsAction.OnThemePickerDismissed -> _state.update { it.copy(showThemePicker = false) }
+            is SettingsAction.OnThemeSelected -> selectTheme(action.preference)
         }
+    }
+
+    private fun selectTheme(preference: ThemePreference) {
+        // The picker closes immediately and the state is updated here rather than waiting for the
+        // write to come back through observeTheme, so the theme changes under the user's finger
+        // instead of a frame or two later.
+        _state.update { it.copy(theme = preference, showThemePicker = false) }
+        viewModelScope.launch { themeStorage.setTheme(preference) }
     }
 
     private fun startExport() {

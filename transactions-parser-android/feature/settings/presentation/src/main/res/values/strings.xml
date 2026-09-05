@@ -27,6 +27,13 @@
     <string name="settings_restore_done_action">Done</string>
     <string name="settings_recently_deleted">Recently deleted</string>
     <string name="settings_recently_deleted_supporting">Bring back something you removed</string>
+    <string name="settings_theme">Theme</string>
+    <!-- "Follow system" rather than "System": the row's supporting line has to read as an answer
+         to "which theme?", and "System" on its own reads like a third colour scheme. -->
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_done">Done</string>
     <string name="settings_syncing">Syncing</string>
     <string name="settings_coming_soon">Coming soon</string>
     <string name="settings_logout">Log out</string>

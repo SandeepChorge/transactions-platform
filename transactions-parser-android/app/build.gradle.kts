@@ -131,6 +131,8 @@ dependencies {
     implementation(project(":feature:sessions:domain"))
     implementation(project(":feature:sessions:presentation"))
     implementation(project(":feature:categories:presentation"))
+    implementation(project(":feature:settings:domain"))
+    implementation(project(":feature:settings:data"))
     implementation(project(":feature:settings:presentation"))
 
     implementation(libs.androidx.core.ktx)

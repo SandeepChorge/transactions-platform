@@ -36,6 +36,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
+import com.madtitan94.transactionsparser.core.designsystem.components.AppProgressBar
 import com.madtitan94.transactionsparser.core.designsystem.components.EmptyState
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.designsystem.theme.TransactionsParserTheme
@@ -230,8 +231,8 @@ private fun SessionCard(
                 }
                 if (session.countedCount > 0) {
                     Spacer(Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { session.mappedCount.toFloat() / session.countedCount },
+                    AppProgressBar(
+                        progress = session.mappedCount.toFloat() / session.countedCount,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

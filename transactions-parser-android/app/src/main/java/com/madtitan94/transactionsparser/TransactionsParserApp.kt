@@ -10,6 +10,7 @@ import com.madtitan94.transactionsparser.feature.categories.presentation.di.cate
 import com.madtitan94.transactionsparser.feature.profile.data.di.profileDataModule
 import com.madtitan94.transactionsparser.feature.profile.presentation.di.profilePresentationModule
 import com.madtitan94.transactionsparser.feature.sessions.presentation.di.sessionsPresentationModule
+import com.madtitan94.transactionsparser.feature.settings.data.di.settingsDataModule
 import com.madtitan94.transactionsparser.feature.settings.presentation.di.settingsPresentationModule
 import com.madtitan94.transactionsparser.feature.upload.data.di.uploadDataModule
 import com.madtitan94.transactionsparser.feature.upload.domain.di.uploadDomainModule
@@ -39,6 +40,7 @@ class TransactionsParserApp : Application() {
                 uploadPresentationModule,
                 sessionsPresentationModule,
                 categoriesPresentationModule,
+                settingsDataModule,
                 settingsPresentationModule
             )
         }

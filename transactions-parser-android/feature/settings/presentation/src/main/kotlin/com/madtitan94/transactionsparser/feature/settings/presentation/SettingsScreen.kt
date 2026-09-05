@@ -4,38 +4,46 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +52,7 @@ import com.madtitan94.transactionsparser.core.designsystem.components.ListRow
 import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
 import com.madtitan94.transactionsparser.core.presentation.formatInstantDate
+import com.madtitan94.transactionsparser.feature.settings.domain.ThemePreference
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -158,6 +167,17 @@ private fun SettingsScreen(
             )
             HorizontalDivider()
 
+            // The design ships two themes rather than one, so there has to be somewhere to choose
+            // between them. Defaulting to the system setting is what makes both halves reachable
+            // without anyone having to find this row first.
+            SettingsRow(
+                icon = Icons.Default.DarkMode,
+                title = stringResource(R.string.settings_theme),
+                supporting = stringResource(state.theme.labelRes),
+                onClick = { onAction(SettingsAction.OnThemeClick) }
+            )
+            HorizontalDivider()
+
             SettingsRow(
                 icon = Icons.Default.FileDownload,
                 title = stringResource(R.string.settings_export),
@@ -249,12 +269,81 @@ private fun SettingsScreen(
             )
         }
 
+        if (state.showThemePicker) {
+            ThemePickerDialog(
+                selected = state.theme,
+                onSelect = { onAction(SettingsAction.OnThemeSelected(it)) },
+                onDismiss = { onAction(SettingsAction.OnThemePickerDismissed) }
+            )
+        }
+
         RestoreDialogs(
             stage = state.restore,
             signedInEmail = state.email,
             onAction = onAction
         )
     }
+}
+
+/** The label shown for a theme choice, both in the row and in the picker. */
+private val ThemePreference.labelRes: Int
+    get() = when (this) {
+        ThemePreference.SYSTEM -> R.string.settings_theme_system
+        ThemePreference.LIGHT -> R.string.settings_theme_light
+        ThemePreference.DARK -> R.string.settings_theme_dark
+    }
+
+/**
+ * A single-choice list rather than a switch, because there are three answers and not two — the
+ * third, following the device, is the default and cannot be expressed as an on/off.
+ *
+ * There is no confirm button: picking applies immediately and the theme changes behind the
+ * dialog, which is the fastest way to see whether it is the one you wanted.
+ */
+@Composable
+private fun ThemePickerDialog(
+    selected: ThemePreference,
+    onSelect: (ThemePreference) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_theme)) },
+        text = {
+            Column {
+                ThemePreference.entries.forEach { preference ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = preference == selected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(preference) }
+                            )
+                            .padding(vertical = 12.dp)
+                    ) {
+                        RadioButton(
+                            selected = preference == selected,
+                            // The whole row is the target; the button would otherwise be a second,
+                            // smaller one sitting inside it.
+                            onClick = null
+                        )
+                        Text(
+                            text = stringResource(preference.labelRes),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.settings_theme_done))
+            }
+        }
+    )
 }
 
 /**

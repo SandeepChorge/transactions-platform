@@ -10,17 +10,27 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.madtitan94.transactionsparser.core.designsystem.theme.AppDimens
+import com.madtitan94.transactionsparser.core.designsystem.theme.AppShapes
+import com.madtitan94.transactionsparser.core.designsystem.theme.AppTheme
+import com.madtitan94.transactionsparser.core.designsystem.theme.AppTypography
 
 @Composable
 fun LoadingIndicator(modifier: Modifier = Modifier) {
@@ -30,6 +40,72 @@ fun LoadingIndicator(modifier: Modifier = Modifier) {
     ) {
         CircularProgressIndicator()
     }
+}
+
+/**
+ * The design's primary button.
+ *
+ * It exists because Material's `Button` paints itself with `colorScheme.primary`, and `primary` is
+ * mapped to `accentInk` — the darker amber — so that amber-as-*text* stays readable on the light
+ * paper. A button is the one place `design/README.md` is explicit that the amber is used as-is in
+ * both themes and must not be re-stepped, so the two rules pull in opposite directions and a
+ * Material default silently lands on the wrong one. Every filled button in the app goes through
+ * here rather than inheriting a colour that is right for ink and wrong for a fill.
+ *
+ * Height, radius and label style come from the artboards, not from Material's defaults.
+ */
+@Composable
+fun AppButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: (@Composable () -> Unit)? = null
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(AppDimens.buttonHeight),
+        enabled = enabled,
+        shape = AppShapes.button,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = AppTheme.colors.accent,
+            contentColor = AppTheme.colors.onAccent
+        )
+    ) {
+        leadingIcon?.let {
+            it()
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(text = text, style = AppTypography.button)
+    }
+}
+
+/**
+ * A determinate progress track.
+ *
+ * The colour is `accentGraphic`, the design's own answer to "amber, but as a bar" — a 6dp sliver of
+ * the plain accent is too light to read against the paper, which is why the light theme carries a
+ * darker relative for exactly this use. In dark it *is* the accent, so nothing moves there.
+ *
+ * Material's default would draw `primary`, which is `accentInk` — the ink step, not the graphic
+ * one — plus a stop indicator and a track gap that the design does not have.
+ */
+@Composable
+fun AppProgressBar(
+    progress: Float,
+    modifier: Modifier = Modifier
+) {
+    LinearProgressIndicator(
+        progress = { progress },
+        modifier = modifier
+            .height(AppDimens.barHeight)
+            .clip(AppShapes.bar),
+        color = AppTheme.colors.accentGraphic,
+        trackColor = AppTheme.colors.surfaceSunken,
+        strokeCap = StrokeCap.Butt,
+        gapSize = 0.dp,
+        drawStopIndicator = {}
+    )
 }
 
 @Composable
