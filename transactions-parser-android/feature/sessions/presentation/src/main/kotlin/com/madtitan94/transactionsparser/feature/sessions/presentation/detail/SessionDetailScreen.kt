@@ -51,6 +51,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.madtitan94.transactionsparser.core.designsystem.components.AppButton
 import com.madtitan94.transactionsparser.core.designsystem.components.EmptyState
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.domain.model.Category
@@ -218,9 +219,10 @@ private fun SuggestionsBanner(count: Int, onConfirmAll: () -> Unit) {
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(8.dp))
-            Button(onClick = onConfirmAll) {
-                Text(stringResource(R.string.session_confirm_all))
-            }
+            AppButton(
+                text = stringResource(R.string.session_confirm_all),
+                onClick = onConfirmAll
+            )
         }
     }
 }
@@ -402,21 +404,18 @@ private fun PayeeGroupCard(
                 )
 
                 Spacer(Modifier.height(12.dp))
-                Button(
+                AppButton(
+                    text = stringResource(
+                        if (group.status == MappingStatus.SUGGESTED) {
+                            R.string.session_confirm_mapping
+                        } else {
+                            R.string.session_save_mapping
+                        }
+                    ),
                     onClick = { onAction(SessionDetailAction.OnSaveClick(group.key)) },
                     enabled = group.canSave,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        stringResource(
-                            if (group.status == MappingStatus.SUGGESTED) {
-                                R.string.session_confirm_mapping
-                            } else {
-                                R.string.session_save_mapping
-                            }
-                        )
-                    )
-                }
+                )
             }
         }
     }

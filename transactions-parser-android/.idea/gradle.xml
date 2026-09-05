@@ -42,6 +42,8 @@
             <option value="$PROJECT_DIR$/feature/sessions" />
             <option value="$PROJECT_DIR$/feature/sessions/domain" />
             <option value="$PROJECT_DIR$/feature/sessions/presentation" />
+            <option value="$PROJECT_DIR$/feature/settings" />
+            <option value="$PROJECT_DIR$/feature/settings/presentation" />
             <option value="$PROJECT_DIR$/feature/upload" />
             <option value="$PROJECT_DIR$/feature/upload/data" />
             <option value="$PROJECT_DIR$/feature/upload/domain" />

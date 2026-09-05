@@ -42,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
+import com.madtitan94.transactionsparser.core.designsystem.components.AppButton
 import com.madtitan94.transactionsparser.core.designsystem.theme.TransactionsParserTheme
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
 import kotlinx.coroutines.launch
@@ -122,17 +123,13 @@ fun UploadScreen(
             )
 
             if (state.pickedFileName == null) {
-                Button(
+                AppButton(
+                    text = stringResource(R.string.upload_select_pdf),
                     onClick = { pdfPicker.launch(arrayOf("application/pdf")) },
                     enabled = !state.isImporting,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.UploadFile, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.upload_select_pdf),
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.UploadFile, contentDescription = null) }
+                )
             } else {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -179,12 +176,11 @@ fun UploadScreen(
                         )
                     }
                 } else {
-                    Button(
+                    AppButton(
+                        text = stringResource(R.string.upload_parse_button),
                         onClick = { onAction(UploadAction.OnImportClick) },
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.upload_parse_button))
-                    }
+                    )
                 }
             }
 

@@ -40,6 +40,8 @@ import com.madtitan94.transactionsparser.core.domain.model.UserSession
 import com.madtitan94.transactionsparser.core.domain.util.DataError
 import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
 import com.madtitan94.transactionsparser.core.domain.util.Result
+import com.madtitan94.transactionsparser.feature.settings.domain.ThemePreference
+import com.madtitan94.transactionsparser.feature.settings.domain.ThemeStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -232,7 +234,8 @@ class SettingsViewModelTest {
         writer: DocumentWriter = FakeDocumentWriter(),
         backups: BackupLocalDataSource = FakeBackupDataSource(),
         backupWriter: DocumentWriter = writer,
-        reader: DocumentReader = FakeDocumentReader()
+        reader: DocumentReader = FakeDocumentReader(),
+        themeStorage: ThemeStorage = FakeThemeStorage()
     ): SettingsViewModel {
         val transactions = FakeTransactionDataSource(rows)
         return SettingsViewModel(
@@ -253,7 +256,8 @@ class SettingsViewModelTest {
                 backups = backups,
                 sessionStorage = sessionStorage
             ),
-            restoreBackup = RestoreBackupUseCase(backups = backups, transactions = transactions)
+            restoreBackup = RestoreBackupUseCase(backups = backups, transactions = transactions),
+            themeStorage = themeStorage
         )
     }
 
@@ -630,5 +634,57 @@ class SettingsViewModelTest {
         // Both rows show a spinner otherwise, which reads as the app doing two things at once.
         assertThat(viewModel.state.value.isExporting).isTrue()
         assertThat(viewModel.state.value.isBackingUp).isFalse()
+    }
+
+    // --- theme ---
+
+    @Test
+    fun `theme defaults to following the system when nothing has been stored`() = runTest {
+        val viewModel = viewModel()
+
+        assertThat(viewModel.state.value.theme).isEqualTo(ThemePreference.SYSTEM)
+    }
+
+    @Test
+    fun `a stored theme is shown rather than the default`() = runTest {
+        val viewModel = viewModel(themeStorage = FakeThemeStorage(ThemePreference.LIGHT))
+
+        assertThat(viewModel.state.value.theme).isEqualTo(ThemePreference.LIGHT)
+    }
+
+    @Test
+    fun `choosing a theme stores it, so it survives the next launch`() = runTest {
+        // The state updating is not enough on its own — it would still change the theme for this
+        // session and lose it on restart, which is the failure this asserts against.
+        val storage = FakeThemeStorage()
+        val viewModel = viewModel(themeStorage = storage)
+
+        viewModel.onAction(SettingsAction.OnThemeSelected(ThemePreference.DARK))
+
+        assertThat(viewModel.state.value.theme).isEqualTo(ThemePreference.DARK)
+        assertThat(storage.stored).isEqualTo(ThemePreference.DARK)
+    }
+
+    @Test
+    fun `choosing a theme closes the picker`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onAction(SettingsAction.OnThemeClick)
+        assertThat(viewModel.state.value.showThemePicker).isTrue()
+
+        viewModel.onAction(SettingsAction.OnThemeSelected(ThemePreference.DARK))
+
+        assertThat(viewModel.state.value.showThemePicker).isFalse()
+    }
+}
+
+private class FakeThemeStorage(initial: ThemePreference = ThemePreference.SYSTEM) : ThemeStorage {
+    private val preference = MutableStateFlow(initial)
+
+    val stored: ThemePreference get() = preference.value
+
+    override fun observeTheme(): Flow<ThemePreference> = preference
+
+    override suspend fun setTheme(preference: ThemePreference) {
+        this.preference.value = preference
     }
 }

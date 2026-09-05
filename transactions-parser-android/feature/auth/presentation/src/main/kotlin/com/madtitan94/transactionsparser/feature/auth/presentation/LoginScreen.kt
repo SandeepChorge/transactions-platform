@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.madtitan94.transactionsparser.core.designsystem.components.AppButton
 import com.madtitan94.transactionsparser.core.designsystem.theme.TransactionsParserTheme
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -80,20 +80,17 @@ fun LoginScreen(
         if (state.isSigningIn) {
             CircularProgressIndicator()
         } else {
-            Button(
+            AppButton(
+                text = stringResource(R.string.login_google_button),
                 onClick = onSignInClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Login,
-                    contentDescription = null
-                )
-                Spacer(Modifier.height(0.dp))
-                Text(
-                    text = stringResource(R.string.login_google_button),
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Login,
+                        contentDescription = null
+                    )
+                }
+            )
         }
 
         state.error?.let { error ->
