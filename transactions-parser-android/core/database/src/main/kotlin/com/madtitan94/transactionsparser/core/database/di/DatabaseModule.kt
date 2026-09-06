@@ -7,6 +7,7 @@ import com.madtitan94.transactionsparser.core.database.account.ActiveAccountProv
 import com.madtitan94.transactionsparser.core.database.account.LegacyDataClaimer
 import com.madtitan94.transactionsparser.core.database.datasource.RoomBackupDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomCategoryDataSource
+import com.madtitan94.transactionsparser.core.database.datasource.RoomDashboardDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomPayeeDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomSessionDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomTransactionDataSource
@@ -14,6 +15,7 @@ import com.madtitan94.transactionsparser.core.database.datasource.RoomUploadLogD
 import com.madtitan94.transactionsparser.core.database.migration.ALL_MIGRATIONS
 import com.madtitan94.transactionsparser.core.domain.datasource.BackupLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.DashboardLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
@@ -54,6 +56,7 @@ val coreDatabaseModule = module {
     single<PayeeLocalDataSource> { RoomPayeeDataSource(get(), get(), get(), get()) }
     single<SessionLocalDataSource> { RoomSessionDataSource(get(), get()) }
     single<TransactionLocalDataSource> { RoomTransactionDataSource(get(), get()) }
+    single<DashboardLocalDataSource> { RoomDashboardDataSource(get(), get()) }
     single<UploadLogLocalDataSource> { RoomUploadLogDataSource(get(), get()) }
     single<BackupLocalDataSource> { RoomBackupDataSource(get(), get(), get(), get()) }
 }
