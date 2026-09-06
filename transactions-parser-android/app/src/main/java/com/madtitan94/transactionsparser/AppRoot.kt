@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Icon
@@ -26,10 +27,13 @@ import com.madtitan94.transactionsparser.core.designsystem.components.LoadingInd
 import com.madtitan94.transactionsparser.feature.auth.presentation.LoginRoot
 import com.madtitan94.transactionsparser.feature.categories.presentation.navigation.CategoriesRoute
 import com.madtitan94.transactionsparser.feature.categories.presentation.navigation.categoriesGraph
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.DashboardRoute
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.dashboardGraph
 import com.madtitan94.transactionsparser.feature.profile.presentation.navigation.ProfileRoute
 import com.madtitan94.transactionsparser.feature.profile.presentation.navigation.profileGraph
 import com.madtitan94.transactionsparser.feature.settings.presentation.navigation.SettingsRoute
 import com.madtitan94.transactionsparser.feature.settings.presentation.navigation.settingsGraph
+import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.PayeeDetailRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.SessionDetailRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.SessionsHistoryRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.sessionsGraph
@@ -59,6 +63,10 @@ private data class BottomBarItem(
 )
 
 private val BOTTOM_BAR_ITEMS = listOf(
+    // Home leads the bar and is the start destination: the dashboard is what the app is now for,
+    // and the statement list is where you go to work on it. The bar is otherwise untouched here —
+    // the restyle to the design's own shell is its own change.
+    BottomBarItem(DashboardRoute, DashboardRoute::class, R.string.tab_home, Icons.Default.Home),
     BottomBarItem(SessionsHistoryRoute, SessionsHistoryRoute::class, R.string.tab_statements, Icons.AutoMirrored.Filled.ReceiptLong),
     BottomBarItem(UploadRoute, UploadRoute::class, R.string.tab_upload, Icons.Default.UploadFile),
     BottomBarItem(CategoriesRoute, CategoriesRoute::class, R.string.tab_categories, Icons.Default.Category),
@@ -100,9 +108,15 @@ private fun MainScaffold() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = SessionsHistoryRoute,
+            startDestination = DashboardRoute,
             modifier = Modifier.padding(padding)
         ) {
+            dashboardGraph(
+                onOpenPayee = { normalizedPayee, rawPayee ->
+                    navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
+                },
+                onOpenCategories = { navController.navigate(CategoriesRoute) }
+            )
             sessionsGraph(navController)
             uploadGraph(
                 onOpenSession = { sessionId ->

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Dashboard names, used by the chip row and the screen header. -->
+    <string name="dash_pulse">Pulse</string>
+    <string name="dash_categories">Categories</string>
+    <string name="dash_mapping_health">Mapping health</string>
+    <string name="dash_payees">Payees</string>
+
+    <!-- Range chip. -->
+    <string name="range_today">Today</string>
+    <string name="range_this_week">This week</string>
+    <string name="range_this_month">This month</string>
+    <string name="range_last_month">Last month</string>
+    <string name="range_all_time">All time</string>
+    <string name="range_custom">Custom</string>
+    <string name="range_custom_span">%1$s – %2$s</string>
+    <string name="range_sheet_title">Show me</string>
+    <string name="range_custom_pick">Pick dates…</string>
+    <string name="range_picker_confirm">Apply</string>
+    <string name="range_picker_cancel">Cancel</string>
+
+    <!-- W1 · Net spend hero. -->
+    <string name="dash_net_spend_label">NET SPEND · %1$s</string>
+    <string name="dash_delta_more">↑ %1$d%% more</string>
+    <string name="dash_delta_less">↓ %1$d%% less</string>
+    <string name="dash_delta_flat">Level with the period before</string>
+    <string name="dash_delta_than_before">than the period before</string>
+    <string name="dash_delta_because">than the period before, mostly %1$s</string>
+    <string name="dash_hero_empty">Upload a statement to see this.</string>
+    <string name="dash_hero_count">across %1$d payees</string>
+
+    <!-- W2 · Daily spend line. -->
+    <string name="dash_daily_title">Spend over time</string>
+    <string name="dash_daily_avg">%1$s avg/day</string>
+    <string name="dash_daily_avg_week">%1$s avg/week</string>
+    <string name="dash_daily_on">%1$s on %2$s</string>
+
+    <!-- W3 · Category breakdown. -->
+    <string name="dash_by_category">By category</string>
+    <string name="dash_uncategorised">Uncategorised</string>
+    <string name="dash_category_empty">Nothing categorised yet.</string>
+    <string name="dash_share_percent">%1$d%%</string>
+    <string name="dash_share_tiny">&lt;1%%</string>
+
+    <!-- W4 · Uncategorised nudge. -->
+    <string name="dash_unmapped_title">%1$s has no name on it</string>
+    <plurals name="dash_unmapped_body">
+        <item quantity="one">One payee is still unnamed. Naming it takes about a minute and fixes every total below.</item>
+        <item quantity="other">%1$d payees are still unnamed. Naming them takes about a minute and fixes every total below.</item>
+    </plurals>
+
+    <!-- W5 · In / Out / Net tiles. -->
+    <string name="dash_in">IN</string>
+    <string name="dash_out">OUT</string>
+    <string name="dash_net">NET</string>
+
+    <!-- W7 · Donut. -->
+    <string name="dash_spend_by_category">Spend by category</string>
+    <string name="dash_cat_lede">%1$s is your biggest category, at %2$d%% of the period.</string>
+    <string name="dash_donut_empty">No spending in this period.</string>
+
+    <!-- W8 · Mapping health hero. -->
+    <string name="dash_mapped_label">MAPPED · %1$s</string>
+    <string name="dash_mapped_of">of %1$s has a name</string>
+    <string name="dash_mapped_note">Every payee you name here is recognised automatically in next month\'s statement.</string>
+    <string name="dash_mapped_all">Everything in this period has a name.</string>
+
+    <!-- W9/W10 · Payee rankings. -->
+    <string name="dash_payees_title">Where it goes, by payee</string>
+    <string name="dash_waiting_title">Waiting on you</string>
+    <string name="dash_payees_empty">No spending to anyone in this period yet.</string>
+    <string name="dash_waiting_empty">Every payee in this period has a name.</string>
+    <plurals name="dash_payee_count">
+        <item quantity="one">%1$d payment</item>
+        <item quantity="other">%1$d payments</item>
+    </plurals>
+
+    <!-- Screen-level. -->
+    <string name="dash_empty_title">Nothing to show yet</string>
+    <string name="dash_empty_body">Upload a statement and this fills in.</string>
+    <string name="dash_open_range">Change the period</string>
+    <string name="dash_swipe_hint">Swipe between dashboards · %1$d/%2$d</string>
+
+</resources>
