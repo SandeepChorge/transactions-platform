@@ -270,8 +270,26 @@ data class PayeeTotalRow(
     val payeeId: Long?,
     val alias: String?,
     val statementName: String,
+    /**
+     * One of the payee's normalised names — the key `PayeeDetailRoute` opens on.
+     *
+     * Any one of them will do for a merged payee: the detail screen resolves siblings through
+     * `SAME_PAYEE_NAMES`, so opening on `SWIGGY` and opening on `SWIGGY*ORDER` land on the same
+     * history. It is taken with `MIN` alongside [statementName]'s own `MIN`, so in principle the two
+     * could come from different rows of the group; that costs nothing, because the pair is only ever
+     * used to open a screen that then re-resolves the whole payee for itself.
+     */
+    val normalizedName: String,
     val totalPaise: Long,
     val transactionCount: Int
+)
+
+/** How many payees a range's spend reached, and how much of it reached nobody in particular. */
+data class PayeeSummaryRow(
+    val payeeCount: Int,
+    val unmappedPaise: Long,
+    val unmappedPayeeCount: Int,
+    val unmappedTransactionCount: Int
 )
 
 /** One export row with the payee mapping and statement already joined in. */
@@ -362,6 +380,22 @@ private const val RESOLVED_PAYEE_JOIN =
 
 /** The resolved payee, or NULL when the name is mapped to nobody. */
 private const val RESOLVED_PAYEE_ID = "IFNULL(t.payeeId, i.payeeId)"
+
+/**
+ * What makes two rows the same payee, as a value that can be grouped or counted.
+ *
+ * Tagged rather than the id alone so unmapped rows fall back to their statement name instead of
+ * collapsing into one NULL bucket the way the category aggregate deliberately does. The tag also
+ * keeps the two kinds apart: a payee with id 7 and an unmapped name that happens to read "7" are
+ * `payee:7` and `name:7`, not one payee counted once.
+ *
+ * The same expression backs both the ranked list and the count beside it, so the number in the hero
+ * and the rows underneath it can never disagree about what one payee is.
+ */
+private const val PAYEE_GROUP_KEY =
+    "CASE WHEN $RESOLVED_PAYEE_ID IS NULL " +
+        "THEN 'name:' || t.normalizedPayee " +
+        "ELSE 'payee:' || $RESOLVED_PAYEE_ID END"
 
 @Dao
 interface TransactionDao {
@@ -559,15 +593,14 @@ interface TransactionDao {
         SELECT $RESOLVED_PAYEE_ID AS payeeId,
                MIN(p.alias) AS alias,
                MIN(t.rawPayee) AS statementName,
+               MIN(t.normalizedPayee) AS normalizedName,
                IFNULL(SUM(t.amountPaise), 0) AS totalPaise,
                COUNT(t.id) AS transactionCount
         $COUNTABLE_ROWS_FROM
         $RESOLVED_PAYEE_JOIN
         $COUNTABLE_ROWS_WHERE
         AND t.type = 'DEBIT'
-        GROUP BY CASE WHEN $RESOLVED_PAYEE_ID IS NULL
-                      THEN 'name:' || t.normalizedPayee
-                      ELSE 'payee:' || $RESOLVED_PAYEE_ID END
+        GROUP BY $PAYEE_GROUP_KEY
         ORDER BY totalPaise DESC, statementName
         LIMIT :limit
         """
@@ -578,6 +611,46 @@ interface TransactionDao {
         toMillisExclusive: Long,
         limit: Int
     ): Flow<List<PayeeTotalRow>>
+
+    /**
+     * How many payees the period's spend reached, and how much of it reached nobody.
+     *
+     * Counted rather than derived from [observeTopPayees], which is fetched with a limit: counting
+     * its rows would report the limit on any account larger than it, so "across 40 payees" would be
+     * what a busy account and a quiet one both said.
+     *
+     * The unmapped value is already available as the null bucket of [observeCategoryTotals] — every
+     * mapped payee carries a category, so no category means no payee. The count of distinct names is
+     * not, and it is what turns a percentage into a task: "₹5,770 unnamed" is a statistic, "₹5,770
+     * across three payees" is an afternoon's work the user can picture finishing.
+     *
+     * Conditional aggregation rather than a `WHERE` on the unmapped rows: filtering the whole query
+     * down to them would leave no rows to count the account's payees from, and a fully mapped
+     * account — the state the nudge exists to reach — would come back as no row at all.
+     *
+     * The unmapped names are counted on `normalizedPayee` rather than `rawPayee` so two printings of
+     * the same merchant that differ only in spacing are one name to be mapped, not two.
+     */
+    @Query(
+        """
+        SELECT COUNT(DISTINCT $PAYEE_GROUP_KEY) AS payeeCount,
+               IFNULL(SUM(CASE WHEN $RESOLVED_PAYEE_ID IS NULL
+                               THEN t.amountPaise ELSE 0 END), 0) AS unmappedPaise,
+               COUNT(DISTINCT CASE WHEN $RESOLVED_PAYEE_ID IS NULL
+                                   THEN t.normalizedPayee END) AS unmappedPayeeCount,
+               COUNT(CASE WHEN $RESOLVED_PAYEE_ID IS NULL
+                          THEN t.id END) AS unmappedTransactionCount
+        $COUNTABLE_ROWS_FROM
+        $RESOLVED_PAYEE_JOIN
+        $COUNTABLE_ROWS_WHERE
+        AND t.type = 'DEBIT'
+        """
+    )
+    fun observePayeeSummary(
+        ownerId: String,
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Flow<PayeeSummaryRow>
 
     /**
      * Every row of this account, with its mapping resolved, for CSV export.

@@ -84,6 +84,36 @@ data class PayeeTotal(
     val payeeId: Long?,
     /** The user's alias when mapped, the statement's own name when not. */
     val label: String,
+    /** The statement's own name, kept even when [label] is an alias, so a row can be opened. */
+    val statementName: String,
+    /** One of the payee's normalised names — enough to open its history, merged siblings and all. */
+    val normalizedName: String,
     val totalPaise: Long,
     val transactionCount: Int
+) {
+    /** No payee behind the name yet. These rank all the same; unmapped money is money. */
+    val isUnmapped: Boolean get() = payeeId == null
+}
+
+/**
+ * How many payees a range's spend went to, and how much of it went to nobody in particular.
+ *
+ * The counts are the reason this exists. A ranked list can only answer "who were the biggest", and
+ * it is fetched with a limit, so counting its rows reports the limit rather than the account: an
+ * account with two hundred payees and one with forty both read as forty. These come from a
+ * `COUNT(DISTINCT …)` over the whole range instead, so the figures on screen are the account's.
+ *
+ * [unmappedPaise] duplicates the null bucket of [CategoryTotal] on purpose — it is the same money
+ * seen from the other side, and having it here means the nudge does not have to reach into a list of
+ * category totals and pick out the one row that is not a category.
+ *
+ * [unmappedPayeeCount] is what turns a percentage into a task: a share of spend is a score, while a
+ * count of names is an afternoon's work the user can picture finishing.
+ */
+data class PayeeSummary(
+    /** Distinct payees with spend in the range, merged identities counted once. */
+    val payeeCount: Int = 0,
+    val unmappedPaise: Long = 0L,
+    val unmappedPayeeCount: Int = 0,
+    val unmappedTransactionCount: Int = 0
 )

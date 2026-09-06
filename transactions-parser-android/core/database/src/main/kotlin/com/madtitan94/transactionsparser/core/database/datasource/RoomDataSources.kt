@@ -33,6 +33,7 @@ import com.madtitan94.transactionsparser.core.database.toCategoryTotal
 import com.madtitan94.transactionsparser.core.database.toDayTotal
 import com.madtitan94.transactionsparser.core.database.toPayee
 import com.madtitan94.transactionsparser.core.database.toPayeeIdentifier
+import com.madtitan94.transactionsparser.core.database.toPayeeSummary
 import com.madtitan94.transactionsparser.core.database.toPayeeTotal
 import com.madtitan94.transactionsparser.core.database.toPayeeTotals
 import com.madtitan94.transactionsparser.core.database.toPeriodTotal
@@ -65,6 +66,7 @@ import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
+import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
@@ -425,6 +427,11 @@ class RoomDashboardDataSource(
         activeAccount.flowForOwner { ownerId ->
             dao.observeTopPayees(ownerId, range.fromMillis, range.toMillisExclusive, limit)
         }.map { rows -> rows.map { it.toPayeeTotal() } }
+
+    override fun observePayeeSummary(range: DateRange): Flow<PayeeSummary> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observePayeeSummary(ownerId, range.fromMillis, range.toMillisExclusive)
+        }.map { it.toPayeeSummary() }
 }
 
 class RoomUploadLogDataSource(

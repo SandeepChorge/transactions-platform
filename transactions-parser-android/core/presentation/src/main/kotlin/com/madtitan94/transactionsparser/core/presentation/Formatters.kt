@@ -24,6 +24,29 @@ fun formatPaise(paise: Long): String {
     return if (fraction == 0) "₹$formatted" else "₹$formatted.%02d".format(fraction)
 }
 
+/**
+ * "₹1.4k", "₹38.4k", "₹1.2L" — for the few places a full figure will not fit.
+ *
+ * Indian scale, not international: past a lakh the number reads in lakhs, because "₹1.2L" is what
+ * the amount is called here and "₹120.0k" is not. Below ten thousand nothing is abbreviated, since
+ * "₹4,280" fits everywhere the short form would have gone and abbreviating it only loses precision.
+ *
+ * Use it in a donut centre, a KPI tile or an average — never in a hero number or a list row, where
+ * the exact figure is the thing the user came to read.
+ */
+fun formatPaiseCompact(paise: Long): String {
+    val rupees = paise / 100
+    val sign = if (rupees < 0) "-" else ""
+    val magnitude = kotlin.math.abs(rupees)
+    return when {
+        magnitude >= 10_000_000L -> "$sign₹%.1fCr".format(magnitude / 10_000_000.0)
+        magnitude >= 100_000L -> "$sign₹%.1fL".format(magnitude / 100_000.0)
+        magnitude >= 10_000L -> "$sign₹%.1fk".format(magnitude / 1_000.0)
+        // "-₹1,234", never "₹-1,234": the sign belongs in front of the money, not inside it.
+        else -> sign + formatPaise(magnitude * 100)
+    }
+}
+
 /** Statement wall-clock stored as-if-UTC — always read back with UTC. */
 fun statementDateTime(utcMillis: Long): LocalDateTime =
     LocalDateTime.ofInstant(Instant.ofEpochMilli(utcMillis), ZoneOffset.UTC)

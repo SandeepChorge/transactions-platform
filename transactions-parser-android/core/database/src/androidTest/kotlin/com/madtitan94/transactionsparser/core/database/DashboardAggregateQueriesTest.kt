@@ -129,6 +129,9 @@ class DashboardAggregateQueriesTest {
     private suspend fun topPayees(limit: Int = 10, from: Long = ALL_FROM, to: Long = ALL_TO) =
         database.transactionDao().observeTopPayees(OWNER, from, to, limit).first()
 
+    private suspend fun payeeSummary(from: Long = ALL_FROM, to: Long = ALL_TO) =
+        database.transactionDao().observePayeeSummary(OWNER, from, to).first().toPayeeSummary()
+
     // ---- Day totals -------------------------------------------------------------------------
 
     @Test
@@ -384,6 +387,229 @@ class DashboardAggregateQueriesTest {
         insert(at(2026, 6, 11), 90_000, payee = PAYEE, type = "CREDIT")
 
         assertThat(topPayees().single().totalPaise).isEqualTo(1_000L)
+    }
+
+    /**
+     * A ranked row has to be openable. `PayeeDetailRoute` is keyed on a normalised name, and the
+     * alias a merged payee ranks under is not one of them — tapping "Corner shop" with the alias in
+     * hand would open a screen with nothing on it.
+     */
+    @Test
+    fun aRankedRowCarriesTheNamesNeededToOpenIt() = runTest {
+        val groceries = category("Groceries")
+        payee("Corner shop", groceries, PAYEE, OTHER_SPELLING)
+        insert(at(2026, 6, 10), 1_000, payee = PAYEE)
+        insert(at(2026, 6, 11), 2_000, payee = OTHER_SPELLING)
+
+        val row = topPayees().single().toPayeeTotal()
+
+        assertThat(row.label).isEqualTo("Corner shop")
+        // Either spelling is a valid door into the payee — the detail screen joins the siblings back
+        // in through `payee_identifiers` — so the test pins that it is one of them, not which.
+        assertThat(listOf(PAYEE, OTHER_SPELLING).contains(row.normalizedName)).isEqualTo(true)
+        assertThat(listOf(PAYEE, OTHER_SPELLING).contains(row.statementName)).isEqualTo(true)
+    }
+
+    @Test
+    fun anUnmappedRowIsOpenableUnderItsOwnName() = runTest {
+        insert(at(2026, 6, 10), 5_000, payee = "UNMAPPED ONE")
+
+        val row = topPayees().single().toPayeeTotal()
+
+        assertThat(row.normalizedName).isEqualTo("UNMAPPED ONE")
+        assertThat(row.statementName).isEqualTo("UNMAPPED ONE")
+        assertThat(row.isUnmapped).isEqualTo(true)
+    }
+
+    // ---- Payee summary ------------------------------------------------------------------------
+
+    /**
+     * The reason this query exists rather than a `payees.size` on the ranked list: the list is
+     * fetched with a limit, so counting its rows reports the limit on any account bigger than it.
+     * Both accounts would say "across 40 payees" and one of them would be wrong.
+     */
+    @Test
+    fun thePayeeCountIsTheAccountsRatherThanTheRankedListsLength() = runTest {
+        val groceries = category("Groceries")
+        payee("Corner shop", groceries, PAYEE)
+        insert(at(2026, 6, 10), 1_000, payee = PAYEE)
+        insert(at(2026, 6, 11), 2_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 12), 3_000, payee = "UNMAPPED TWO")
+
+        // Two names asked for, three payees spent to. A count taken from the list would say two.
+        assertThat(topPayees(limit = 2)).hasSize(2)
+        assertThat(payeeSummary().payeeCount).isEqualTo(3)
+    }
+
+    /** One payee, three spellings, one row in the list — and it has to count as one here too. */
+    @Test
+    fun aMergedPayeeCountsOnce() = runTest {
+        val groceries = category("Groceries")
+        payee("Corner shop", groceries, PAYEE, OTHER_SPELLING, THIRD_SPELLING)
+        insert(at(2026, 6, 10), 1_000, payee = PAYEE)
+        insert(at(2026, 6, 11), 2_000, payee = OTHER_SPELLING)
+        insert(at(2026, 6, 12), 3_000, payee = THIRD_SPELLING)
+
+        assertThat(payeeSummary().payeeCount).isEqualTo(1)
+        // The same grouping the ranked list uses, so the count above a list can never disagree with
+        // the rows in it.
+        assertThat(topPayees()).hasSize(1)
+    }
+
+    @Test
+    fun thePayeeCountFollowsTheRangeAndCountsDebitsOnly() = runTest {
+        insert(at(2026, 6, 10), 1_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 11), 90_000, payee = "CREDIT ONLY NAME", type = "CREDIT")
+        insert(at(2026, 7, 10), 4_000, payee = "UNMAPPED TWO")
+
+        val june = payeeSummary(from = at(2026, 6, 1, hour = 0), to = at(2026, 7, 1, hour = 0))
+
+        // A salary is not a payee spent to, and July is not June.
+        assertThat(june.payeeCount).isEqualTo(1)
+    }
+
+    /**
+     * The count of unmapped names is what turns a percentage into a task: a share of spend is a
+     * score, while a count of names is an afternoon's work with an end to it. Counting rows instead
+     * would report "40 payees to map" for four names appearing ten times each.
+     */
+    @Test
+    fun theUnmappedFiguresCountDistinctNamesRatherThanRows() = runTest {
+        val groceries = category("Groceries")
+        payee("Corner shop", groceries, PAYEE)
+        insert(at(2026, 6, 10), 1_000, payee = PAYEE)
+        insert(at(2026, 6, 11), 5_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 12), 2_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 13), 3_000, payee = "UNMAPPED TWO")
+
+        val summary = payeeSummary()
+
+        assertThat(summary.unmappedPaise).isEqualTo(10_000L)
+        assertThat(summary.unmappedPayeeCount).isEqualTo(2)
+        assertThat(summary.unmappedTransactionCount).isEqualTo(3)
+        // The mapped payee counts towards the account's total but not towards the work queue.
+        assertThat(summary.payeeCount).isEqualTo(3)
+    }
+
+    /** The same money the donut draws as the hatch, seen from the other side. It must agree. */
+    @Test
+    fun theUnmappedTotalAgreesWithTheNullCategoryBucket() = runTest {
+        val groceries = category("Groceries")
+        payee("Corner shop", groceries, PAYEE)
+        insert(at(2026, 6, 10), 1_000, payee = PAYEE)
+        insert(at(2026, 6, 11), 5_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 12), 3_000, payee = "UNMAPPED TWO")
+
+        val bucket = categoryTotals().map { it.toCategoryTotal() }.single { it.categoryId == null }
+        val summary = payeeSummary()
+
+        assertThat(summary.unmappedPaise).isEqualTo(bucket.totalPaise)
+        assertThat(summary.unmappedTransactionCount).isEqualTo(bucket.transactionCount)
+    }
+
+    /**
+     * A row imported before its payee existed keeps a null `payeeId`. It is mapped all the same, and
+     * counting it as unmapped would put a payee the user has already dealt with back on the queue.
+     */
+    @Test
+    fun aRowResolvingThroughItsIdentifierIsNotUnmapped() = runTest {
+        val groceries = category("Groceries")
+        payee("Corner shop", groceries, PAYEE)
+        insert(at(2026, 6, 10), 1_000, payee = PAYEE, payeeId = null)
+
+        val summary = payeeSummary()
+
+        assertThat(summary.unmappedPayeeCount).isEqualTo(0)
+        assertThat(summary.unmappedPaise).isEqualTo(0L)
+        assertThat(summary.payeeCount).isEqualTo(1)
+    }
+
+    @Test
+    fun theUnmappedFiguresCountDebitsOnlyAndRespectTheRange() = runTest {
+        insert(at(2026, 6, 10), 1_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 11), 90_000, payee = "UNMAPPED ONE", type = "CREDIT")
+        insert(at(2026, 7, 10), 4_000, payee = "UNMAPPED TWO")
+
+        val june = payeeSummary(from = at(2026, 6, 1, hour = 0), to = at(2026, 7, 1, hour = 0))
+
+        assertThat(june.unmappedPaise).isEqualTo(1_000L)
+        assertThat(june.unmappedPayeeCount).isEqualTo(1)
+    }
+
+    /**
+     * A fully mapped account is the state the nudge exists to reach, so it has to be expressible.
+     * Filtering the query down to unmapped rows with a `WHERE` would leave no row at all here, and
+     * an aggregate over no rows yields NULL, which cannot bind to the row's non-null columns.
+     */
+    @Test
+    fun anAccountWithNothingUnmappedReadsAsZeroesRatherThanFailingToBind() = runTest {
+        val groceries = category("Groceries")
+        val shop = payee("Corner shop", groceries, PAYEE)
+        insert(at(2026, 6, 10), 1_000, payee = PAYEE, payeeId = shop)
+
+        val summary = payeeSummary()
+
+        assertThat(summary.unmappedPaise).isEqualTo(0L)
+        assertThat(summary.unmappedPayeeCount).isEqualTo(0)
+        assertThat(summary.unmappedTransactionCount).isEqualTo(0)
+        // And the account's own payee is still counted — filtering to the unmapped rows would have
+        // lost it along with the zeroes above.
+        assertThat(summary.payeeCount).isEqualTo(1)
+    }
+
+    /** An empty range is an ordinary state, not an error: a new account, or a quiet month. */
+    @Test
+    fun anEmptyRangeSummarisesAsZeroes() = runTest {
+        insert(at(2026, 6, 10), 1_000, payee = "UNMAPPED ONE")
+
+        val july = payeeSummary(from = at(2026, 7, 1, hour = 0), to = at(2026, 8, 1, hour = 0))
+
+        assertThat(july.payeeCount).isEqualTo(0)
+        assertThat(july.unmappedPaise).isEqualTo(0L)
+        assertThat(july.unmappedPayeeCount).isEqualTo(0)
+    }
+
+    @Test
+    fun anotherAccountsPayeesAreNotOnThisAccountsQueue() = runTest {
+        insert(at(2026, 6, 10), 1_000, payee = "UNMAPPED ONE")
+        insert(
+            at(2026, 6, 10),
+            99_000,
+            payee = "THEIR UNMAPPED NAME",
+            ownerId = OTHER_OWNER,
+            sessionId = OTHER_ACCOUNT_SESSION
+        )
+
+        val summary = payeeSummary()
+
+        assertThat(summary.payeeCount).isEqualTo(1)
+        assertThat(summary.unmappedPayeeCount).isEqualTo(1)
+        assertThat(summary.unmappedPaise).isEqualTo(1_000L)
+    }
+
+    /** Cancelled imports are thrown away, so their names are not work the user still owes. */
+    @Test
+    fun cancelledStatementsDoNotAddToTheQueue() = runTest {
+        insert(at(2026, 6, 10), 1_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 10), 90_000, payee = "GONE", sessionId = CANCELLED_SESSION)
+        insert(at(2026, 6, 10), 2_000, payee = "UNMAPPED TWO", sessionId = PENDING_SESSION)
+
+        val summary = payeeSummary()
+
+        assertThat(summary.payeeCount).isEqualTo(2)
+        assertThat(summary.unmappedPaise).isEqualTo(3_000L)
+    }
+
+    /** An excluded row is money the user has said is not theirs to account for. */
+    @Test
+    fun excludedRowsAreNotUnmappedWork() = runTest {
+        insert(at(2026, 6, 10), 1_000, payee = "UNMAPPED ONE")
+        insert(at(2026, 6, 10), 90_000, payee = "EXCLUDED NAME", isExcluded = true)
+
+        val summary = payeeSummary()
+
+        assertThat(summary.payeeCount).isEqualTo(1)
+        assertThat(summary.unmappedPaise).isEqualTo(1_000L)
     }
 
     private suspend fun category(name: String): Long =

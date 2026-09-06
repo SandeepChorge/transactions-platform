@@ -10,6 +10,7 @@ import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
+import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
@@ -182,6 +183,9 @@ interface DashboardLocalDataSource {
 
     /** The [limit] largest payees by spend, merged identities totalled as one row each. */
     fun observeTopPayees(range: DateRange, limit: Int): Flow<List<PayeeTotal>>
+
+    /** How many payees the range's spend reached, and how much of it reached nobody. */
+    fun observePayeeSummary(range: DateRange): Flow<PayeeSummary>
 }
 
 /**

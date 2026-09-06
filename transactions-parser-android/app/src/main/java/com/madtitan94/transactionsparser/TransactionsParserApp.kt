@@ -7,6 +7,8 @@ import com.madtitan94.transactionsparser.core.pdf.di.corePdfModule
 import com.madtitan94.transactionsparser.feature.auth.data.di.authDataModule
 import com.madtitan94.transactionsparser.feature.auth.presentation.di.authPresentationModule
 import com.madtitan94.transactionsparser.feature.categories.presentation.di.categoriesPresentationModule
+import com.madtitan94.transactionsparser.feature.dashboard.data.di.dashboardDataModule
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.di.dashboardPresentationModule
 import com.madtitan94.transactionsparser.feature.profile.data.di.profileDataModule
 import com.madtitan94.transactionsparser.feature.profile.presentation.di.profilePresentationModule
 import com.madtitan94.transactionsparser.feature.sessions.presentation.di.sessionsPresentationModule
@@ -40,6 +42,8 @@ class TransactionsParserApp : Application() {
                 uploadPresentationModule,
                 sessionsPresentationModule,
                 categoriesPresentationModule,
+                dashboardDataModule,
+                dashboardPresentationModule,
                 settingsDataModule,
                 settingsPresentationModule
             )
