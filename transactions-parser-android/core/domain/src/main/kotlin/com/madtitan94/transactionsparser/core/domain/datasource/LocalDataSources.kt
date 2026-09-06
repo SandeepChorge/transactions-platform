@@ -5,8 +5,12 @@ import com.madtitan94.transactionsparser.core.domain.backup.BackupSnapshot
 import com.madtitan94.transactionsparser.core.domain.backup.RestorePayload
 import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.domain.model.Category
+import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
+import com.madtitan94.transactionsparser.core.domain.model.DateRange
+import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
+import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
@@ -15,6 +19,7 @@ import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
 import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
+import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.model.UserSession
 import com.madtitan94.transactionsparser.core.domain.util.DataError
@@ -150,6 +155,33 @@ interface TransactionLocalDataSource {
      * than one that is merely a few seconds old.
      */
     suspend fun exportRows(): Result<List<TransactionExportRow>, DataError.Local>
+}
+
+/**
+ * The account-wide aggregates the dashboards are drawn from, each over one [DateRange].
+ *
+ * A separate contract from [TransactionLocalDataSource] even though both are served by the same
+ * DAO: these read across every session and every payee to answer "what did this account do", where
+ * that one reads rows a screen is showing. Keeping them apart means a dashboard depends on four
+ * functions rather than on twenty, and the fakes that stand in for transactions in unit tests do
+ * not have to grow aggregate implementations they never call.
+ *
+ * Every stream here counts only what the user counts — `isExcluded = 0` — and deliberately not
+ * `isDuplicate`: a duplicate the user re-included is a transaction they have said is real. Rows of
+ * a cancelled statement are left out entirely; see the DAO for why.
+ */
+interface DashboardLocalDataSource {
+    /** One bucket per day that has rows, newest first. Days with nothing in them are absent. */
+    fun observeDayTotals(range: DateRange): Flow<List<DayTotal>>
+
+    /** In, out and net for the range — the KPI tiles, in one row rather than three queries. */
+    fun observeTypeTotals(range: DateRange): Flow<TypeTotals>
+
+    /** Spend per category, largest first, with unmapped payees in the null-id bucket. */
+    fun observeCategoryTotals(range: DateRange): Flow<List<CategoryTotal>>
+
+    /** The [limit] largest payees by spend, merged identities totalled as one row each. */
+    fun observeTopPayees(range: DateRange, limit: Int): Flow<List<PayeeTotal>>
 }
 
 /**

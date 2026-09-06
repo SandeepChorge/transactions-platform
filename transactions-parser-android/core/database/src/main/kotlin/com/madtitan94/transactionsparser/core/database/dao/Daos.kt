@@ -238,6 +238,42 @@ data class PeriodTotalRow(
     val countedCount: Int
 )
 
+/** One day of the whole account, the two directions kept apart. */
+data class DayTotalRow(
+    val startMillis: Long,
+    val debitPaise: Long,
+    val creditPaise: Long,
+    val transactionCount: Int
+)
+
+/** In, out and their counts over one range. Always one row, zeroed when the range is empty. */
+data class TypeTotalsRow(
+    val debitPaise: Long,
+    val creditPaise: Long,
+    val debitCount: Int,
+    val creditCount: Int
+)
+
+/** Spend under one category; both columns are null for the unmapped bucket. */
+data class CategoryTotalRow(
+    val categoryId: Long?,
+    val categoryName: String?,
+    val totalPaise: Long,
+    val transactionCount: Int
+)
+
+/**
+ * Spend to one payee. [alias] is null while the name is unmapped, which is when [statementName] —
+ * the name the bank printed — is what the row has to be called.
+ */
+data class PayeeTotalRow(
+    val payeeId: Long?,
+    val alias: String?,
+    val statementName: String,
+    val totalPaise: Long,
+    val transactionCount: Int
+)
+
 /** One export row with the payee mapping and statement already joined in. */
 data class TransactionExportRowEntity(
     val dateTimeUtcMillis: Long,
@@ -279,6 +315,53 @@ private const val SAME_PAYEE_NAMES =
         "JOIN payee_identifiers sibling " +
         "ON sibling.payeeId = self.payeeId AND sibling.ownerId = self.ownerId " +
         "WHERE self.ownerId = :ownerId AND self.normalizedName = :normalizedPayee)))"
+
+/**
+ * Every row of the account that a dashboard is allowed to count, before any grouping.
+ *
+ * Three decisions are baked in here rather than repeated per query, so the four aggregates cannot
+ * drift apart and quietly disagree with each other on one screen:
+ *
+ * - **`isExcluded = 0`, and never `isDuplicate`.** Exclusion is the user's decision and duplicate
+ *   detection is only what seeded it; a repeat the user has re-included is a transaction they have
+ *   said is real, and a dashboard that still left it out would contradict the list it was read from.
+ * - **Cancelled statements are left out.** Cancelling is how a user throws an import away, but it
+ *   only flips the session's status — the rows stay. Counting them would put spend the user has
+ *   discarded into every total. Pending statements *are* counted: their rows are real, only the
+ *   payee mapping is unfinished, and hiding a freshly imported statement until it is mapped would
+ *   read as a failed import.
+ * - **The range is half-open.** `>= from` and `< to`, so a row at midnight lands in exactly one of
+ *   two adjacent months rather than in both.
+ */
+private const val COUNTABLE_ROWS_FROM =
+    "FROM transactions t " +
+        "JOIN sessions s ON s.id = t.sessionId AND s.ownerId = t.ownerId "
+
+private const val COUNTABLE_ROWS_WHERE =
+    "WHERE t.ownerId = :ownerId AND t.isDeleted = 0 AND t.isExcluded = 0 " +
+        "AND s.isDeleted = 0 AND s.status <> 'CANCELLED' " +
+        "AND t.dateTimeUtcMillis >= :fromMillis AND t.dateTimeUtcMillis < :toMillisExclusive "
+
+/**
+ * Resolves each row to the payee it belongs to *today*, which is not always the one stamped on it.
+ *
+ * `transactions.payeeId` is written by `assignPayee`, which is session-scoped: only the statement
+ * being mapped is stamped, so rows imported before their payee existed keep a null `payeeId`
+ * forever. Grouping on that column alone would drop them out of a total presented as complete.
+ * Falling back to `payee_identifiers` — the same table the payee-scoped queries join through —
+ * picks them back up, because a name is the identity a statement actually carries.
+ *
+ * The stamp wins where there is one. A merge re-points both the stamped rows and the identifiers
+ * together, so the two paths agree; where they could not, the explicit assignment is the more
+ * specific fact.
+ */
+private const val RESOLVED_PAYEE_JOIN =
+    "LEFT JOIN payee_identifiers i ON i.ownerId = t.ownerId " +
+        "AND i.normalizedName = t.normalizedPayee " +
+        "LEFT JOIN payees p ON p.ownerId = t.ownerId AND p.id = IFNULL(t.payeeId, i.payeeId) "
+
+/** The resolved payee, or NULL when the name is mapped to nobody. */
+private const val RESOLVED_PAYEE_ID = "IFNULL(t.payeeId, i.payeeId)"
 
 @Dao
 interface TransactionDao {
@@ -367,6 +450,134 @@ interface TransactionDao {
         normalizedPayee: String,
         includeLinkedNames: Boolean
     ): Flow<List<PeriodTotalRow>>
+
+    /**
+     * Day subtotals for the whole account — the trend chart's series.
+     *
+     * Bucketed by flooring the timestamp to a whole day in UTC, for the same reason
+     * [observePayeeDayTotals] does: statement times are the printed wall clock stored as-if UTC, so
+     * a UTC floor lands on the day the row displays under. A timezone conversion here would move
+     * rows into the wrong day for every user not on UTC.
+     *
+     * Days with no rows are absent rather than zero — a gap in a period is not the same fact as a
+     * day of no spending, and only the caller knows which one the chart should draw.
+     */
+    @Query(
+        """
+        SELECT (t.dateTimeUtcMillis / $DAY_MILLIS) * $DAY_MILLIS AS startMillis,
+               IFNULL(SUM(CASE WHEN t.type = 'DEBIT' THEN t.amountPaise ELSE 0 END), 0)
+                   AS debitPaise,
+               IFNULL(SUM(CASE WHEN t.type = 'CREDIT' THEN t.amountPaise ELSE 0 END), 0)
+                   AS creditPaise,
+               COUNT(t.id) AS transactionCount
+        $COUNTABLE_ROWS_FROM
+        $COUNTABLE_ROWS_WHERE
+        GROUP BY startMillis
+        ORDER BY startMillis DESC
+        """
+    )
+    fun observeDayTotals(
+        ownerId: String,
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Flow<List<DayTotalRow>>
+
+    /**
+     * In, out and their counts over the range — the three KPI tiles, in one pass.
+     *
+     * Every sum is wrapped in `IFNULL`: an aggregate over no rows yields NULL, not 0, and a NULL
+     * cannot bind to the non-null columns of [TypeTotalsRow]. An empty range is a normal state —
+     * a new account, or a month with nothing in it — so it has to read as zeroes rather than crash.
+     */
+    @Query(
+        """
+        SELECT IFNULL(SUM(CASE WHEN t.type = 'DEBIT' THEN t.amountPaise ELSE 0 END), 0)
+                   AS debitPaise,
+               IFNULL(SUM(CASE WHEN t.type = 'CREDIT' THEN t.amountPaise ELSE 0 END), 0)
+                   AS creditPaise,
+               IFNULL(SUM(CASE WHEN t.type = 'DEBIT' THEN 1 ELSE 0 END), 0) AS debitCount,
+               IFNULL(SUM(CASE WHEN t.type = 'CREDIT' THEN 1 ELSE 0 END), 0) AS creditCount
+        $COUNTABLE_ROWS_FROM
+        $COUNTABLE_ROWS_WHERE
+        """
+    )
+    fun observeTypeTotals(
+        ownerId: String,
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Flow<TypeTotalsRow>
+
+    /**
+     * Spend per category, largest first, resolved through the payee mapping — see
+     * [RESOLVED_PAYEE_JOIN] for why the stamped `payeeId` is not enough on its own.
+     *
+     * Debits only. This answers "where did it go", and a salary landing is not a category of spend.
+     *
+     * Rows whose payee resolves to nobody group together under a null id — SQLite gathers NULLs
+     * into one group — which is the bucket the donut draws as the hatch. Neither the payee nor the
+     * category is filtered on `isDeleted`: a category the user has since deleted still names the
+     * spend that was mapped to it, and dropping that mapping would move real spend into the
+     * unmapped bucket and overstate how much of the account is unmapped.
+     */
+    @Query(
+        """
+        SELECT c.id AS categoryId,
+               c.name AS categoryName,
+               IFNULL(SUM(t.amountPaise), 0) AS totalPaise,
+               COUNT(t.id) AS transactionCount
+        $COUNTABLE_ROWS_FROM
+        $RESOLVED_PAYEE_JOIN
+        LEFT JOIN categories c ON c.ownerId = t.ownerId AND c.id = p.categoryId
+        $COUNTABLE_ROWS_WHERE
+        AND t.type = 'DEBIT'
+        GROUP BY c.id
+        ORDER BY totalPaise DESC, categoryName
+        """
+    )
+    fun observeCategoryTotals(
+        ownerId: String,
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Flow<List<CategoryTotalRow>>
+
+    /**
+     * The [limit] largest payees by spend, **grouped by the merged payee rather than by the
+     * statement name**.
+     *
+     * That is the whole point of this query. `SWIGGY`, `SWIGGY BANGALORE` and `SWIGGY*ORDER` mapped
+     * onto one payee must total as one row: grouped by name they would be three under-counted rows,
+     * and the user's actual largest payee could be pushed out of the top five by its own spelling
+     * variants. Names that resolve to nobody keep their own row — unmapped money still ranks, under
+     * the name the statement printed.
+     *
+     * The group key is a tagged string rather than the id alone, so unmapped rows fall back to
+     * grouping by name instead of collapsing into a single NULL bucket the way the category
+     * aggregate deliberately does.
+     */
+    @Query(
+        """
+        SELECT $RESOLVED_PAYEE_ID AS payeeId,
+               MIN(p.alias) AS alias,
+               MIN(t.rawPayee) AS statementName,
+               IFNULL(SUM(t.amountPaise), 0) AS totalPaise,
+               COUNT(t.id) AS transactionCount
+        $COUNTABLE_ROWS_FROM
+        $RESOLVED_PAYEE_JOIN
+        $COUNTABLE_ROWS_WHERE
+        AND t.type = 'DEBIT'
+        GROUP BY CASE WHEN $RESOLVED_PAYEE_ID IS NULL
+                      THEN 'name:' || t.normalizedPayee
+                      ELSE 'payee:' || $RESOLVED_PAYEE_ID END
+        ORDER BY totalPaise DESC, statementName
+        LIMIT :limit
+        """
+    )
+    fun observeTopPayees(
+        ownerId: String,
+        fromMillis: Long,
+        toMillisExclusive: Long,
+        limit: Int
+    ): Flow<List<PayeeTotalRow>>
 
     /**
      * Every row of this account, with its mapping resolved, for CSV export.

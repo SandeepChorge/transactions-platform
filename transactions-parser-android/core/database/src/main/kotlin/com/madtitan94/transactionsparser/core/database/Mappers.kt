@@ -1,8 +1,12 @@
 package com.madtitan94.transactionsparser.core.database
 
+import com.madtitan94.transactionsparser.core.database.dao.CategoryTotalRow
+import com.madtitan94.transactionsparser.core.database.dao.DayTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.DuplicateCandidate
+import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalsRow
 import com.madtitan94.transactionsparser.core.database.dao.PeriodTotalRow
+import com.madtitan94.transactionsparser.core.database.dao.TypeTotalsRow
 import com.madtitan94.transactionsparser.core.database.dao.SessionSummaryRow
 import com.madtitan94.transactionsparser.core.database.dao.TransactionExportRowEntity
 import com.madtitan94.transactionsparser.core.database.entity.CategoryEntity
@@ -12,8 +16,11 @@ import com.madtitan94.transactionsparser.core.database.entity.SessionEntity
 import com.madtitan94.transactionsparser.core.database.entity.TransactionEntity
 import com.madtitan94.transactionsparser.core.database.entity.UploadLogEntity
 import com.madtitan94.transactionsparser.core.domain.model.Category
+import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
+import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
+import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
@@ -24,6 +31,7 @@ import com.madtitan94.transactionsparser.core.domain.model.Transaction
 import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
 import com.madtitan94.transactionsparser.core.domain.model.TransactionType
+import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 
 fun CategoryEntity.toCategory() = Category(id = id, name = name)
@@ -158,4 +166,38 @@ fun PeriodTotalRow.toPeriodTotal() = PeriodTotal(
     startMillis = startMillis,
     countedTotalPaise = countedTotalPaise ?: 0L,
     countedCount = countedCount
+)
+
+fun DayTotalRow.toDayTotal() = DayTotal(
+    startMillis = startMillis,
+    debitPaise = debitPaise,
+    creditPaise = creditPaise,
+    transactionCount = transactionCount
+)
+
+fun TypeTotalsRow.toTypeTotals() = TypeTotals(
+    debitPaise = debitPaise,
+    creditPaise = creditPaise,
+    debitCount = debitCount,
+    creditCount = creditCount
+)
+
+fun CategoryTotalRow.toCategoryTotal() = CategoryTotal(
+    categoryId = categoryId,
+    categoryName = categoryName,
+    totalPaise = totalPaise,
+    transactionCount = transactionCount
+)
+
+/**
+ * The alias when the name is mapped, the printed statement name when it is not.
+ *
+ * Falling back here rather than in the UI keeps an unmapped payee rankable: it has real spend
+ * against it, and a blank label in the top-five list would read as a bug rather than as work to do.
+ */
+fun PayeeTotalRow.toPayeeTotal() = PayeeTotal(
+    payeeId = payeeId,
+    label = alias ?: statementName,
+    totalPaise = totalPaise,
+    transactionCount = transactionCount
 )

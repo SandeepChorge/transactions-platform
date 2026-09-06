@@ -29,8 +29,11 @@ import com.madtitan94.transactionsparser.core.database.toBackupSession
 import com.madtitan94.transactionsparser.core.database.toBackupTransaction
 import com.madtitan94.transactionsparser.core.database.toBackupUploadLog
 import com.madtitan94.transactionsparser.core.database.toCategory
+import com.madtitan94.transactionsparser.core.database.toCategoryTotal
+import com.madtitan94.transactionsparser.core.database.toDayTotal
 import com.madtitan94.transactionsparser.core.database.toPayee
 import com.madtitan94.transactionsparser.core.database.toPayeeIdentifier
+import com.madtitan94.transactionsparser.core.database.toPayeeTotal
 import com.madtitan94.transactionsparser.core.database.toPayeeTotals
 import com.madtitan94.transactionsparser.core.database.toPeriodTotal
 import com.madtitan94.transactionsparser.core.database.toSessionEntity
@@ -40,6 +43,7 @@ import com.madtitan94.transactionsparser.core.database.toTransaction
 import com.madtitan94.transactionsparser.core.database.toTransactionEntity
 import com.madtitan94.transactionsparser.core.database.toTransactionExportRow
 import com.madtitan94.transactionsparser.core.database.toTransactionKey
+import com.madtitan94.transactionsparser.core.database.toTypeTotals
 import com.madtitan94.transactionsparser.core.database.toUploadLog
 import com.madtitan94.transactionsparser.core.database.toUploadLogEntity
 import com.madtitan94.transactionsparser.core.domain.backup.BackupCategory
@@ -50,13 +54,18 @@ import com.madtitan94.transactionsparser.core.domain.backup.RestorePayload
 import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.domain.datasource.BackupLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.DashboardLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.Category
+import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
+import com.madtitan94.transactionsparser.core.domain.model.DateRange
+import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
+import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
@@ -65,6 +74,7 @@ import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
 import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
+import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.util.DataError
 import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
@@ -381,6 +391,40 @@ class RoomTransactionDataSource(
         safeSuspendDbCall {
             dao.exportRows(activeAccount.currentOwnerId()).map { it.toTransactionExportRow() }
         }
+}
+
+/**
+ * The dashboards' aggregates, read off the same [TransactionDao] the transaction list uses.
+ *
+ * Every stream goes through [flowForOwner] for the same reason the rest of this file does: the
+ * account is resolved here and nowhere above, so a dashboard cannot forget to scope itself, and a
+ * chart handed out before a logout re-queries rather than keeping the previous account's totals on
+ * screen.
+ */
+class RoomDashboardDataSource(
+    private val dao: TransactionDao,
+    private val activeAccount: ActiveAccountProvider
+) : DashboardLocalDataSource {
+
+    override fun observeDayTotals(range: DateRange): Flow<List<DayTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeDayTotals(ownerId, range.fromMillis, range.toMillisExclusive)
+        }.map { rows -> rows.map { it.toDayTotal() } }
+
+    override fun observeTypeTotals(range: DateRange): Flow<TypeTotals> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeTypeTotals(ownerId, range.fromMillis, range.toMillisExclusive)
+        }.map { it.toTypeTotals() }
+
+    override fun observeCategoryTotals(range: DateRange): Flow<List<CategoryTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeCategoryTotals(ownerId, range.fromMillis, range.toMillisExclusive)
+        }.map { rows -> rows.map { it.toCategoryTotal() } }
+
+    override fun observeTopPayees(range: DateRange, limit: Int): Flow<List<PayeeTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeTopPayees(ownerId, range.fromMillis, range.toMillisExclusive, limit)
+        }.map { rows -> rows.map { it.toPayeeTotal() } }
 }
 
 class RoomUploadLogDataSource(
