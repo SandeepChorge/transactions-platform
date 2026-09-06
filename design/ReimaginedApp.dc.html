@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f0eee9;font-family:'Plus Jakarta Sans',system-ui,sans-serif}
+a{color:#3D5AFE}a:hover{color:#2c43cc}
+.ms{font-family:'Material Symbols Outlined';font-weight:400;font-style:normal;line-height:1;display:inline-block;white-space:nowrap;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24}
+.mo{font-family:'Material Symbols Outlined';font-weight:400;font-style:normal;line-height:1;display:inline-block;white-space:nowrap;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+.sc::-webkit-scrollbar{width:0;height:0}
+.sc{scrollbar-width:none}
+.tap{cursor:pointer;user-select:none}
+</style></helmet>
+
+<div style="{{ rootVars }}">
+<div style="padding:36px 44px 64px;font-family:var(--ui)">
+
+<div style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:8px">
+<div>
+<div style="font:700 22px/1.2 'Plus Jakarta Sans';color:#1a1a1a">Reimagined — dashboards first</div>
+<div style="margin-top:6px;font:400 13px/1.6 'Plus Jakarta Sans';color:rgba(0,0,0,.6);max-width:640px">Upload once, map once, and the app answers "where did the money go" without you entering anything. Same data model as the repo — nothing here needs a field the DB doesn't already have.</div>
+</div>
+<div style="display:flex;gap:10px;align-items:center">
+<div style="display:flex;background:#e6e3dd;border-radius:10px;padding:3px;gap:2px">
+<div class="tap" onClick="{{ setA }}" style="{{ tabAStyle }}">A · Pulse</div>
+<div class="tap" onClick="{{ setB }}" style="{{ tabBStyle }}">B · Ledger</div>
+<div class="tap" onClick="{{ setC }}" style="{{ tabCStyle }}">C · Feed</div>
+</div>
+<div style="display:flex;background:#e6e3dd;border-radius:10px;padding:3px;gap:2px">
+<div class="tap" onClick="{{ setLight }}" style="{{ tabLStyle }}">Light</div>
+<div class="tap" onClick="{{ setDark }}" style="{{ tabDStyle }}">Dark</div>
+</div>
+</div>
+</div>
+<div style="font:400 12px/1.5 'Plus Jakarta Sans';color:rgba(0,0,0,.45);margin-bottom:26px">{{ versionNote }}</div>
+
+<div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+
+<!-- PHONE -->
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font:500 11px 'Plus Jakarta Sans';color:rgba(0,0,0,.5)">Phone · tap anything</div>
+<div style="width:412px;height:892px;border-radius:28px;overflow:hidden;position:relative;background:var(--bg);box-shadow:0 18px 50px rgba(0,0,0,.18);font-family:var(--ui);color:var(--text)">
+
+<div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:500 12px var(--mono);color:var(--muted)">
+<span>9:41</span><span class="ms" style="font-size:14px">battery_full</span>
+</div>
+
+<!-- ONBOARDING -->
+<sc-if value="{{ sOnb }}" hint-placeholder-val="{{ false }}">
+<div style="height:858px;display:flex;flex-direction:column;padding:32px 28px 28px;box-sizing:border-box">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:20px">
+<div style="width:56px;height:56px;border-radius:18px;background:var(--accentSoft);display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:28px;color:var(--accent)">{{ onbIcon }}</span></div>
+<div style="font:700 30px/1.2 var(--ui);color:var(--text);letter-spacing:-.5px">{{ onbTitle }}</div>
+<div style="font:400 16px/1.6 var(--ui);color:var(--muted)">{{ onbBody }}</div>
+</div>
+<div style="display:flex;gap:6px;margin-bottom:20px">
+<div style="{{ onbDot0 }}"></div><div style="{{ onbDot1 }}"></div><div style="{{ onbDot2 }}"></div>
+</div>
+<div class="tap" onClick="{{ onbNext }}" style="height:52px;border-radius:16px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 15px var(--ui)">{{ onbCta }}</div>
+</div>
+</sc-if>
+
+<!-- HOME -->
+<sc-if value="{{ sHome }}" hint-placeholder-val="{{ true }}">
+<div class="sc" style="height:778px;overflow:auto;padding:0 20px 24px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 0 14px">
+<div style="flex:1">
+<div style="font:400 12px var(--ui);color:var(--muted)">{{ greeting }}</div>
+<div style="font:700 24px/1.2 var(--ui);letter-spacing:-.4px">{{ dashTitle }}</div>
+</div>
+<div class="tap" onClick="{{ openRange }}" style="height:34px;padding:0 12px;border-radius:12px;background:var(--card2);display:flex;align-items:center;gap:6px;font:500 12px var(--ui);color:var(--text)">{{ range }}<span class="mo" style="font-size:16px;color:var(--muted)">expand_more</span></div>
+<div class="tap" onClick="{{ openGallery }}" style="width:34px;height:34px;border-radius:12px;background:var(--card2);display:flex;align-items:center;justify-content:center"><span class="mo" style="font-size:18px;color:var(--muted)">dashboard_customize</span></div>
+</div>
+
+<sc-if value="{{ isB }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="display:flex;gap:8px;overflow:auto;padding-bottom:14px">
+<sc-for list="{{ dashTabs }}" as="d" hint-placeholder-count="4">
+<div class="tap" onClick="{{ d.go }}" style="{{ d.tabStyle }}">{{ d.name }}</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- PULSE -->
+<sc-if value="{{ dPulse }}" hint-placeholder-val="{{ true }}">
+<div style="background:var(--card);border-radius:22px;padding:22px;border:1px solid var(--line)">
+<div style="font:500 11px var(--mono);color:var(--muted);letter-spacing:1px">NET SPEND · {{ rangeLabel }}</div>
+<div style="font:700 44px/1.1 var(--mono);letter-spacing:-1px;margin:10px 0 12px">₹38,450</div>
+<div style="display:flex;align-items:flex-start;gap:10px">
+<span style="font:600 14px var(--ui);color:var(--neg)">↑ 12% more</span>
+<span style="font:400 14px/1.4 var(--ui);color:var(--muted)">than last month, mostly Food &amp; Dining</span>
+</div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="display:flex;align-items:baseline"><span style="flex:1;font:600 15px var(--ui)">Daily spend</span><span style="font:500 13px var(--mono);color:var(--muted)">₹1.4k avg/day</span></div>
+<svg viewBox="0 0 320 96" preserveAspectRatio="none" style="width:100%;height:96px;margin-top:14px;display:block">
+<polyline points="{{ sparkArea }}" fill="var(--accentSoft)" stroke="none"></polyline>
+<polyline points="{{ sparkLine }}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"></polyline>
+</svg>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="display:flex;align-items:baseline;margin-bottom:6px"><span style="flex:1;font:600 15px var(--ui)">By category</span><span class="tap" onClick="{{ goCategoryDash }}" style="font:500 12px var(--ui);color:var(--accent)">See all</span></div>
+<sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+<div class="tap" onClick="{{ c.open }}" style="display:flex;align-items:center;gap:12px;padding:11px 0">
+<div style="{{ c.dot }}"></div>
+<div style="flex:1;font:500 14px var(--ui);color:var(--text)">{{ c.name }}</div>
+<div style="width:70px;height:6px;border-radius:3px;background:var(--card2);overflow:hidden"><div style="{{ c.bar }}"></div></div>
+<div style="width:66px;text-align:right;font:500 13px var(--mono);color:var(--text)">{{ c.amount }}</div>
+</div>
+</sc-for>
+<sc-if value="{{ hasUnmapped }}" hint-placeholder-val="{{ true }}">
+<div class="tap" onClick="{{ goMappingDash }}" style="margin-top:8px;background:var(--accentSoft);border-radius:14px;padding:14px;display:flex;align-items:center;gap:10px">
+<span class="mo" style="font-size:20px;color:var(--accent)">help</span>
+<span style="flex:1;font:400 13px/1.4 var(--ui);color:var(--text)">₹5,770 sits in <b>Uncategorized</b> — 3 payees still unnamed.</span>
+<span style="font:600 12px var(--ui);color:var(--accent)">Map</span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- LEDGER -->
+<sc-if value="{{ dLedger }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:10px">
+<div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px"><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">IN</div><div style="font:700 19px var(--mono);color:var(--pos);margin-top:6px">₹52,000</div></div>
+<div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px"><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">OUT</div><div style="font:700 19px var(--mono);color:var(--neg);margin-top:6px">₹38,450</div></div>
+<div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px"><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">NET</div><div style="font:700 19px var(--mono);color:var(--pos);margin-top:6px">+₹13.5k</div></div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="font:600 15px var(--ui);margin-bottom:16px">In vs. out, by week</div>
+<div style="display:flex;align-items:flex-end;gap:16px;height:132px;border-bottom:1px solid var(--line);padding-bottom:2px">
+<sc-for list="{{ weeks }}" as="w" hint-placeholder-count="4">
+<div style="flex:1;display:flex;align-items:flex-end;justify-content:center;gap:5px;height:100%">
+<div style="{{ w.inBar }}"></div><div style="{{ w.outBar }}"></div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:16px;margin-top:10px">
+<sc-for list="{{ weeks }}" as="w" hint-placeholder-count="4">
+<div style="flex:1;text-align:center;font:400 11px var(--mono);color:var(--muted)">{{ w.label }}</div>
+</sc-for>
+</div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="display:flex;align-items:baseline;margin-bottom:4px"><span style="flex:1;font:600 15px var(--ui)">Spend by category</span><span style="font:500 13px var(--mono);color:var(--muted)">₹38,450</span></div>
+<sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+<div class="tap" onClick="{{ c.open }}" style="display:flex;align-items:center;gap:12px;padding:11px 0">
+<div style="{{ c.dot }}"></div>
+<div style="flex:1;font:500 14px var(--ui);color:var(--text)">{{ c.name }}</div>
+<div style="width:80px;height:6px;border-radius:3px;background:var(--card2);overflow:hidden"><div style="{{ c.bar }}"></div></div>
+<div style="width:44px;text-align:right;font:500 13px var(--mono);color:var(--muted)">{{ c.pctLabel }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- CATEGORY DONUT -->
+<sc-if value="{{ dCat }}" hint-placeholder-val="{{ false }}">
+<div style="font:400 14px/1.5 var(--ui);color:var(--muted);margin-bottom:14px">Food &amp; Dining is your biggest category at <b style="color:var(--text)">32%</b> this month.</div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line);display:flex;align-items:center;gap:16px">
+<svg viewBox="0 0 120 120" style="width:150px;height:150px;flex:none;transform:rotate(-90deg)">
+<sc-for list="{{ slices }}" as="s" hint-placeholder-count="5">
+<circle cx="60" cy="60" r="46" fill="none" stroke="{{ s.color }}" stroke-width="17" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}"></circle>
+</sc-for>
+<text x="60" y="58" text-anchor="middle" transform="rotate(90 60 60)" style="font:700 19px var(--mono);fill:var(--text)">₹38.4k</text>
+<text x="60" y="72" text-anchor="middle" transform="rotate(90 60 60)" style="font:400 8px var(--ui);fill:var(--muted)">this month</text>
+</svg>
+<div style="flex:1;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+<div class="tap" onClick="{{ c.open }}" style="display:flex;align-items:center;gap:8px">
+<div style="{{ c.dot }}"></div>
+<div style="flex:1;font:500 13px var(--ui);color:var(--text)">{{ c.short }}</div>
+<div style="font:500 12px var(--mono);color:var(--muted)">{{ c.pctLabel }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="font:600 15px var(--ui);margin-bottom:6px">Top payees · Food &amp; Dining</div>
+<sc-for list="{{ topPayees }}" as="p" hint-placeholder-count="3">
+<div class="tap" onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;padding:10px 0">
+<div style="{{ p.avatar }}">{{ p.initials }}</div>
+<div style="flex:1"><div style="font:600 14px var(--ui);color:var(--text)">{{ p.name }}</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ p.sub }}</div></div>
+<div style="font:600 14px var(--mono);color:var(--text)">{{ p.amount }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- MAPPING HEALTH -->
+<sc-if value="{{ dMap }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border-radius:22px;padding:22px;border:1px solid var(--line)">
+<div style="font:500 11px var(--mono);color:var(--muted);letter-spacing:1px">MAPPED THIS MONTH</div>
+<div style="display:flex;align-items:baseline;gap:8px;margin:10px 0 14px"><span style="font:700 40px var(--mono);letter-spacing:-1px">{{ mapPctLabel }}</span><span style="font:400 14px var(--ui);color:var(--muted)">of ₹38,450 has a name</span></div>
+<div style="height:10px;border-radius:5px;background:var(--card2);overflow:hidden"><div style="{{ mapBar }}"></div></div>
+<div style="margin-top:12px;font:400 13px/1.5 var(--ui);color:var(--muted)">Every payee you name here is recognised automatically in next month's statement.</div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="font:600 15px var(--ui);margin-bottom:4px">Waiting on you</div>
+<sc-for list="{{ unmapped }}" as="u" hint-placeholder-count="3">
+<div class="tap" onClick="{{ u.open }}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">
+<span class="mo" style="font-size:20px;color:var(--muted)">help</span>
+<div style="flex:1"><div style="font:500 14px var(--ui);color:var(--text)">{{ u.raw }}</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ u.sub }}</div></div>
+<div style="font:600 13px var(--mono);color:var(--text)">{{ u.amount }}</div>
+<span class="mo" style="font-size:18px;color:var(--muted)">chevron_right</span>
+</div>
+</sc-for>
+<div class="tap" onClick="{{ goSession }}" style="margin-top:16px;height:46px;border-radius:14px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 14px var(--ui)">Name all 3 now</div>
+</div>
+</sc-if>
+
+<!-- PAYEES REPORT -->
+<sc-if value="{{ dPayees }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="display:flex;align-items:baseline;margin-bottom:6px"><span style="flex:1;font:600 15px var(--ui)">Where it goes, by payee</span><span class="tap" onClick="{{ goPayees }}" style="font:500 12px var(--ui);color:var(--accent)">All payees</span></div>
+<sc-for list="{{ payeeList }}" as="p" hint-placeholder-count="5">
+<div class="tap" onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;padding:11px 0">
+<div style="{{ p.avatar }}">{{ p.initials }}</div>
+<div style="flex:1"><div style="font:500 14px var(--ui);color:var(--text)">{{ p.name }}</div><div style="height:5px;border-radius:3px;background:var(--card2);margin-top:6px;overflow:hidden"><div style="{{ p.bar }}"></div></div></div>
+<div style="font:600 13px var(--mono);color:var(--text)">{{ p.amount }}</div>
+</div>
+</sc-for>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="font:600 15px var(--ui);margin-bottom:4px">Money coming in</div>
+<sc-for list="{{ payeeIncome }}" as="p" hint-placeholder-count="2">
+<div class="tap" onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;padding:11px 0">
+<div style="{{ p.avatar }}">{{ p.initials }}</div>
+<div style="flex:1"><div style="font:500 14px var(--ui);color:var(--text)">{{ p.name }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ p.meta }}</div></div>
+<div style="font:600 13px var(--mono);color:var(--pos)">{{ p.amount }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- BUDGET -->
+<sc-if value="{{ dBudget }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border-radius:22px;padding:22px;border:1px solid var(--line)">
+<div style="font:500 11px var(--mono);color:var(--muted);letter-spacing:1px">PLANNED VS ACTUAL</div>
+<div style="font:700 26px var(--mono);letter-spacing:-.5px;margin:10px 0 6px">{{ budgetSummary }}</div>
+<div style="font:400 13px/1.5 var(--ui);color:var(--neg)">{{ budgetOverNote }}</div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<sc-for list="{{ budgetRows }}" as="b" hint-placeholder-count="5">
+<div class="tap" onClick="{{ b.open }}" style="padding:12px 0">
+<div style="display:flex;align-items:baseline;gap:8px">
+<span style="flex:1;font:500 14px var(--ui);color:var(--text)">{{ b.cat }}</span>
+<span style="font:600 13px var(--mono);color:var(--text)">{{ b.spent }}</span>
+<span style="font:400 11px var(--mono);color:var(--muted)">{{ b.limit }}</span>
+</div>
+<div style="height:7px;border-radius:4px;background:var(--card2);margin-top:8px;overflow:hidden"><div style="{{ b.bar }}"></div></div>
+<div style="margin-top:6px;text-align:right"><span style="{{ b.noteStyle }}">{{ b.note }}</span></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- RECURRING -->
+<sc-if value="{{ dRecurring }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--accentSoft);border-radius:22px;padding:20px">
+<div style="font:400 14px/1.5 var(--ui);color:var(--text)">{{ recurringTotal }}</div>
+</div>
+<div style="height:14px"></div>
+<div style="background:var(--card);border-radius:22px;padding:20px;border:1px solid var(--line)">
+<div style="font:600 15px var(--ui);margin-bottom:4px">Recurring, spotted from your history</div>
+<sc-for list="{{ recurringRows }}" as="r" hint-placeholder-count="4">
+<div class="tap" onClick="{{ r.open }}" style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)">
+<span class="mo" style="font-size:20px;color:var(--muted)">event_repeat</span>
+<div style="flex:1"><div style="font:500 14px var(--ui);color:var(--text)">{{ r.name }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ r.every }} · {{ r.sure }}</div></div>
+<div style="text-align:right"><div style="font:600 13px var(--mono);color:var(--text)">{{ r.amount }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ r.next }}</div></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isA }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;justify-content:center;gap:7px;padding:20px 0 4px">
+<sc-for list="{{ dashDots }}" as="d" hint-placeholder-count="4">
+<div class="tap" onClick="{{ d.go }}" style="{{ d.style }}"></div>
+</sc-for>
+</div>
+<div style="text-align:center;font:400 11px var(--ui);color:var(--muted)">Swipe between dashboards · {{ dashPos }}</div>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- CATEGORY DETAIL -->
+<sc-if value="{{ sCat }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:858px;overflow:auto;padding:0 20px 28px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 16px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<div style="{{ catAvatar }}"></div>
+<div style="flex:1"><div style="font:700 19px var(--ui)">{{ catName }}</div><div style="font:400 12px var(--ui);color:var(--muted)">14 payees mapped</div></div>
+</div>
+<div style="display:flex;align-items:center;padding-bottom:12px">
+<span style="flex:1;font:400 13px var(--ui);color:var(--muted)">Showing <b style="color:var(--text)">{{ range }}</b> · {{ rangeLabel }}</span>
+<span class="tap" onClick="{{ openRange }}" style="font:600 13px var(--ui);color:var(--accent)">Change ›</span>
+</div>
+<div style="background:var(--card);border-radius:20px;padding:20px;border:1px solid var(--line)">
+<div style="font:700 34px var(--mono);letter-spacing:-1px">₹12,320</div>
+<div style="margin-top:8px;font:400 13px var(--ui);color:var(--muted)"><span style="color:var(--neg);font-weight:600">↑ 18% more</span> than last month · 32% of all spend</div>
+</div>
+<div style="display:flex;align-items:center;padding:18px 0 10px"><span style="flex:1;font:500 10px var(--mono);color:var(--muted);letter-spacing:1.5px">SWIPE FOR MORE</span><span style="font:500 12px var(--mono);color:var(--muted)">{{ catCardPos }}</span></div>
+
+<div style="background:var(--card);border-radius:20px;padding:20px;border:1px solid var(--line);min-height:280px">
+<sc-if value="{{ cc0 }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center"><span style="flex:1;font:600 15px var(--ui)">Trend over time</span><span style="font:500 12px var(--mono);color:var(--muted)">6M</span></div>
+<svg viewBox="0 0 320 130" preserveAspectRatio="none" style="width:100%;height:150px;margin-top:16px;display:block">
+<polyline points="{{ trendArea }}" fill="var(--accentSoft)" stroke="none"></polyline>
+<polyline points="{{ trendLine }}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"></polyline>
+</svg>
+<div style="display:flex;margin-top:8px">
+<sc-for list="{{ trendMonths }}" as="m" hint-placeholder-count="6"><div style="flex:1;text-align:center;font:400 10px var(--mono);color:var(--muted)">{{ m.label }}</div></sc-for>
+</div>
+<div style="margin-top:14px;font:400 13px var(--ui);color:var(--muted)">Trending <b style="color:var(--neg)">up</b> for 3 straight months</div>
+</sc-if>
+<sc-if value="{{ cc1 }}" hint-placeholder-val="{{ false }}">
+<div style="font:600 15px var(--ui)">Spend by day</div>
+<div style="display:flex;align-items:flex-end;gap:3px;height:150px;margin-top:16px">
+<sc-for list="{{ days }}" as="d" hint-placeholder-count="26"><div style="{{ d.bar }}"></div></sc-for>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:8px;font:400 10px var(--mono);color:var(--muted)"><span>1 Aug</span><span>26 Aug</span></div>
+<div style="margin-top:14px;font:400 13px var(--ui);color:var(--muted)">Most: <b style="color:var(--neg)">Sat 16 Aug · ₹2,400</b> &nbsp; Least: <b style="color:var(--pos)">Tue 5 Aug · ₹120</b></div>
+</sc-if>
+<sc-if value="{{ cc2 }}" hint-placeholder-val="{{ false }}">
+<div style="font:600 15px var(--ui)">By day of week</div>
+<div style="display:flex;align-items:flex-end;gap:10px;height:150px;margin-top:16px">
+<sc-for list="{{ dows }}" as="d" hint-placeholder-count="7"><div style="{{ d.bar }}"></div></sc-for>
+</div>
+<div style="display:flex;gap:10px;margin-top:8px">
+<sc-for list="{{ dows }}" as="d" hint-placeholder-count="7"><div style="flex:1;text-align:center;font:400 10px var(--mono);color:var(--muted)">{{ d.label }}</div></sc-for>
+</div>
+<div style="margin-top:14px;font:400 13px var(--ui);color:var(--muted)">You spend the most on <b style="color:var(--text)">weekends</b> — 41% of the month's total</div>
+</sc-if>
+<sc-if value="{{ cc3 }}" hint-placeholder-val="{{ false }}">
+<div style="font:600 15px var(--ui)">Top payees</div>
+<sc-for list="{{ topPayees }}" as="p" hint-placeholder-count="3">
+<div class="tap" onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">
+<div style="{{ p.avatar }}">{{ p.initials }}</div>
+<div style="flex:1"><div style="font:600 14px var(--ui)">{{ p.name }}</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ p.sub }}</div></div>
+<div style="font:600 14px var(--mono)">{{ p.amount }}</div>
+</div>
+</sc-for>
+</sc-if>
+</div>
+<div style="display:flex;justify-content:center;align-items:center;gap:8px;padding:16px 0">
+<span class="tap mo" onClick="{{ ccPrev }}" style="font-size:20px;color:var(--muted)">chevron_left</span>
+<sc-for list="{{ ccDots }}" as="d" hint-placeholder-count="4"><div class="tap" onClick="{{ d.go }}" style="{{ d.style }}"></div></sc-for>
+<span class="tap mo" onClick="{{ ccNext }}" style="font-size:20px;color:var(--muted)">chevron_right</span>
+</div>
+<div class="tap" onClick="{{ openAllTxns }}" style="border-top:1px solid var(--line);padding-top:16px;display:flex;align-items:center"><span style="flex:1;font:600 14px var(--ui);color:var(--accent)">See all 32 transactions</span><span class="mo" style="font-size:18px;color:var(--accent)">chevron_right</span></div>
+</div>
+</sc-if>
+
+<!-- PAYEE DETAIL -->
+<sc-if value="{{ sPay }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:858px;overflow:auto;padding:0 20px 28px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 16px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<div style="flex:1"><div style="font:700 19px var(--ui)">{{ payeeName }}</div><div style="font:400 12px var(--ui);color:var(--muted)">Food &amp; Dining · 03 Jul – 28 Aug 2026</div></div>
+<span class="mo" style="font-size:20px;color:var(--muted)">edit</span>
+</div>
+<div style="background:var(--card);border-radius:20px;padding:20px;border:1px solid var(--line)">
+<div style="font:700 32px var(--mono);letter-spacing:-1px">{{ payeeTotal }}</div>
+<div style="margin-top:6px;font:400 13px var(--ui);color:var(--muted)">{{ payeeCount }} transactions counted · 2 not counted</div>
+<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+<div style="height:30px;padding:0 12px;border-radius:10px;background:var(--accentSoft);display:flex;align-items:center;font:500 12px var(--ui);color:var(--accent)">All names</div>
+<div style="height:30px;padding:0 12px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;font:500 12px var(--ui);color:var(--muted)">ZOMATO ONLINE PVT</div>
+<div style="height:30px;padding:0 12px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;font:500 12px var(--ui);color:var(--muted)">ZOMATO LTD</div>
+</div>
+<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+<div style="font:600 12px var(--ui);color:var(--muted);letter-spacing:.3px;margin-bottom:8px">NAMES &amp; ACCOUNTS ON THIS PAYEE</div>
+<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0">
+<span class="mo" style="font-size:16px;color:var(--muted);margin-top:2px">link</span>
+<div style="flex:1"><div style="font:400 13px var(--mono);color:var(--text)">ZOMATO ONLINE PVT</div><div style="font:400 11px var(--mono);color:var(--muted)">zomato@ybl · 29 rows</div></div>
+<span style="font:500 10px var(--ui);color:var(--muted);letter-spacing:.4px">PRIMARY</span>
+</div>
+<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0">
+<span class="mo" style="font-size:16px;color:var(--muted);margin-top:2px">link</span>
+<div style="flex:1"><div style="font:400 13px var(--mono);color:var(--text)">ZOMATO LTD</div><div style="font:400 11px var(--mono);color:var(--muted)">zomatoltd@icici · 8 rows</div></div>
+<span class="tap" style="font:600 12px var(--ui);color:var(--neg)">Unlink</span>
+</div>
+<div class="tap" onClick="{{ goPayees }}" style="display:flex;align-items:center;gap:8px;padding:10px 0;font:600 12px var(--ui);color:var(--accent)"><span class="mo" style="font-size:16px">add</span>Link another name or UPI ID</div>
+<div style="font:400 11px/1.5 var(--ui);color:var(--muted)">One person can pay from several UPI IDs or accounts — each is a separate statement name linked to this payee. Unlinking splits it back out and its history stops counting here.</div>
+</div>
+</div>
+<div style="padding:22px 4px 8px;display:flex"><span style="flex:1;font:600 14px var(--ui)">August 2026</span><span style="font:600 14px var(--mono)">₹5,240</span></div>
+<div style="padding:6px 4px;display:flex;background:var(--bg)"><span style="flex:1;font:500 12px var(--ui);color:var(--muted)">Saturday, 16 Aug 2026</span><span style="font:500 12px var(--mono);color:var(--muted)">₹840</span></div>
+<sc-for list="{{ txns }}" as="t" hint-placeholder-count="5">
+<div style="display:flex;align-items:center;gap:10px;padding:13px 4px;border-bottom:1px solid var(--line)">
+<div style="flex:1"><div style="{{ t.timeStyle }}">{{ t.time }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ t.date }}</div><sc-if value="{{ t.dup }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:4px;margin-top:2px"><span class="mo" style="font-size:12px;color:var(--muted)">content_copy</span><span style="font:500 10px var(--ui);color:var(--muted);letter-spacing:.5px">DUPLICATE</span></div></sc-if></div>
+<div style="{{ t.amountStyle }}">{{ t.amount }}</div>
+<div class="tap" onClick="{{ t.toggle }}" style="font:600 12px var(--ui);color:var(--accent);padding:8px">{{ t.action }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- STATEMENTS -->
+<sc-if value="{{ sStat }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:778px;overflow:auto;padding:0 20px 24px;box-sizing:border-box">
+<div style="display:flex;align-items:center;padding:8px 0 16px"><span style="flex:1;font:700 24px var(--ui);letter-spacing:-.4px">Statements</span><span class="tap mo" onClick="{{ goUpload }}" style="font-size:22px;color:var(--muted)">history</span></div>
+<div style="display:flex;gap:8px;margin-bottom:16px">
+<sc-for list="{{ statTabs }}" as="t" hint-placeholder-count="3"><div class="tap" onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+</div>
+<sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3">
+<div class="tap" onClick="{{ s.open }}" style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:12px">
+<div style="display:flex;align-items:flex-start;gap:10px">
+<div style="{{ s.logo }}">{{ s.src }}</div>
+<div style="flex:1"><div style="font:600 15px var(--ui)">{{ s.period }}</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ s.sub }}</div></div>
+<div style="{{ s.chip }}">{{ s.status }}</div>
+</div>
+<div style="display:flex;align-items:baseline;margin-top:14px"><span style="flex:1;font:700 20px var(--mono)">{{ s.total }}</span><span style="font:400 12px var(--ui);color:var(--muted)">{{ s.progress }}</span></div>
+<div style="height:6px;border-radius:3px;background:var(--card2);margin-top:10px;overflow:hidden"><div style="{{ s.bar }}"></div></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- SESSION / MAPPING -->
+<sc-if value="{{ sSess }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:858px;overflow:auto;padding:0 20px 28px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 14px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<div style="flex:1"><div style="font:700 19px var(--ui)">Jul 2026 · PhonePe</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ sessionProgress }}</div></div>
+</div>
+<sc-if value="{{ sessionDone }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--posSoft);border-radius:20px;padding:22px;display:flex;align-items:center;gap:14px">
+<span class="ms" style="font-size:28px;color:var(--pos)">check_circle</span>
+<div><div style="font:600 15px var(--ui);color:var(--text)">Everything is named</div><div style="font:400 13px/1.4 var(--ui);color:var(--muted);margin-top:2px">This statement is complete. Next month these 4 payees map themselves.</div></div>
+</div>
+<div style="height:14px"></div>
+<div class="tap" onClick="{{ goHome }}" style="height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 14px var(--ui)">See it on your dashboard</div>
+<div style="height:20px"></div>
+</sc-if>
+<sc-if value="{{ hasSuggested }}" hint-placeholder-val="{{ true }}">
+<div style="background:var(--accentSoft);border-radius:20px;padding:18px;display:flex;align-items:center;gap:12px">
+<span style="flex:1;font:400 13px/1.5 var(--ui);color:var(--text)">2 payees recognised from your earlier uploads. Confirm to map them at once.</span>
+<div class="tap" onClick="{{ confirmAll }}" style="height:40px;padding:0 18px;border-radius:13px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;font:600 13px var(--ui);white-space:nowrap">Confirm all</div>
+</div>
+<div style="height:14px"></div>
+</sc-if>
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:12px">
+<div style="display:flex;align-items:flex-start;gap:10px">
+<div style="flex:1"><div style="font:600 15px var(--ui)">{{ g.display }}</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ g.raw }}</div></div>
+<sc-if value="{{ g.saved }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:20px;color:var(--pos)">check_circle</span></sc-if>
+</div>
+<div style="display:flex;gap:16px;margin-top:12px">
+<div><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">TOTAL</div><div style="font:600 15px var(--mono);margin-top:3px">{{ g.total }}</div></div>
+<div><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">ENTRIES</div><div style="font:600 15px var(--mono);margin-top:3px">{{ g.count }}</div></div>
+<div><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">USUALLY</div><div style="font:600 15px var(--mono);margin-top:3px">{{ g.times }}</div></div>
+</div>
+<sc-if value="{{ g.hasDup }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:12px;background:var(--warnSoft);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px">
+<span class="mo" style="font-size:16px;color:var(--warn)">content_copy</span>
+<span style="flex:1;font:400 12px var(--ui);color:var(--text)">{{ g.dupLabel }}</span>
+<span class="tap" onClick="{{ g.dupToggle }}" style="font:600 12px var(--ui);color:var(--accent)">{{ g.dupAction }}</span>
+</div>
+</sc-if>
+<div class="tap" onClick="{{ g.openRow }}" style="margin-top:12px;display:flex;align-items:center;gap:6px;font:600 12px var(--ui);color:var(--accent)">See every transaction<span class="mo" style="font-size:16px">chevron_right</span></div>
+<sc-if value="{{ g.editable }}" hint-placeholder-val="{{ true }}">
+<div style="height:14px"></div>
+<div class="tap" onClick="{{ g.openName }}" style="height:52px;border-radius:14px;background:var(--card2);display:flex;align-items:center;padding:0 16px;gap:8px">
+<span style="font:400 11px var(--ui);color:var(--muted)">Call it</span>
+<span style="{{ g.aliasStyle }}">{{ g.aliasShown }}</span>
+<span class="mo" style="font-size:18px;color:var(--muted)">edit</span>
+</div>
+<sc-if value="{{ g.isLinked }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:8px;display:flex;align-items:center;gap:6px"><span class="mo" style="font-size:15px;color:var(--pos)">link</span><span style="font:400 11px var(--ui);color:var(--muted)">{{ g.linkedNote }}</span></div>
+</sc-if>
+<div class="tap" onClick="{{ g.openCats }}" style="height:52px;border-radius:14px;border:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:8px;margin-top:10px">
+<span class="mo" style="font-size:18px;color:var(--muted)">sell</span>
+<span style="{{ g.catStyle }}">{{ g.catLabel }}</span>
+<span class="mo" style="font-size:18px;color:var(--muted)">search</span>
+</div>
+<div class="tap" onClick="{{ g.save }}" style="margin-top:14px;height:46px;border-radius:14px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 14px var(--ui)">{{ g.cta }}</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- UPLOAD -->
+<sc-if value="{{ sUp }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:778px;overflow:auto;padding:0 20px 24px;box-sizing:border-box">
+<div style="padding:8px 0 16px;font:700 24px var(--ui);letter-spacing:-.4px">Add a statement</div>
+<div style="background:var(--card2);border-radius:18px;padding:16px;display:flex;gap:12px;align-items:flex-start">
+<span class="ms" style="font-size:20px;color:var(--accent)">lock</span>
+<span style="font:400 12px/1.5 var(--ui);color:var(--muted)">Parsed entirely on this device. The PDF is copied to temporary storage only while parsing, then deleted. Nothing is uploaded anywhere.</span>
+</div>
+<div style="height:16px"></div>
+<sc-if value="{{ upIdle }}" hint-placeholder-val="{{ true }}">
+<div class="tap" onClick="{{ pickFile }}" style="border:1.5px dashed var(--line);border-radius:22px;padding:40px 20px;display:flex;flex-direction:column;align-items:center;gap:12px">
+<span class="mo" style="font-size:34px;color:var(--accent)">upload_file</span>
+<div style="font:600 15px var(--ui)">Choose a PDF</div>
+<div style="font:400 12px/1.5 var(--ui);color:var(--muted);text-align:center">PhonePe or Google Pay statement · max 80 MB · no password</div>
+</div>
+</sc-if>
+<sc-if value="{{ upPicked }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;align-items:center;gap:12px">
+<span class="ms" style="font-size:22px;color:var(--muted)">description</span>
+<div style="flex:1"><div style="font:600 14px var(--ui)">PhonePe_Statement_Aug2026.pdf</div><div style="font:400 12px var(--mono);color:var(--muted)">1.2 MB</div></div>
+<span class="tap mo" onClick="{{ clearFile }}" style="font-size:20px;color:var(--muted)">close</span>
+</div>
+<div style="height:14px"></div>
+<div class="tap" onClick="{{ parseFile }}" style="height:50px;border-radius:16px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 15px var(--ui)">Parse statement</div>
+</sc-if>
+<sc-if value="{{ upParsing }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px">
+<div style="font:600 15px var(--ui)">Reading your statement…</div>
+<div style="height:8px;border-radius:4px;background:var(--card2);margin-top:16px;overflow:hidden"><div style="{{ parseBar }}"></div></div>
+<div style="margin-top:12px;font:400 12px var(--mono);color:var(--muted)">{{ parseStep }}</div>
+</div>
+</sc-if>
+<sc-if value="{{ upDone }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px">
+<div style="display:flex;align-items:center;gap:10px"><span class="ms" style="font-size:22px;color:var(--pos)">check_circle</span><span style="font:600 16px var(--ui)">64 transactions imported</span></div>
+<div style="margin-top:10px;font:400 13px/1.6 var(--ui);color:var(--muted)">61 payees were recognised from your earlier mappings and filled in already. 3 need a name. The temporary copy has been deleted.</div>
+<div style="height:16px"></div>
+<div style="background:var(--warnSoft);border-radius:14px;padding:14px;display:flex;gap:10px;align-items:flex-start">
+<span class="mo" style="font-size:18px;color:var(--warn)">content_copy</span>
+<span style="font:400 12px/1.5 var(--ui);color:var(--text)">6 rows repeat your 12 Jul import and are left out of totals. <b>Count them anyway?</b></span>
+</div>
+<div style="height:16px"></div>
+<div class="tap" onClick="{{ goSession }}" style="height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 14px var(--ui)">Name the 3 new payees</div>
+<div class="tap" onClick="{{ goHome }}" style="height:44px;display:flex;align-items:center;justify-content:center;font:600 14px var(--ui);color:var(--muted)">Later</div>
+</div>
+</sc-if>
+<div style="height:16px"></div>
+<div style="font:600 13px var(--ui);color:var(--muted);padding:0 4px 8px">Recent uploads</div>
+<sc-for list="{{ uploads }}" as="u" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)">
+<span class="ms" style="{{ u.iconStyle }}">{{ u.icon }}</span>
+<div style="flex:1"><div style="font:500 13px var(--ui)">{{ u.file }}</div><div style="font:400 11px var(--mono);color:var(--muted)">{{ u.time }}</div></div>
+<div style="{{ u.noteStyle }}">{{ u.note }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- SETTINGS -->
+<sc-if value="{{ sSet }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:778px;overflow:auto;padding:0 20px 24px;box-sizing:border-box">
+<div style="padding:8px 0 16px;font:700 24px var(--ui);letter-spacing:-.4px">You</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;align-items:center;gap:14px">
+<div style="width:46px;height:46px;border-radius:16px;background:var(--accentSoft);display:flex;align-items:center;justify-content:center;font:700 16px var(--ui);color:var(--accent)">S</div>
+<div style="flex:1"><div style="font:600 15px var(--ui)">Sandeep</div><div style="font:400 12px var(--ui);color:var(--muted)">sandeep@codengine.co</div></div>
+<span class="tap mo" onClick="{{ goProfile }}" style="font-size:18px;color:var(--muted)">chevron_right</span>
+</div>
+<div style="height:16px"></div>
+<div style="font:600 12px var(--ui);color:var(--muted);padding:0 4px 8px;letter-spacing:.3px">DASHBOARDS</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden">
+<div class="tap" onClick="{{ openGallery }}" style="padding:15px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)">
+<span class="mo" style="font-size:20px;color:var(--muted)">star</span>
+<div style="flex:1"><div style="font:500 14px var(--ui)">Default dashboard</div><div style="font:400 12px var(--ui);color:var(--muted)">Opens when you launch the app</div></div>
+<div style="font:500 13px var(--ui);color:var(--accent)">{{ defaultName }}</div>
+</div>
+<div class="tap" onClick="{{ openGallery }}" style="padding:15px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)">
+<span class="mo" style="font-size:20px;color:var(--muted)">dashboard_customize</span>
+<div style="flex:1"><div style="font:500 14px var(--ui)">Manage dashboards</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ enabledCount }}</div></div>
+<span class="mo" style="font-size:18px;color:var(--muted)">chevron_right</span>
+</div>
+<div style="padding:15px 16px;display:flex;align-items:center;gap:12px">
+<span class="mo" style="font-size:20px;color:var(--muted)">dark_mode</span>
+<div style="flex:1"><div style="font:500 14px var(--ui)">Appearance</div></div>
+<div style="display:flex;background:var(--card2);border-radius:11px;padding:3px;gap:2px">
+<div class="tap" onClick="{{ setLight }}" style="{{ segLight }}">Light</div>
+<div class="tap" onClick="{{ setDark }}" style="{{ segDark }}">Dark</div>
+</div>
+</div>
+</div>
+<div style="height:16px"></div>
+<div style="font:600 12px var(--ui);color:var(--muted);padding:0 4px 8px;letter-spacing:.3px">YOUR DATA</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden">
+<sc-for list="{{ settingsRows }}" as="r" hint-placeholder-count="6">
+<div class="tap" onClick="{{ r.go }}" style="padding:15px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)">
+<span class="mo" style="font-size:20px;color:var(--muted)">{{ r.icon }}</span>
+<div style="flex:1"><div style="{{ r.titleStyle }}">{{ r.title }}</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ r.sub }}</div></div>
+<span class="mo" style="font-size:18px;color:var(--muted)">chevron_right</span>
+</div>
+</sc-for>
+</div>
+<div class="tap" onClick="{{ replayOnb }}" style="margin-top:16px;text-align:center;font:500 13px var(--ui);color:var(--accent)">Replay the intro</div>
+<div style="margin-top:10px;text-align:center;font:400 11px var(--mono);color:var(--muted)">Version 1.2.0 (48)</div>
+</div>
+</sc-if>
+
+<!-- PAYEES SCREEN -->
+<sc-if value="{{ sPayees }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:778px;overflow:auto;padding:0 20px 24px;box-sizing:border-box">
+<div style="display:flex;align-items:center;padding:8px 0 4px">
+<span style="flex:1;font:700 24px var(--ui);letter-spacing:-.4px">Payees</span>
+<span class="tap" onClick="{{ toggleSelMode }}" style="font:600 13px var(--ui);color:var(--accent)">{{ selLabel }}</span>
+</div>
+<div style="font:400 12px var(--ui);color:var(--muted);padding-bottom:14px">{{ payeeCountLabel }}</div>
+<div style="height:46px;border-radius:14px;background:var(--card2);display:flex;align-items:center;padding:0 14px;gap:10px">
+<span class="mo" style="font-size:20px;color:var(--muted)">search</span>
+<input value="{{ payQuery }}" onChange="{{ onPayQuery }}" placeholder="Search payees" style="flex:1;border:none;outline:none;background:transparent;font:400 15px var(--ui);color:var(--text)">
+</div>
+<div class="sc" style="display:flex;gap:8px;overflow:auto;padding:14px 0">
+<sc-for list="{{ paySorts }}" as="x" hint-placeholder-count="3"><div class="tap" onClick="{{ x.go }}" style="{{ x.style }}">{{ x.label }}</div></sc-for>
+</div>
+<div class="tap" onClick="{{ goSession }}" style="background:var(--accentSoft);border-radius:16px;padding:14px;display:flex;align-items:center;gap:10px;margin-bottom:14px">
+<span class="mo" style="font-size:20px;color:var(--accent)">help</span>
+<span style="flex:1;font:400 13px var(--ui);color:var(--text)">3 payees from August still have no name</span>
+<span class="mo" style="font-size:18px;color:var(--accent)">chevron_right</span>
+</div>
+<sc-for list="{{ payeeList }}" as="p" hint-placeholder-count="8">
+<div class="tap" onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)">
+<sc-if value="{{ selMode }}" hint-placeholder-val="{{ false }}"><div style="{{ p.boxStyle }}">{{ p.boxIcon }}</div></sc-if>
+<div style="{{ p.avatar }}">{{ p.initials }}</div>
+<div style="flex:1">
+<div style="font:500 15px var(--ui);color:var(--text)">{{ p.name }}</div>
+<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span style="{{ p.tagStyle }}">{{ p.cat }}</span><span style="font:400 11px var(--ui);color:var(--muted)">{{ p.meta }}</span></div>
+</div>
+<div style="font:600 14px var(--mono);color:var(--text)">{{ p.amount }}</div>
+</div>
+</sc-for>
+<div style="padding:18px 0 6px;font:600 12px var(--ui);color:var(--muted);letter-spacing:.3px">INCOME</div>
+<sc-for list="{{ payeeIncome }}" as="p" hint-placeholder-count="2">
+<div class="tap" onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)">
+<div style="{{ p.avatar }}">{{ p.initials }}</div>
+<div style="flex:1"><div style="font:500 15px var(--ui);color:var(--text)">{{ p.name }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ p.meta }}</div></div>
+<div style="font:600 14px var(--mono);color:var(--pos)">{{ p.amount }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:14px;right:14px;bottom:92px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.25)">
+<span style="flex:1;font:600 13px var(--ui);color:var(--text)">{{ selCount }}</span>
+<div class="tap" onClick="{{ mergeSel }}" style="height:36px;padding:0 14px;border-radius:12px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;font:600 12px var(--ui)">Merge</div>
+<div class="tap" onClick="{{ recatSel }}" style="height:36px;padding:0 14px;border-radius:12px;border:1px solid var(--line);color:var(--text);display:flex;align-items:center;font:600 12px var(--ui)">Recategorise</div>
+<span class="tap mo" onClick="{{ clearSel }}" style="font-size:18px;color:var(--muted)">close</span>
+</div>
+</sc-if>
+
+<!-- CATEGORIES ADMIN -->
+<sc-if value="{{ sCats }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:858px;overflow:auto;padding:0 20px 28px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 16px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<span style="flex:1;font:700 19px var(--ui)">Categories</span>
+<span class="mo" style="font-size:22px;color:var(--accent)">add</span>
+</div>
+<sc-for list="{{ catAdminRows }}" as="r" hint-placeholder-count="10">
+<div style="display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--line)">
+<div class="tap" onClick="{{ r.open }}" style="flex:1"><div style="font:500 15px var(--ui);color:var(--text)">{{ r.name }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ r.sub }}</div></div>
+<span class="mo" style="font-size:20px;color:var(--muted);padding:8px">edit</span>
+<span style="{{ r.delStyle }}">delete</span>
+</div>
+</sc-for>
+<div style="margin-top:14px;font:400 11px/1.5 var(--ui);color:var(--muted)">A category can only be deleted once no payee points at it — the same rule the database enforces.</div>
+</div>
+</sc-if>
+
+<!-- RECENTLY DELETED -->
+<sc-if value="{{ sDeleted }}" hint-placeholder-val="{{ false }}">
+<div style="height:858px;padding:0 20px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 16px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<span style="flex:1;font:700 19px var(--ui)">Recently deleted</span>
+</div>
+<sc-for list="{{ deletedRows }}" as="r" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)">
+<div style="flex:1"><div style="font:500 15px var(--ui);color:var(--muted)">{{ r.name }}</div><div style="font:400 11px var(--ui);color:var(--muted)">Category</div></div>
+<div class="tap" style="font:600 13px var(--ui);color:var(--accent);padding:8px">Restore</div>
+</div>
+</sc-for>
+<div style="margin-top:14px;font:400 11px/1.5 var(--ui);color:var(--muted)">Anything you delete waits here so you can bring it back.</div>
+</div>
+</sc-if>
+
+<!-- PROFILE -->
+<sc-if value="{{ sProfile }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:858px;overflow:auto;padding:0 20px 28px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 20px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<span style="flex:1;font:700 19px var(--ui)">Profile</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding-bottom:22px">
+<div style="width:76px;height:76px;border-radius:26px;background:var(--accentSoft);display:flex;align-items:center;justify-content:center;font:700 26px var(--ui);color:var(--accent)">S</div>
+<div style="font:600 16px var(--ui)">Sandeep</div>
+</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden">
+<div style="padding:14px 16px;border-bottom:1px solid var(--line)"><div style="font:400 11px var(--ui);color:var(--muted)">Name *</div><div style="font:500 15px var(--ui);margin-top:3px">Sandeep</div></div>
+<div style="padding:14px 16px;border-bottom:1px solid var(--line)"><div style="font:400 11px var(--ui);color:var(--muted)">Mobile (optional)</div><div style="font:500 15px var(--mono);margin-top:3px">9766789876</div></div>
+<div style="padding:14px 16px;border-bottom:1px solid var(--line)"><div style="font:400 11px var(--ui);color:var(--muted)">Email</div><div style="font:400 15px var(--ui);color:var(--muted);margin-top:3px">sandeep@codengine.co</div></div>
+<div style="padding:14px 16px"><div style="font:400 11px var(--ui);color:var(--muted)">Gender (optional)</div><div style="font:500 15px var(--ui);margin-top:3px">Prefer not to say</div></div>
+</div>
+<div class="tap" onClick="{{ back }}" style="margin-top:18px;height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;gap:8px;font:600 14px var(--ui)"><span class="mo" style="font-size:18px">edit</span>Edit profile</div>
+</div>
+</sc-if>
+
+<!-- CUSTOM DASHBOARD BUILDER -->
+<sc-if value="{{ sBuilder }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:858px;overflow:auto;padding:0 20px 28px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 6px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<span style="flex:1;font:700 19px var(--ui)">Build a dashboard</span>
+<span class="tap" onClick="{{ back }}" style="font:600 13px var(--ui);color:var(--accent)">Save</span>
+</div>
+<div style="font:400 12px var(--ui);color:var(--muted);padding-bottom:16px">{{ builderCount }} · drag order later, switch cards on now</div>
+<div style="height:52px;border-radius:14px;border:1px solid var(--line);display:flex;align-items:center;padding:0 16px;gap:8px;margin-bottom:16px">
+<span style="font:400 11px var(--ui);color:var(--muted)">Name</span>
+<span style="flex:1;font:500 15px var(--ui);color:var(--text)">Month in one screen</span>
+<span class="mo" style="font-size:18px;color:var(--muted)">edit</span>
+</div>
+<sc-for list="{{ builderCards }}" as="b" hint-placeholder-count="8">
+<div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)">
+<span class="mo" style="font-size:18px;color:var(--muted)">drag_indicator</span>
+<div style="flex:1"><div style="{{ b.titleStyle }}">{{ b.label }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ b.sub }}</div></div>
+<div class="tap" onClick="{{ b.toggle }}" style="{{ b.switchStyle }}"><div style="{{ b.knobStyle }}"></div></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- FULL LIST -->
+<sc-if value="{{ sAll }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="height:858px;overflow:auto;padding:0 20px 28px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 0 14px">
+<span class="tap mo" onClick="{{ back }}" style="font-size:22px;color:var(--text)">arrow_back</span>
+<div style="flex:1"><div style="font:700 19px var(--ui)">{{ listTitle }}</div><div style="font:400 12px var(--ui);color:var(--muted)">{{ listSub }}</div></div>
+<span class="tap mo" onClick="{{ openRange }}" style="font-size:20px;color:var(--muted)">tune</span>
+</div>
+<div class="sc" style="display:flex;gap:8px;overflow:auto;padding-bottom:14px">
+<sc-for list="{{ listFilters }}" as="f" hint-placeholder-count="4"><div class="tap" onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</div></sc-for>
+</div>
+<sc-for list="{{ listGroups }}" as="g" hint-placeholder-count="3">
+<div style="display:flex;padding:14px 2px 8px"><span style="flex:1;font:600 13px var(--ui);color:var(--muted)">{{ g.day }}</span><span style="font:600 13px var(--mono);color:var(--muted)">{{ g.total }}</span></div>
+<sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+<div class="tap" onClick="{{ r.open }}" style="display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--line)">
+<div style="flex:1">
+<div style="{{ r.nameStyle }}">{{ r.name }}</div>
+<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+<span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+<span style="font:400 11px var(--mono);color:var(--muted)">{{ r.time }}</span>
+<sc-if value="{{ r.dup }}" hint-placeholder-val="{{ false }}"><span style="font:500 10px var(--ui);color:var(--warn);letter-spacing:.4px">DUPLICATE · NOT COUNTED</span></sc-if>
+</div>
+</div>
+<div style="{{ r.amountStyle }}">{{ r.amount }}</div>
+</div>
+</sc-for>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- BOTTOM NAV -->
+<sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;left:0;right:0;bottom:0;height:80px;background:var(--navbg);border-top:1px solid var(--line);display:flex;align-items:center;padding:0 6px;box-sizing:border-box">
+<sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+<div class="tap" onClick="{{ n.go }}" style="{{ n.wrap }}">
+<span class="ms" style="{{ n.iconStyle }}">{{ n.icon }}</span>
+<span style="{{ n.labelStyle }}">{{ n.label }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- SHEETS -->
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+<div class="tap" onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:26px 26px 0 0;padding:22px 20px 28px;box-sizing:border-box;border-top:1px solid var(--line)">
+<div style="width:38px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 18px"></div>
+<sc-if value="{{ sheetRange }}" hint-placeholder-val="{{ false }}">
+<div style="font:700 18px var(--ui);margin-bottom:14px">Show me</div>
+<sc-for list="{{ ranges }}" as="r" hint-placeholder-count="6">
+<div class="tap" onClick="{{ r.pick }}" style="padding:14px 4px;display:flex;align-items:center;border-bottom:1px solid var(--line)">
+<span style="{{ r.labelStyle }}">{{ r.label }}</span>
+<span style="flex:1"></span>
+<span style="font:400 12px var(--mono);color:var(--muted)">{{ r.hint }}</span>
+<sc-if value="{{ r.on }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:18px;color:var(--accent);margin-left:10px">check_circle</span></sc-if>
+</div>
+</sc-for>
+<div class="tap" onClick="{{ openCustom }}" style="margin-top:16px;height:48px;border-radius:15px;background:var(--card2);display:flex;align-items:center;justify-content:center;gap:8px;font:600 14px var(--ui);color:var(--text)"><span class="mo" style="font-size:18px">date_range</span>Pick custom dates</div>
+</sc-if>
+<sc-if value="{{ sheetCustom }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:baseline;margin-bottom:14px"><span style="flex:1;font:700 18px var(--ui)">Pick your dates</span><span class="tap" onClick="{{ closeSheet }}" style="font:600 13px var(--ui);color:var(--accent)">Cancel</span></div>
+<div style="display:flex;align-items:center;padding-bottom:12px"><span class="mo" style="font-size:18px;color:var(--muted)">chevron_left</span><span style="flex:1;text-align:center;font:600 14px var(--ui)">August 2026</span><span class="mo" style="font-size:18px;color:var(--muted)">chevron_right</span></div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font:500 10px var(--mono);color:var(--muted);text-align:center;padding-bottom:6px">
+<div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+<sc-for list="{{ calBlanks }}" as="b" hint-placeholder-count="5"><div style="height:40px"></div></sc-for>
+<sc-for list="{{ calDays }}" as="d" hint-placeholder-count="31"><div class="tap" onClick="{{ d.pick }}" style="{{ d.style }}">{{ d.d }}</div></sc-for>
+</div>
+<div style="display:flex;align-items:baseline;padding:16px 2px 0"><span style="flex:1;font:600 14px var(--ui)">{{ calLabel }}</span><span style="font:400 12px var(--mono);color:var(--muted)">{{ calDaysCount }}</span></div>
+<div class="tap" onClick="{{ applyCustom }}" style="margin-top:14px;height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 14px var(--ui)">Show this range</div>
+</sc-if>
+<sc-if value="{{ sheetExport }}" hint-placeholder-val="{{ false }}">
+<div style="font:700 18px var(--ui);margin-bottom:4px">Export as CSV</div>
+<div style="font:400 12px/1.5 var(--ui);color:var(--muted);margin-bottom:14px">One row per transaction: date, time, payee name, statement name, category, amount, type, whether it is counted.</div>
+<div style="background:var(--card2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:10px"><span class="mo" style="font-size:18px;color:var(--muted)">date_range</span><span style="flex:1;font:500 14px var(--ui)">{{ range }} · {{ rangeLabel }}</span><span class="tap" onClick="{{ openRange }}" style="font:600 12px var(--ui);color:var(--accent)">Change</span></div>
+<div style="background:var(--card2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:10px;margin-top:8px"><span class="mo" style="font-size:18px;color:var(--muted)">filter_alt</span><span style="flex:1;font:500 14px var(--ui)">Counted rows only</span><span style="font:400 12px var(--mono);color:var(--muted)">exclude 6 duplicates</span></div>
+<div class="tap" onClick="{{ closeSheet }}" style="margin-top:16px;height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;gap:8px;font:600 14px var(--ui)"><span class="mo" style="font-size:18px">file_download</span>Choose where to save</div>
+<div style="margin-top:12px;font:400 11px/1.5 var(--ui);color:var(--muted)">The file goes wherever you pick — the app never uploads it anywhere.</div>
+</sc-if>
+<sc-if value="{{ sheetBackup }}" hint-placeholder-val="{{ false }}">
+<div style="font:700 18px var(--ui);margin-bottom:4px">Back up all data</div>
+<div style="font:400 12px/1.5 var(--ui);color:var(--muted);margin-bottom:14px">A single file that can restore this app on another device or account. Not a report — for reading numbers, use Export.</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px">
+<div style="font:500 11px var(--mono);color:var(--muted);letter-spacing:1px">THIS BACKUP WILL CONTAIN</div>
+<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:12px">
+<div><div style="font:700 18px var(--mono)">1,284</div><div style="font:400 11px var(--ui);color:var(--muted)">transactions</div></div>
+<div><div style="font:700 18px var(--mono)">42</div><div style="font:400 11px var(--ui);color:var(--muted)">payees</div></div>
+<div><div style="font:700 18px var(--mono)">57</div><div style="font:400 11px var(--ui);color:var(--muted)">statement names</div></div>
+<div><div style="font:700 18px var(--mono)">10</div><div style="font:400 11px var(--ui);color:var(--muted)">categories</div></div>
+<div><div style="font:700 18px var(--mono)">14</div><div style="font:400 11px var(--ui);color:var(--muted)">statements</div></div>
+</div>
+</div>
+<div class="tap" onClick="{{ closeSheet }}" style="margin-top:16px;height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;gap:8px;font:600 14px var(--ui)"><span class="mo" style="font-size:18px">backup</span>Save backup file</div>
+</sc-if>
+<sc-if value="{{ sheetRestore }}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{ restorePreview }}" hint-placeholder-val="{{ true }}">
+<div style="font:700 18px var(--ui);margin-bottom:4px">Restore this backup?</div>
+<div style="font:400 12px/1.5 var(--ui);color:var(--muted);margin-bottom:12px">Exported 26 Aug 2026 from app version 1.2.0.</div>
+<div style="background:var(--warnSoft);border-radius:14px;padding:14px;display:flex;gap:10px;align-items:flex-start;margin-bottom:12px">
+<span class="mo" style="font-size:18px;color:var(--warn)">account_circle</span>
+<span style="font:400 12px/1.5 var(--ui);color:var(--text)">This backup belongs to <b>sandeep.old@gmail.com</b>. Restoring adds that data to <b>sandeep@codengine.co</b>, the account signed in here.</span>
+</div>
+<div style="background:var(--card2);border-radius:14px;padding:14px;font:400 13px/1.8 var(--ui);color:var(--text)">1,284 transactions<br>42 payees across 57 statement names<br>10 categories · 14 statements</div>
+<div style="margin-top:12px;font:400 11px/1.5 var(--ui);color:var(--muted)">Nothing is deleted. Anything this account already has is kept and flagged as a duplicate.</div>
+<div class="tap" onClick="{{ confirmRestore }}" style="margin-top:14px;height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 14px var(--ui)">Restore</div>
+</sc-if>
+<sc-if value="{{ restoreDone }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span class="ms" style="font-size:22px;color:var(--pos)">check_circle</span><span style="font:700 18px var(--ui)">Restore complete</span></div>
+<div style="background:var(--card2);border-radius:14px;padding:14px;font:400 13px/1.8 var(--ui);color:var(--text)">1,284 transactions added, 96 of which this account already had — flagged as duplicates and left out of totals.<br>42 payees · 57 statement names · 14 statements.<br>3 categories created, 7 reused.</div>
+<div style="margin-top:12px;font:400 11px/1.5 var(--ui);color:var(--muted)">2 statement names already point at a different payee here and were left as they are.</div>
+<div class="tap" onClick="{{ closeSheet }}" style="margin-top:14px;height:48px;border-radius:15px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 14px var(--ui)">Done</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{ sheetName }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:baseline;margin-bottom:2px"><span style="flex:1;font:700 18px var(--ui)">What do you call them?</span><span class="tap" onClick="{{ closeSheet }}" style="font:600 13px var(--ui);color:var(--accent)">Cancel</span></div>
+<div style="font:400 12px var(--mono);color:var(--muted);margin-bottom:14px">{{ nameRaw }}</div>
+<sc-if value="{{ nameExact }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--warnSoft);border-radius:14px;padding:14px;margin-bottom:12px">
+<div style="font:600 13px var(--ui);color:var(--text)">That name is already taken</div>
+<div style="font:400 12px/1.5 var(--ui);color:var(--muted);margin-top:4px">Link this statement name to the payee already called that, so their history counts together — or keep them as two.</div>
+<div style="display:flex;gap:8px;margin-top:12px">
+<div class="tap" onClick="{{ nameSave }}" style="flex:1;height:40px;border-radius:12px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;font:600 13px var(--ui)">Link to it</div>
+<div class="tap" onClick="{{ nameKeepSeparate }}" style="flex:1;height:40px;border-radius:12px;border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;font:600 13px var(--ui)">Keep separate</div>
+</div>
+</div>
+</sc-if>
+<sc-for list="{{ nameSuggestions }}" as="p" hint-placeholder-count="2">
+<div class="tap" onClick="{{ p.pick }}" style="{{ p.style }}">
+<span class="mo" style="font-size:18px;color:var(--muted)">link</span>
+<div style="flex:1"><div style="font:600 14px var(--ui);color:var(--text)">{{ p.alias }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ p.cat }} · {{ p.count }}</div></div>
+<span style="font:600 11px var(--ui);color:var(--accent)">LINK</span>
+</div>
+</sc-for>
+<div style="height:52px;border-radius:14px;border:1.5px solid var(--accent);display:flex;align-items:center;padding:0 14px;gap:10px;margin-top:2px">
+<input value="{{ nameQuery }}" onChange="{{ onNameQuery }}" placeholder="Name you know them by" style="flex:1;border:none;outline:none;background:transparent;font:500 16px var(--ui);color:var(--text)">
+<span class="mo" style="font-size:18px;color:var(--muted)">keyboard</span>
+</div>
+<div class="tap" onClick="{{ nameSave }}" style="{{ nameSaveStyle }};margin-top:10px">Save name</div>
+<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font:400 11px/1.5 var(--ui);color:var(--muted)">Matches appear above the field, so the keyboard never covers them. Picking one links this statement name to that payee and adopts its category.</div>
+<div style="margin:14px -20px -28px;background:var(--card2);padding:8px 4px 14px">
+<sc-for list="{{ keyRows }}" as="row" hint-placeholder-count="3">
+<div style="display:flex;gap:4px;justify-content:center;margin-bottom:6px">
+<sc-for list="{{ row.keys }}" as="key" hint-placeholder-count="10">
+<div style="flex:1;max-width:36px;height:38px;border-radius:6px;background:var(--card);display:flex;align-items:center;justify-content:center;font:400 15px var(--ui);color:var(--text)">{{ key.k }}</div>
+</sc-for>
+</div>
+</sc-for>
+<div style="display:flex;gap:4px;justify-content:center">
+<div style="width:52px;height:38px;border-radius:6px;background:var(--line)"></div>
+<div style="flex:1;height:38px;border-radius:6px;background:var(--card)"></div>
+<div style="width:52px;height:38px;border-radius:6px;background:var(--accent)"></div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ sheetCats }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:baseline;margin-bottom:12px"><span style="flex:1;font:700 18px var(--ui)">Category</span><span class="tap" onClick="{{ closeSheet }}" style="font:600 13px var(--ui);color:var(--accent)">Cancel</span></div>
+<div style="height:48px;border-radius:14px;background:var(--card2);display:flex;align-items:center;padding:0 14px;gap:10px">
+<span class="mo" style="font-size:20px;color:var(--muted)">search</span>
+<input value="{{ catQuery }}" onChange="{{ onCatQuery }}" placeholder="Search 14 categories" style="flex:1;border:none;outline:none;background:transparent;font:400 15px var(--ui);color:var(--text)">
+</div>
+<div style="font:600 11px var(--ui);color:var(--muted);letter-spacing:.4px;margin:16px 0 8px">SUGGESTED FOR THIS PAYEE</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<sc-for list="{{ catRecents }}" as="r" hint-placeholder-count="4"><div class="tap" onClick="{{ r.pick }}" style="{{ r.style }}">{{ r.label }}</div></sc-for>
+</div>
+<div style="font:600 11px var(--ui);color:var(--muted);letter-spacing:.4px;margin:18px 0 4px">ALL CATEGORIES</div>
+<div class="sc" style="max-height:230px;overflow:auto">
+<sc-for list="{{ catResults }}" as="r" hint-placeholder-count="8">
+<div class="tap" onClick="{{ r.pick }}" style="padding:12px 2px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)">
+<span style="{{ r.labelStyle }}">{{ r.label }}</span>
+<span style="font:400 11px var(--ui);color:var(--muted)">{{ r.sub }}</span>
+<sc-if value="{{ r.on }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:18px;color:var(--accent)">check_circle</span></sc-if>
+</div>
+</sc-for>
+</div>
+<div class="tap" onClick="{{ catCreate }}" style="margin-top:14px;height:48px;border-radius:15px;border:1.5px dashed var(--line);display:flex;align-items:center;justify-content:center;gap:8px;font:600 14px var(--ui);color:var(--accent)"><span class="mo" style="font-size:18px">add</span>{{ catCreateLabel }}</div>
+</sc-if>
+<sc-if value="{{ sheetGallery }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:baseline;margin-bottom:4px"><span style="flex:1;font:700 18px var(--ui)">Your dashboards</span><span class="tap" onClick="{{ closeSheet }}" style="font:600 13px var(--ui);color:var(--accent)">Done</span></div>
+<div style="font:400 12px/1.5 var(--ui);color:var(--muted);margin-bottom:12px">Star one to make it your home screen. Drag to reorder, switch off what you don't read.</div>
+<sc-for list="{{ gallery }}" as="g" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)">
+<span class="tap mo" onClick="{{ g.up }}" style="font-size:18px;color:var(--muted)">drag_indicator</span>
+<div style="flex:1"><div style="{{ g.titleStyle }}">{{ g.name }}</div><div style="font:400 11px var(--ui);color:var(--muted)">{{ g.sub }}</div></div>
+<span class="tap" onClick="{{ g.star }}" style="{{ g.starStyle }}">{{ g.starIcon }}</span>
+<div class="tap" onClick="{{ g.toggle }}" style="{{ g.switchStyle }}"><div style="{{ g.knobStyle }}"></div></div>
+</div>
+</sc-for>
+<div class="tap" onClick="{{ goBuilder }}" style="margin-top:16px;height:48px;border-radius:15px;border:1.5px dashed var(--line);display:flex;align-items:center;justify-content:center;gap:8px;font:600 14px var(--ui);color:var(--accent)"><span class="mo" style="font-size:18px">add</span>Build a custom dashboard</div>
+</sc-if>
+</div>
+</sc-if>
+
+</div>
+</div>
+
+<!-- TABLET -->
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font:500 11px 'Plus Jakarta Sans';color:rgba(0,0,0,.5)">Pixel Tablet · dual pane (same data, no dead space)</div>
+<div style="width:1000px;height:700px;border-radius:22px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--ui);box-shadow:0 18px 50px rgba(0,0,0,.18);display:flex">
+<div style="width:340px;border-right:1px solid var(--line);padding:26px 22px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
+<div style="font:700 20px var(--ui);letter-spacing:-.3px">{{ dashTitle }}</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<sc-for list="{{ ranges }}" as="r" hint-placeholder-count="6"><div class="tap" onClick="{{ r.pick }}" style="{{ r.pillStyle }}">{{ r.label }}</div></sc-for>
+</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px">
+<div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1.5px">SPENT · {{ rangeLabel }}</div>
+<div style="font:700 36px var(--mono);letter-spacing:-1px;margin:8px 0 6px">₹38,450</div>
+<div style="font:400 13px var(--ui);color:var(--muted)"><span style="color:var(--neg);font-weight:600">↑ 12% more</span> than last month</div>
+</div>
+<div style="display:flex;gap:12px">
+<div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px"><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">IN</div><div style="font:700 18px var(--mono);color:var(--pos);margin-top:6px">₹52,000</div></div>
+<div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px"><div style="font:500 10px var(--mono);color:var(--muted);letter-spacing:1px">OUT</div><div style="font:700 18px var(--mono);color:var(--neg);margin-top:6px">₹38,450</div></div>
+</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px">
+<div style="font:600 13px var(--ui);margin-bottom:10px">Daily trend</div>
+<svg viewBox="0 0 320 96" preserveAspectRatio="none" style="width:100%;height:86px;display:block">
+<polyline points="{{ sparkArea }}" fill="var(--accentSoft)" stroke="none"></polyline>
+<polyline points="{{ sparkLine }}" fill="none" stroke="var(--accent)" stroke-width="2.5"></polyline>
+</svg>
+</div>
+</div>
+<div style="flex:1;padding:26px 26px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;gap:8px">
+<div style="{{ tabletSeg1 }}">By category</div><div style="{{ tabletSeg2 }}">By payee</div>
+</div>
+<div style="display:flex;gap:20px;align-items:flex-start">
+<svg viewBox="0 0 120 120" style="width:200px;height:200px;flex:none;transform:rotate(-90deg)">
+<sc-for list="{{ slices }}" as="s" hint-placeholder-count="5">
+<circle cx="60" cy="60" r="46" fill="none" stroke="{{ s.color }}" stroke-width="17" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}"></circle>
+</sc-for>
+</svg>
+<div style="flex:1;display:flex;flex-direction:column">
+<sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+<div class="tap" onClick="{{ c.open }}" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)">
+<div style="{{ c.dot }}"></div>
+<div style="flex:1;font:500 15px var(--ui)">{{ c.name }}</div>
+<div style="width:160px;height:7px;border-radius:4px;background:var(--card2);overflow:hidden"><div style="{{ c.bar }}"></div></div>
+<div style="width:80px;text-align:right;font:600 14px var(--mono)">{{ c.amount }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;align-items:center;gap:12px">
+<span class="mo" style="font-size:20px;color:var(--accent)">help</span>
+<span style="flex:1;font:400 13px var(--ui);color:var(--muted)">₹5,770 is still Uncategorized — 3 payees from the August statement have no name yet.</span>
+<div class="tap" onClick="{{ goSession }}" style="height:40px;padding:0 18px;border-radius:13px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;font:600 13px var(--ui)">Name them</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1080}}">
+const CAT_COLORS = ['#E8927C', '#8FC7D8', '#E3C08A', '#92C9A4', '#B9A8DA'];
+
+const THEMES = {
+  A: {
+    ui: "Roboto, system-ui, sans-serif", mono: "'JetBrains Mono', monospace",
+    light: {bg:'#FBF9FF',card:'#FFFFFF',card2:'#F1EDFA',text:'#1B1B21',muted:'#55525E',line:'#E6E2EE',accent:'#3D5AFE',accentSoft:'#E7EAFF',onAccent:'#FFFFFF',pos:'#00695C',posSoft:'#DCF2EC',neg:'#B3261E',warn:'#7A5A00',warnSoft:'#FBF0D4',navbg:'#F5F1FC'},
+    dark: {bg:'#111117',card:'#1B1A22',card2:'#26252F',text:'#E9E6F0',muted:'#A6A2B2',line:'#2E2D38',accent:'#B3C0FF',accentSoft:'#242844',onAccent:'#121233',pos:'#7FDBCB',posSoft:'#16302C',neg:'#F2B8B5',warn:'#E7C46B',warnSoft:'#332C17',navbg:'#191822'}
+  },
+  B: {
+    ui: "'Plus Jakarta Sans', system-ui, sans-serif", mono: "'JetBrains Mono', monospace",
+    light: {bg:'#F3F6F5',card:'#FFFFFF',card2:'#E9EFEE',text:'#12181A',muted:'#5B676C',line:'#DDE5E4',accent:'#22697C',accentSoft:'#DCECF0',onAccent:'#FFFFFF',pos:'#2F7D52',posSoft:'#DDEFE3',neg:'#C0563A',warn:'#8A6320',warnSoft:'#F6EBD8',navbg:'#FFFFFF'},
+    dark: {bg:'#0C0E10',card:'#15181B',card2:'#1E2327',text:'#E7EDF0',muted:'#8F9BA2',line:'#242A2F',accent:'#8FC7D8',accentSoft:'#14262C',onAccent:'#08191F',pos:'#92C9A4',posSoft:'#14251A',neg:'#E8927C',warn:'#D9B172',warnSoft:'#2A2214',navbg:'#101315'}
+  },
+  C: {
+    ui: "'Plus Jakarta Sans', system-ui, sans-serif", mono: "'JetBrains Mono', monospace",
+    light: {bg:'#FAF7F2',card:'#FFFFFF',card2:'#F1EBE1',text:'#1E1B16',muted:'#6A6156',line:'#E6DDD0',accent:'#A34A1E',accentSoft:'#F7E7DB',onAccent:'#FFFFFF',pos:'#3F6B3A',posSoft:'#E5EEE1',neg:'#B03A2E',warn:'#8A6320',warnSoft:'#F6EBD8',navbg:'#FFFFFF'},
+    dark: {bg:'#141109',card:'#1D1913',card2:'#272118',text:'#EFE8DE',muted:'#A79C8D',line:'#2F2820',accent:'#E8A05C',accentSoft:'#2E2317',onAccent:'#241503',pos:'#9BC48F',posSoft:'#1C2618',neg:'#E88C7A',warn:'#E0B872',warnSoft:'#2C2415',navbg:'#191510'}
+  }
+};
+
+const EXISTING_PAYEES = [
+  {alias:'Wife', cat:'Household help', count:14},
+  {alias:'Wifi bill', cat:'Bills & Utilities', count:8},
+  {alias:'Morning tea stall', cat:'Food & Dining', count:64},
+  {alias:'Grocery run', cat:'Groceries', count:31},
+  {alias:'Swiggy', cat:'Food & Dining', count:52},
+  {alias:'Zomato', cat:'Food & Dining', count:47},
+  {alias:'Electricity', cat:'Bills & Utilities', count:11},
+  {alias:'Auto to office', cat:'Transport', count:88},
+  {alias:'Landlord', cat:'Rent', count:12},
+  {alias:'Gym', cat:'Health', count:9}
+];
+
+const PAYEE_DIR = [
+  {name:'Zomato', cat:'Food & Dining', count:47, amount:5240, dir:'out', last:'16 Aug'},
+  {name:'Swiggy', cat:'Food & Dining', count:52, amount:3880, dir:'out', last:'15 Aug'},
+  {name:'Grocery run', cat:'Groceries', count:31, amount:6410, dir:'out', last:'16 Aug'},
+  {name:'Auto to office', cat:'Transport', count:88, amount:3960, dir:'out', last:'26 Aug'},
+  {name:'Electricity', cat:'Bills & Utilities', count:11, amount:2580, dir:'out', last:'11 Aug'},
+  {name:'Wife', cat:'Household help', count:14, amount:12000, dir:'out', last:'05 Aug'},
+  {name:'Landlord', cat:'Rent', count:12, amount:18000, dir:'out', last:'02 Aug'},
+  {name:'Morning tea stall', cat:'Food & Dining', count:64, amount:1240, dir:'out', last:'26 Aug'},
+  {name:'Blue Tokai', cat:'Food & Dining', count:18, amount:1910, dir:'out', last:'22 Aug'},
+  {name:'Gym', cat:'Health', count:9, amount:1800, dir:'out', last:'01 Aug'},
+  {name:'Salary — Codengine', cat:'Income', count:1, amount:52000, dir:'in', last:'01 Aug'},
+  {name:'Rahul (split)', cat:'Income', count:4, amount:2400, dir:'in', last:'19 Aug'}
+];
+
+const BUDGETS = [
+  {cat:'Food & Dining', limit:10000, spent:12320},
+  {cat:'Groceries', limit:8000, spent:6410},
+  {cat:'Transport', limit:5000, spent:3960},
+  {cat:'Shopping', limit:6000, spent:8070},
+  {cat:'Bills & Utilities', limit:7000, spent:6910}
+];
+
+const RECURRING = [
+  {name:'Landlord', cat:'Rent', amount:18000, every:'Monthly · 2nd', next:'02 Sep', sure:'12 months · 2 UPI IDs'},
+  {name:'Electricity', cat:'Bills & Utilities', amount:2580, every:'Monthly · ~11th', next:'11 Sep', sure:'11 of 12 months · 1 UPI ID'},
+  {name:'Gym', cat:'Health', amount:1800, every:'Monthly · 1st', next:'01 Sep', sure:'9 months · 1 UPI ID'},
+  {name:'Wife', cat:'Household help', amount:12000, every:'Monthly · 5th', next:'05 Sep', sure:'14 months · 3 UPI IDs'}
+];
+
+const BUILDER_CARDS = [
+  {id:'net', label:'Net spend', sub:'One hero number + delta', on:true},
+  {id:'daily', label:'Daily spend line', sub:'Trend across the range', on:true},
+  {id:'cats', label:'Category breakdown', sub:'List or donut', on:true},
+  {id:'payees', label:'Top payees', sub:'Ranked by spend', on:false},
+  {id:'inout', label:'In vs out', sub:'Weekly bars', on:false},
+  {id:'budget', label:'Budget progress', sub:'Per-category limits', on:false},
+  {id:'recurring', label:'Recurring due', sub:"What's expected next", on:false},
+  {id:'mapping', label:'Mapping health', sub:'Unnamed payees left', on:false}
+];
+
+const ALL_CATEGORIES = ['Food & Dining','Groceries','Bills & Utilities','Transport','Shopping','Health','Rent','Education','Subscriptions','Travel','Gifts & Donations','Household help','Fuel','Entertainment'];
+
+const DASHBOARDS = [
+  {id:'pulse', name:'Pulse', sub:'One number, one sentence, one chart'},
+  {id:'ledger', name:'Ledger split', sub:'Money in vs. money out'},
+  {id:'category', name:'Categories', sub:'Where the money actually goes'},
+  {id:'mapping', name:'Mapping health', sub:"What's still unnamed"},
+  {id:'payees', name:'Payees', sub:'Who you actually pay, ranked'},
+  {id:'budget', name:'Budget', sub:'Planned vs actual per category'},
+  {id:'recurring', name:'Recurring', sub:'Subscriptions and bills due'}
+];
+
+const CATS = [
+  {id:'food', name:'Food & Dining', short:'Food & Dining', amount:12320, pct:32},
+  {id:'shop', name:'Shopping', short:'Shopping', amount:8070, pct:21},
+  {id:'bills', name:'Bills & Utilities', short:'Bills', amount:6910, pct:18},
+  {id:'transport', name:'Transport', short:'Transport', amount:5380, pct:14},
+  {id:'unmapped', name:'Uncategorized', short:'Uncategorized', amount:5770, pct:15}
+];
+
+const DAILY = [820,540,1180,760,120,1420,980,1640,1230,900,1520,2050,1310,760,1880,2400,1140,1330,1720,960,1450,1180,1620,840,1290,1580];
+const TREND = [8200,9100,8600,10400,10900,12320];
+const TREND_M = ['Mar','Apr','May','Jun','Jul','Aug'];
+const DOW = [1180,1090,1330,1010,1520,2400,2010];
+const DOW_L = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const WEEKS = [{i:14000,o:9800,l:'W1'},{i:16000,o:8200,l:'W2'},{i:9000,o:10400,l:'W3'},{i:13000,o:6050,l:'W4'}];
+
+const PAYEES = [
+  {id:'zomato', name:'Zomato', sub:'14 orders', amount:5240, initials:'ZO'},
+  {id:'swiggy', name:'Swiggy', sub:'9 orders', amount:3880, initials:'SW'},
+  {id:'bluetokai', name:'Blue Tokai', sub:'6 visits', amount:1910, initials:'BT'}
+];
+
+const RANGES = [
+  {id:'today', label:'Today', hint:'26 Aug'},
+  {id:'week', label:'This week', hint:'24–26 Aug'},
+  {id:'month', label:'This month', hint:'1–26 Aug'},
+  {id:'last', label:'Last month', hint:'Jul 2026'},
+  {id:'q', label:'Last 3 months', hint:'Jun–Aug'},
+  {id:'year', label:'This year', hint:'2026'}
+];
+
+const ONB = [
+  {icon:'lock', title:'Your statement never leaves the phone', body:'Upload the PDF your payments app already emails you. Everything is parsed on this device and the copy is deleted the moment it is read.', cta:'Next'},
+  {icon:'bolt', title:'Name a payee once', body:'AWDHOOT SNACKS CENTRE becomes "Morning tea stall", filed under Food. That name is remembered forever.', cta:'Next'},
+  {icon:'insights', title:'Next month is one tap', body:'Known payees map themselves on import. You confirm, and the dashboards fill in. No daily entry, ever.', cta:'Start'}
+];
+
+const rupee = n => '₹' + n.toLocaleString('en-IN');
+
+class Component extends DCLogic {
+  state = {
+    version: 'A', mode: 'dark', screen: 'onboarding', tab: 'home',
+    dash: 0, order: ['pulse','payees','ledger','category','recurring','mapping','budget'], off: ['budget'], def: 'pulse',
+    paySort: 'spend', payQuery: '', builder: {net:true, daily:true, cats:true, payees:false, inout:false, budget:false, recurring:false, mapping:false},
+    sheet: null, range: 'month', catCard: 0, statTab: 'pending',
+    up: 'idle', parse: 0, saved: {}, excluded: {}, onb: 0,
+    payee: 'zomato', cat: 'food',
+    catQuery: '', catFor: null, picked: {blinkit:'Groceries', msedcl:'Bills & Utilities'},
+    nameFor: null, nameQuery: '', aliases: {}, linked: {},
+    cStart: 1, cEnd: 26, selMode: false, sel: [], restore: 'preview',
+    dupCounted: false, listTitle: 'All transactions', listSub: ''
+  };
+
+  componentWillUnmount() { clearInterval(this._t); }
+
+  set = (o) => this.setState(o);
+
+  theme() {
+    const t = THEMES[this.state.version];
+    return Object.assign({ui: t.ui, mono: t.mono}, t[this.state.mode]);
+  }
+
+  activeDashboards() {
+    return this.state.order.filter(id => !this.state.off.includes(id))
+      .map(id => DASHBOARDS.find(d => d.id === id));
+  }
+
+  runParse() {
+    clearInterval(this._t);
+    this.setState({up:'parsing', parse:0});
+    this._t = setInterval(() => {
+      const p = this.state.parse + 8;
+      if (p >= 100) { clearInterval(this._t); this.setState({up:'done', parse:100}); }
+      else this.setState({parse:p});
+    }, 90);
+  }
+
+  renderVals() {
+    const s = this.state, c = this.theme();
+    const isC = s.version === 'C';
+    const openList = (title, sub) => () => this.set({screen:'all', listTitle:title, listSub:sub});
+    const list = this.activeDashboards();
+    const idx = Math.min(s.dash, Math.max(list.length - 1, 0));
+    const cur = list[idx] || DASHBOARDS[0];
+    const range = RANGES.find(r => r.id === s.range) || RANGES[2];
+    const onDash = id => list.some(d => d.id === id);
+
+    const rootVars = `--bg:${c.bg};--card:${c.card};--card2:${c.card2};--text:${c.text};--muted:${c.muted};--line:${c.line};--accent:${c.accent};--accentSoft:${c.accentSoft};--onAccent:${c.onAccent};--pos:${c.pos};--posSoft:${c.posSoft};--neg:${c.neg};--warn:${c.warn};--warnSoft:${c.warnSoft};--navbg:${c.navbg};--ui:${c.ui};--mono:${c.mono}`;
+
+    const seg = on => `padding:6px 14px;border-radius:8px;font:600 12px 'Plus Jakarta Sans';color:${on?'#fff':'rgba(0,0,0,.6)'};background:${on?'#1a1a1a':'transparent'}`;
+    const segSm = on => `padding:5px 12px;border-radius:9px;font:600 11px ${c.ui};color:${on?c.onAccent:c.muted};background:${on?c.accent:'transparent'}`;
+
+    // charts
+    const pts = (arr, w, h, pad) => {
+      const max = Math.max.apply(null, arr), min = Math.min.apply(null, arr);
+      return arr.map((v, i) => {
+        const x = (i / (arr.length - 1)) * w;
+        const y = h - pad - ((v - min) / (max - min || 1)) * (h - pad * 2);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ');
+    };
+    const sparkLine = pts(DAILY, 320, 96, 8);
+    const trendLine = pts(TREND, 320, 130, 10);
+
+    // donut
+    const C = 2 * Math.PI * 46;
+    let acc = 0;
+    const slices = CATS.map((cat, i) => {
+      const len = (cat.pct / 100) * C;
+      const sl = {color: CAT_COLORS[i], dash: `${(len - 2).toFixed(1)} ${(C - len + 2).toFixed(1)}`, offset: (-acc).toFixed(1)};
+      acc += len;
+      return sl;
+    });
+
+    const openCat = id => () => this.set({screen:'category', cat:id});
+    const openPayee = id => () => this.set({screen:'payee', payee:id});
+
+    const cats = CATS.map((cat, i) => ({
+      name: cat.name, short: cat.short, amount: rupee(cat.amount), pctLabel: cat.pct + '%',
+      dot: `width:10px;height:10px;border-radius:5px;background:${CAT_COLORS[i]};flex:none`,
+      bar: `width:${cat.pct * 3}%;max-width:100%;height:100%;background:${CAT_COLORS[i]}`,
+      open: openCat(cat.id)
+    }));
+
+    const maxD = Math.max.apply(null, DAILY);
+    const days = DAILY.map((v, i) => ({
+      bar: `flex:1;height:${Math.round((v / maxD) * 100)}%;border-radius:2px;background:${i === 15 ? c.neg : (i === 4 ? c.pos : c.accent)};opacity:${i === 15 || i === 4 ? 1 : .55}`
+    }));
+    const maxW = Math.max.apply(null, DOW);
+    const dows = DOW.map((v, i) => ({
+      label: DOW_L[i],
+      bar: `flex:1;height:${Math.round((v / maxW) * 100)}%;border-radius:6px 6px 0 0;background:${i > 4 ? c.neg : c.accent};opacity:${i > 4 ? 1 : .5}`
+    }));
+    const maxWk = 16000;
+    const weeks = WEEKS.map(w => ({
+      label: w.l,
+      inBar: `width:16px;height:${Math.round((w.i / maxWk) * 100)}%;border-radius:5px 5px 0 0;background:${c.pos}`,
+      outBar: `width:16px;height:${Math.round((w.o / maxWk) * 100)}%;border-radius:5px 5px 0 0;background:${c.neg}`
+    }));
+
+    const navA = [
+      {id:'home', label:'Home', icon:'space_dashboard'},
+      {id:'statements', label:'Statements', icon:'receipt_long'},
+      {id:'upload', label:'Add', icon:'add', fab:true},
+      {id:'payees', label:'Payees', icon:'group'},
+      {id:'settings', label:'You', icon:'person'}
+    ];
+    const navB = [
+      {id:'home', label:'Money', icon:'monitoring'},
+      {id:'payees', label:'Payees', icon:'group'},
+      {id:'upload', label:'Import', icon:'note_add'},
+      {id:'settings', label:'You', icon:'account_circle'}
+    ];
+    const navC = [
+      {id:'home', label:'Feed', icon:'view_agenda'},
+      {id:'payees', label:'Payees', icon:'group'},
+      {id:'upload', label:'Add', icon:'add', fab:true},
+      {id:'settings', label:'You', icon:'person'}
+    ];
+    const navSrc = s.version === 'A' ? navA : (isC ? navC : navB);
+    const navItems = navSrc.map(n => {
+      const on = s.screen === n.id || (n.id === 'statements' && s.screen === 'statements');
+      if (n.fab) return {
+        go: () => this.set({screen:'upload', up:'idle'}), icon: n.icon,
+        wrap: 'flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:2px',
+        iconStyle: `font-size:26px;color:${c.onAccent};background:${c.accent};width:54px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-variation-settings:'FILL' 1`,
+        labelStyle: `font:500 10px ${c.ui};color:${c.muted}`, label: n.label
+      };
+      return {
+        go: () => this.set({screen: n.id, sheet:null}), icon: n.icon, label: n.label,
+        wrap: 'flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding-top:4px',
+        iconStyle: `font-size:23px;color:${on ? c.accent : c.muted};font-variation-settings:'FILL' ${on ? 1 : 0}`,
+        labelStyle: `font:${on ? 600 : 400} 10px ${c.ui};color:${on ? c.text : c.muted}`
+      };
+    });
+
+    const groups = [
+      {key:'tea', display:'Morning tea stall', raw:'AWDHOOT SNACKS CENTRE', total:'₹640', count:'18', times:'1 PM', saved:true, dup:2},
+      {key:'blinkit', display:'BLINKIT COMMERCE', raw:'Recognised from July', total:'₹2,410', count:'7', times:'9 PM', suggested:true, alias:'Grocery run', dup:4},
+      {key:'msedcl', display:'MSEDCL', raw:'New this month', total:'₹2,580', count:'1', times:'11 AM', alias:'Electricity'}
+    ].map(g => {
+      const saved = g.saved || s.saved[g.key];
+      const cat = s.picked[g.key];
+      return {
+        display: saved && g.alias ? g.alias : g.display, raw: g.raw, total: g.total, count: g.count, times: g.times,
+        saved: !!saved, editable: !saved, alias: g.alias || '',
+        cta: g.suggested ? 'Confirm' : 'Save',
+        save: () => this.setState(st => ({saved: Object.assign({}, st.saved, {[g.key]: true})})),
+        openRow: openList(g.alias || g.display, g.count + ' transactions in this statement'),
+        hasDup: !!g.dup,
+        dupLabel: g.dup ? (s.dupCounted ? g.dup + (g.dup === 1 ? ' duplicate, counted' : ' duplicates, counted') : g.dup + (g.dup === 1 ? ' duplicate, not counted' : ' duplicates, not counted')) : '',
+        dupAction: s.dupCounted ? "Don't count these" : 'Count these',
+        dupToggle: () => this.set({dupCounted: !s.dupCounted}),
+        aliasShown: s.aliases[g.key] || g.alias || 'Tap to name',
+        aliasStyle: `flex:1;font:${(s.aliases[g.key] || g.alias) ? 500 : 400} 15px ${c.ui};color:${(s.aliases[g.key] || g.alias) ? c.text : c.muted}`,
+        openName: () => this.set({sheet:'name', nameFor:g.key, nameQuery: s.aliases[g.key] || g.alias || ''}),
+        linkedNote: s.linked[g.key] ? 'Linked to an existing payee — histories are counted together' : '',
+        isLinked: !!s.linked[g.key],
+        catLabel: cat || 'Choose a category',
+        catStyle: `flex:1;font:${cat ? 500 : 400} 15px ${c.ui};color:${cat ? c.text : c.muted}`,
+        openCats: () => this.set({sheet:'cats', catFor:g.key, catQuery:''})
+      };
+    });
+    const savedCount = groups.filter(g => g.saved).length;
+
+    const txns = [
+      {time:'1:12 PM', date:'16 Aug 2026', amount:'₹420'},
+      {time:'8:38 PM', date:'16 Aug 2026', amount:'₹420'},
+      {time:'1:04 PM', date:'15 Aug 2026', amount:'₹380', dup:true, ex:true},
+      {time:'9:20 PM', date:'14 Aug 2026', amount:'₹610'},
+      {time:'2:02 PM', date:'12 Aug 2026', amount:'₹290'}
+    ].map((t, i) => {
+      const ex = s.excluded[i] !== undefined ? s.excluded[i] : !!t.ex;
+      return Object.assign({}, t, {
+        timeStyle: `font:500 15px ${c.ui};color:${ex ? c.muted : c.text}`,
+        amountStyle: `font:600 15px ${c.mono};color:${ex ? c.muted : c.text};${ex ? 'text-decoration:line-through' : ''}`,
+        action: ex ? 'Count' : "Don't count",
+        toggle: () => this.setState(st => ({excluded: Object.assign({}, st.excluded, {[i]: !ex})}))
+      });
+    });
+
+    const statTabs = ['pending','completed','cancelled'].map(id => ({
+      label: id.charAt(0).toUpperCase() + id.slice(1),
+      go: () => this.set({statTab:id}),
+      style: `height:34px;padding:0 16px;border-radius:12px;display:flex;align-items:center;font:600 12px ${c.ui};background:${s.statTab===id?c.accent:c.card2};color:${s.statTab===id?c.onAccent:c.muted}`
+    }));
+
+    const allSessions = {
+      pending: [
+        {period:'August 2026', sub:'Imported 26 Aug · 64 transactions', src:'PP', status:'3 to map', total:'₹38,450', progress:'61 of 64 mapped', pct:95},
+        {period:'August 2026', sub:'Imported 26 Aug · Google Pay', src:'GP', status:'1 to map', total:'₹9,120', progress:'11 of 12 mapped', pct:91}
+      ],
+      completed: [
+        {period:'July 2026', sub:'Imported 12 Jul · 58 transactions', src:'PP', status:'Done', total:'₹34,220', progress:'All mapped', pct:100},
+        {period:'June 2026', sub:'Imported 09 Jun · 41 transactions', src:'GP', status:'Done', total:'₹28,940', progress:'All mapped', pct:100}
+      ],
+      cancelled: [
+        {period:'May 2026', sub:'Cancelled 03 Jun · duplicate import', src:'PP', status:'Cancelled', total:'₹0', progress:'Not counted', pct:0}
+      ]
+    };
+    const sessions = allSessions[s.statTab].map(x => ({
+      period: x.period, sub: x.sub, src: x.src, status: x.status, total: x.total, progress: x.progress,
+      logo: `width:40px;height:40px;border-radius:13px;background:${c.card2};display:flex;align-items:center;justify-content:center;font:700 12px ${c.mono};color:${c.muted};flex:none`,
+      chip: `height:26px;padding:0 10px;border-radius:9px;background:${x.pct===100?c.posSoft:c.accentSoft};color:${x.pct===100?c.pos:c.accent};display:flex;align-items:center;font:600 11px ${c.ui}`,
+      bar: `width:${x.pct}%;height:100%;background:${x.pct===100?c.pos:c.accent}`,
+      open: () => this.set({screen:'session'})
+    }));
+
+    const gallery = s.order.map((id, i) => {
+      const d = DASHBOARDS.find(x => x.id === id);
+      const on = !s.off.includes(id);
+      const isDef = s.def === id;
+      return {
+        name: d.name, sub: d.sub,
+        titleStyle: `font:600 14px ${c.ui};color:${on ? c.text : c.muted}`,
+        starIcon: isDef ? 'star' : 'star_border',
+        starStyle: `font-family:'Material Symbols Outlined';font-size:20px;color:${isDef ? c.accent : c.muted};cursor:pointer;padding:4px;font-variation-settings:'FILL' ${isDef ? 1 : 0}`,
+        star: () => this.set({def:id}),
+        switchStyle: `width:42px;height:24px;border-radius:12px;background:${on ? c.accent : c.line};display:flex;align-items:center;padding:2px;box-sizing:border-box;justify-content:${on ? 'flex-end' : 'flex-start'}`,
+        knobStyle: `width:20px;height:20px;border-radius:10px;background:${on ? c.onAccent : c.card}`,
+        toggle: () => this.setState(st => ({off: st.off.includes(id) ? st.off.filter(x => x !== id) : st.off.concat([id])})),
+        up: () => this.setState(st => {
+          if (i === 0) return {};
+          const o = st.order.slice(); const t = o[i-1]; o[i-1] = o[i]; o[i] = t; return {order:o};
+        })
+      };
+    });
+
+    const ranges = RANGES.map(r => ({
+      label: r.label, hint: r.hint, on: r.id === s.range,
+      labelStyle: `font:${r.id===s.range?600:400} 15px ${c.ui};color:${c.text}`,
+      pillStyle: `height:32px;padding:0 14px;border-radius:11px;display:flex;align-items:center;font:600 12px ${c.ui};background:${r.id===s.range?c.accent:c.card2};color:${r.id===s.range?c.onAccent:c.muted};cursor:pointer`,
+      pick: () => this.set({range:r.id, sheet:null})
+    }));
+
+    const settingsRows = [
+      {icon:'file_download', title:'Export as CSV', sub:'All counted transactions', sheet:'export'},
+      {icon:'backup', title:'Back up all data', sub:'Restore on another device', sheet:'backup'},
+      {icon:'restore', title:'Restore from backup', sub:'Adds to this account', sheet:'restore'},
+      {icon:'group', title:'Payees', sub:'10 mapped · 3 unnamed', to:'payees'},
+      {icon:'sell', title:'Categories', sub:'10 categories', to:'categories'},
+      {icon:'restore_from_trash', title:'Recently deleted', sub:'2 categories', to:'deleted'},
+      {icon:'logout', title:'Log out', sub:'Data stays on this device'}
+    ].map(r => ({icon:r.icon, title:r.title, sub:r.sub, titleStyle:`font:500 14px ${c.ui};color:${c.text}`, go: r.to ? (() => this.set({screen:r.to})) : (r.sheet ? (() => this.set({sheet:r.sheet, restore:'preview'})) : (() => {}))}));
+
+    const catObj = CATS.find(x => x.id === s.cat) || CATS[0];
+    const payeeObj = PAYEES.find(p => p.id === s.payee) || PAYEES[0];
+
+    return {
+      rootVars,
+      versionNote: s.version === 'A'
+        ? 'A · Pulse — evolves the current Material 3 shell: brand blue kept, dashboards as a swipeable stack, upload promoted to a centre action.'
+        : (s.version === 'B'
+          ? 'B · Ledger — the darker analytical direction from your artifact: teal/coral data palette, dashboards as named tabs, three-tab nav.'
+          : 'C · Feed — no dashboard switching at all: every dashboard becomes a section of one warm, scrollable feed, so nothing hides behind a tab.'),
+      isA: s.version === 'A', isB: s.version === 'B', isC,
+      setA: () => this.set({version:'A'}), setB: () => this.set({version:'B'}), setC: () => this.set({version:'C'}),
+      tabCStyle: seg(isC),
+      setLight: () => this.set({mode:'light'}), setDark: () => this.set({mode:'dark'}),
+      tabAStyle: seg(s.version==='A'), tabBStyle: seg(s.version==='B'),
+      tabLStyle: seg(s.mode==='light'), tabDStyle: seg(s.mode==='dark'),
+      segLight: segSm(s.mode==='light'), segDark: segSm(s.mode==='dark'),
+
+      sOnb: s.screen === 'onboarding', sHome: s.screen === 'home', sStat: s.screen === 'statements',
+      sSess: s.screen === 'session', sUp: s.screen === 'upload', sCat: s.screen === 'category',
+      sPay: s.screen === 'payee', sSet: s.screen === 'settings',
+      showNav: ['home','statements','upload','settings','payees'].indexOf(s.screen) >= 0,
+      navItems,
+      back: () => this.set({screen:'home'}),
+      goHome: () => this.set({screen:'home'}), goSession: () => this.set({screen:'session'}),
+      goUpload: () => this.set({screen:'upload'}),
+      goPayeeFirst: openPayee('zomato'),
+
+      onbIcon: ONB[s.onb].icon, onbTitle: ONB[s.onb].title, onbBody: ONB[s.onb].body, onbCta: ONB[s.onb].cta,
+      onbNext: () => s.onb < 2 ? this.set({onb: s.onb + 1}) : this.set({screen:'home', onb:0}),
+      onbDot0: `width:${s.onb===0?22:7}px;height:7px;border-radius:4px;background:${s.onb===0?c.accent:c.line}`,
+      onbDot1: `width:${s.onb===1?22:7}px;height:7px;border-radius:4px;background:${s.onb===1?c.accent:c.line}`,
+      onbDot2: `width:${s.onb===2?22:7}px;height:7px;border-radius:4px;background:${s.onb===2?c.accent:c.line}`,
+      replayOnb: () => this.set({screen:'onboarding', onb:0}),
+
+      greeting: 'Wednesday, 26 August',
+      dashTitle: isC ? 'Your money' : cur.name, dashPos: (idx + 1) + ' of ' + list.length,
+      dPulse: isC ? onDash('pulse') : cur.id === 'pulse', dLedger: isC ? onDash('ledger') : cur.id === 'ledger',
+      dCat: isC ? onDash('category') : cur.id === 'category', dMap: isC ? onDash('mapping') : cur.id === 'mapping',
+      dashTitleShown: isC ? 'This month' : cur.name,
+      dashDots: list.map((d, i) => ({
+        go: () => this.set({dash:i}),
+        style: `width:${i===idx?20:7}px;height:7px;border-radius:4px;background:${i===idx?c.accent:c.line}`
+      })),
+      dashTabs: list.map((d, i) => ({
+        name: d.name, go: () => this.set({dash:i}),
+        tabStyle: `height:34px;padding:0 16px;border-radius:12px;display:flex;align-items:center;white-space:nowrap;font:600 12px ${c.ui};background:${i===idx?c.accent:c.card2};color:${i===idx?c.onAccent:c.muted}`
+      })),
+      goCategoryDash: () => this.set({dash: list.findIndex(d => d.id === 'category')}),
+      goMappingDash: () => this.set({dash: list.findIndex(d => d.id === 'mapping')}),
+
+      range: range.label, rangeLabel: range.hint,
+      openRange: () => this.set({sheet:'range'}), openGallery: () => this.set({sheet:'gallery'}),
+      closeSheet: () => this.set({sheet:null}),
+      sheetOpen: !!s.sheet, sheetRange: s.sheet === 'range', sheetGallery: s.sheet === 'gallery',
+      ranges, gallery, defaultName: (DASHBOARDS.find(d => d.id === s.def) || {}).name,
+      enabledCount: (4 - s.off.length) + ' of 4 switched on',
+
+      cats, slices, sparkLine, sparkArea: '0,96 ' + sparkLine + ' 320,96',
+      trendLine, trendArea: '0,130 ' + trendLine + ' 320,130',
+      trendMonths: TREND_M.map(m => ({label:m})), days, dows, weeks,
+      hasUnmapped: true, mapPctLabel: '85%', mapBar: `width:85%;height:100%;background:${c.accent}`,
+      unmapped: [
+        {raw:'MSEDCL BILL DESK', sub:'1 payment · 11 AM', amount:'₹2,580', open: () => this.set({screen:'session'})},
+        {raw:'AMZ*RETAIL IN', sub:'4 payments · usually 8 PM', amount:'₹2,190', open: () => this.set({screen:'session'})},
+        {raw:'PAYTM*METRO', sub:'6 payments · usually 9 AM', amount:'₹1,000', open: () => this.set({screen:'session'})}
+      ],
+      topPayees: PAYEES.map(p => ({
+        name: p.name, sub: p.sub, amount: rupee(p.amount), initials: p.initials,
+        avatar: `width:36px;height:36px;border-radius:12px;background:${c.card2};display:flex;align-items:center;justify-content:center;font:700 11px ${c.mono};color:${c.muted};flex:none`,
+        open: openPayee(p.id)
+      })),
+
+      catName: catObj.name,
+      catAvatar: `width:34px;height:34px;border-radius:12px;background:${CAT_COLORS[CATS.indexOf(catObj)]};opacity:.85`,
+      catCardPos: (s.catCard + 1) + ' / 4',
+      cc0: s.catCard === 0, cc1: s.catCard === 1, cc2: s.catCard === 2, cc3: s.catCard === 3,
+      ccPrev: () => this.set({catCard: (s.catCard + 3) % 4}), ccNext: () => this.set({catCard: (s.catCard + 1) % 4}),
+      ccDots: [0,1,2,3].map(i => ({
+        go: () => this.set({catCard:i}),
+        style: `width:${i===s.catCard?18:6}px;height:6px;border-radius:3px;background:${i===s.catCard?c.accent:c.line}`
+      })),
+
+      payeeName: payeeObj.name, payeeTotal: rupee(payeeObj.amount), payeeCount: 29, txns,
+      statTabs, sessions,
+      groups, hasSuggested: savedCount < 3, sessionDone: savedCount === 3,
+      sessionProgress: savedCount === 3 ? 'Completed · 64 of 64 mapped' : (61 + savedCount) + ' of 64 mapped',
+      confirmAll: () => this.set({saved: {tea:true, blinkit:true, msedcl:true}}),
+
+      upIdle: s.up === 'idle', upPicked: s.up === 'picked', upParsing: s.up === 'parsing', upDone: s.up === 'done',
+      pickFile: () => this.set({up:'picked'}), clearFile: () => this.set({up:'idle'}),
+      parseFile: () => this.runParse(),
+      parseBar: `width:${s.parse}%;height:100%;background:${c.accent};transition:width .1s linear`,
+      parseStep: s.parse < 40 ? 'Extracting text from 14 pages…' : (s.parse < 75 ? 'Matching 64 transactions…' : 'Recognising known payees…'),
+      uploads: [
+        {file:'PhonePe_Statement_Jul2026.pdf', time:'12 Jul 2026, 2:41 PM', icon:'check_circle', note:'58 rows', ok:true},
+        {file:'HDFC_Account_Statement.pdf', time:'10 Jul 2026, 9:02 PM', icon:'error', note:'Unrecognised', ok:false},
+        {file:'GPay_Statement_Jun2026.pdf', time:'09 Jun 2026, 7:55 AM', icon:'error', note:'Password protected', ok:false}
+      ].map(u => ({
+        file:u.file, time:u.time, icon:u.icon,
+        iconStyle: `font-size:20px;color:${u.ok ? c.pos : c.neg}`,
+        note: u.note, noteStyle: `font:500 11px ${c.mono};color:${u.ok ? c.muted : c.neg}`
+      })),
+      settingsRows,
+      dPayees: isC ? onDash('payees') : cur.id === 'payees',
+      dBudget: isC ? onDash('budget') : cur.id === 'budget',
+      dRecurring: isC ? onDash('recurring') : cur.id === 'recurring',
+      sPayees: s.screen === 'payees', sCats: s.screen === 'categories', sDeleted: s.screen === 'deleted',
+      sProfile: s.screen === 'profile', sBuilder: s.screen === 'builder',
+      goPayees: () => this.set({screen:'payees'}), goCats: () => this.set({screen:'categories'}),
+      goDeleted: () => this.set({screen:'deleted'}), goProfile: () => this.set({screen:'profile'}),
+      goBuilder: () => this.set({screen:'builder', sheet:null}),
+
+      payQuery: s.payQuery,
+      onPayQuery: (e) => this.set({payQuery: e.target.value}),
+      paySorts: [{id:'spend', label:'By spend'},{id:'name', label:'A–Z'},{id:'recent', label:'Recent'}].map(x => ({
+        label: x.label, go: () => this.set({paySort:x.id}),
+        style: `height:32px;padding:0 14px;border-radius:11px;display:flex;align-items:center;white-space:nowrap;font:600 12px ${c.ui};background:${s.paySort===x.id?c.accent:c.card2};color:${s.paySort===x.id?c.onAccent:c.muted}`
+      })),
+      payeeList: PAYEE_DIR
+        .filter(p => p.dir === 'out' && p.name.toLowerCase().indexOf(s.payQuery.toLowerCase()) >= 0)
+        .sort((a, b) => s.paySort === 'name' ? a.name.localeCompare(b.name) : b.amount - a.amount)
+        .map(p => ({
+          name: p.name, cat: p.cat, amount: rupee(p.amount), meta: p.count + ' payments · last ' + p.last,
+          avatar: `width:38px;height:38px;border-radius:13px;background:${c.card2};display:flex;align-items:center;justify-content:center;font:700 12px ${c.mono};color:${c.muted};flex:none`,
+          initials: p.name.slice(0, 2).toUpperCase(),
+          tagStyle: `height:20px;padding:0 8px;border-radius:6px;background:${c.card2};color:${c.muted};display:inline-flex;align-items:center;font:500 10px ${c.ui}`,
+          bar: `width:${Math.round((p.amount / 18000) * 100)}%;height:100%;background:${c.accent};opacity:.75`,
+          open: s.selMode
+            ? () => this.setState(st => ({sel: st.sel.indexOf(p.name) >= 0 ? st.sel.filter(x => x !== p.name) : st.sel.concat([p.name])}))
+            : openPayee('zomato'),
+          boxStyle: `width:22px;height:22px;border-radius:7px;flex:none;border:1.5px solid ${s.sel.indexOf(p.name) >= 0 ? c.accent : c.line};background:${s.sel.indexOf(p.name) >= 0 ? c.accent : 'transparent'};display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:15px;color:${c.onAccent}`,
+          boxIcon: s.sel.indexOf(p.name) >= 0 ? 'check' : ''
+        })),
+      payeeIncome: PAYEE_DIR.filter(p => p.dir === 'in').map(p => ({
+        name: p.name, amount: rupee(p.amount), meta: p.count + ' credits · last ' + p.last,
+        avatar: `width:38px;height:38px;border-radius:13px;background:${c.posSoft};display:flex;align-items:center;justify-content:center;font:700 12px ${c.mono};color:${c.pos};flex:none`,
+        initials: p.name.slice(0, 2).toUpperCase(),
+        open: openPayee('zomato')
+      })),
+      payeeCountLabel: PAYEE_DIR.filter(p => p.dir === 'out').length + ' mapped payees · 3 unnamed',
+
+      budgetRows: BUDGETS.map(b => {
+        const over = b.spent > b.limit;
+        return {
+          cat: b.cat, spent: rupee(b.spent), limit: 'of ' + rupee(b.limit),
+          note: over ? rupee(b.spent - b.limit) + ' over' : rupee(b.limit - b.spent) + ' left',
+          noteStyle: `font:600 12px ${c.mono};color:${over ? c.neg : c.pos}`,
+          bar: `width:${Math.min(Math.round((b.spent / b.limit) * 100), 100)}%;height:100%;background:${over ? c.neg : c.accent}`,
+          open: openList(b.cat, 'Budget ' + rupee(b.limit) + ' · spent ' + rupee(b.spent))
+        };
+      }),
+      budgetSummary: '₹38,450 spent of ₹36,000 planned',
+      budgetOverNote: '₹2,450 over, driven by Food & Dining and Shopping',
+
+      recurringRows: RECURRING.map(r => ({
+        name: r.name, cat: r.cat, amount: rupee(r.amount), every: r.every, next: 'Next ' + r.next, sure: r.sure,
+        open: openList(r.name, r.every + ' · ' + r.sure)
+      })),
+      recurringTotal: '₹34,380 a month is committed before you spend anything',
+
+      catAdminRows: [
+        {name:'Food & Dining', n:14}, {name:'Groceries', n:6}, {name:'Bills & Utilities', n:5},
+        {name:'Transport', n:4}, {name:'Shopping', n:7}, {name:'Rent', n:1},
+        {name:'Health', n:2}, {name:'Household help', n:1}, {name:'Travel', n:0}, {name:'Gifts & Donations', n:0}
+      ].map(x => ({
+        name: x.name, sub: x.n === 0 ? 'No payees linked' : x.n + ' payees linked',
+        canDelete: x.n === 0,
+        delStyle: `font-family:'Material Symbols Outlined';font-size:20px;padding:8px;color:${x.n === 0 ? c.neg : c.line};font-variation-settings:'FILL' 0`,
+        open: openList(x.name, x.n + ' payees in this category')
+      })),
+      deletedRows: [{name:'Travel'},{name:'Subscriptions'}].map(x => ({name: x.name})),
+
+      builderCards: BUILDER_CARDS.map(b => {
+        const on = s.builder[b.id];
+        return {
+          label: b.label, sub: b.sub,
+          titleStyle: `font:600 14px ${c.ui};color:${on ? c.text : c.muted}`,
+          switchStyle: `width:42px;height:24px;border-radius:12px;background:${on ? c.accent : c.line};display:flex;align-items:center;padding:2px;box-sizing:border-box;justify-content:${on ? 'flex-end' : 'flex-start'}`,
+          knobStyle: `width:20px;height:20px;border-radius:10px;background:${on ? c.onAccent : c.card}`,
+          toggle: () => this.setState(st => ({builder: Object.assign({}, st.builder, {[b.id]: !st.builder[b.id]})}))
+        };
+      }),
+      builderCount: Object.keys(s.builder).filter(k => s.builder[k]).length + ' cards on this dashboard',
+
+      sheetCustom: s.sheet === 'custom', sheetExport: s.sheet === 'export',
+      sheetBackup: s.sheet === 'backup', sheetRestore: s.sheet === 'restore',
+      openCustom: () => this.set({sheet:'custom'}),
+      calBlanks: [{},{},{},{},{}],
+      calDays: Array.from({length: 31}, (_, i) => {
+        const d = i + 1, inRange = d >= s.cStart && d <= s.cEnd, edge = d === s.cStart || d === s.cEnd;
+        return {
+          d: d,
+          style: `height:40px;border-radius:${edge ? '12px' : '0'};display:flex;align-items:center;justify-content:center;font:${edge ? 600 : 400} 13px ${c.mono};background:${edge ? c.accent : (inRange ? c.accentSoft : 'transparent')};color:${edge ? c.onAccent : (d > 26 ? c.line : c.text)}`,
+          pick: () => this.setState(st => (d <= st.cStart || d > 26 ? {cStart: d, cEnd: d} : {cEnd: d}))
+        };
+      }),
+      calLabel: s.cStart + ' Aug – ' + s.cEnd + ' Aug 2026',
+      calDaysCount: (s.cEnd - s.cStart + 1) + ' days selected',
+      applyCustom: () => this.set({range:'month', sheet:null}),
+
+      selMode: s.selMode, selCount: s.sel.length + ' selected',
+      selLabel: s.selMode ? 'Done' : 'Select',
+      hasSel: s.sel.length > 0,
+      toggleSelMode: () => this.set({selMode: !s.selMode, sel: []}),
+      clearSel: () => this.set({selMode:false, sel:[]}),
+      mergeSel: () => this.set({selMode:false, sel:[], sheet:'name', nameFor:'merge', nameQuery:''}),
+      recatSel: () => this.set({selMode:false, sel:[], sheet:'cats', catFor:'bulk', catQuery:''}),
+
+      restorePreview: s.restore === 'preview', restoreDone: s.restore === 'done',
+      openExport: () => this.set({sheet:'export'}), openBackup: () => this.set({sheet:'backup'}),
+      openRestore: () => this.set({sheet:'restore', restore:'preview'}),
+      confirmRestore: () => this.set({restore:'done'}),
+
+      sheetName: s.sheet === 'name',
+      nameQuery: s.nameQuery,
+      nameRaw: s.nameFor === 'msedcl' ? 'MSEDCL' : (s.nameFor === 'blinkit' ? 'BLINKIT COMMERCE' : 'JAYASHREE SUHAS LAD'),
+      onNameQuery: (e) => this.set({nameQuery: e.target.value}),
+      nameSuggestions: (() => {
+        const q = s.nameQuery.trim().toLowerCase();
+        if (!q) return [];
+        return EXISTING_PAYEES
+          .filter(p => p.alias.toLowerCase().indexOf(q) >= 0)
+          .sort((a, b) => {
+            const ax = a.alias.toLowerCase() === q ? 0 : (a.alias.toLowerCase().indexOf(q) === 0 ? 1 : 2);
+            const bx = b.alias.toLowerCase() === q ? 0 : (b.alias.toLowerCase().indexOf(q) === 0 ? 1 : 2);
+            return ax - bx || a.alias.localeCompare(b.alias);
+          })
+          .slice(0, 5)
+          .map(p => ({
+            alias: p.alias, cat: p.cat, count: p.count + ' payments already under this name',
+            style: `display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:${c.card2};margin-bottom:8px`,
+            pick: () => this.setState(st => ({
+              aliases: Object.assign({}, st.aliases, {[st.nameFor]: p.alias}),
+              picked: Object.assign({}, st.picked, {[st.nameFor]: p.cat}),
+              linked: Object.assign({}, st.linked, {[st.nameFor]: true}),
+              sheet: null
+            }))
+          }));
+      })(),
+      nameExact: EXISTING_PAYEES.some(p => p.alias.toLowerCase() === s.nameQuery.trim().toLowerCase()),
+      nameKeepSeparate: () => this.setState(st => ({aliases: Object.assign({}, st.aliases, {[st.nameFor]: st.nameQuery}), sheet:null})),
+      nameSave: () => this.setState(st => ({aliases: Object.assign({}, st.aliases, {[st.nameFor]: st.nameQuery}), sheet:null})),
+      nameSaveStyle: `height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font:600 14px ${c.ui};background:${s.nameQuery.trim() ? c.accent : c.card2};color:${s.nameQuery.trim() ? c.onAccent : c.muted}`,
+      keyRows: [
+        {keys:'qwertyuiop'.split('').map(k => ({k}))},
+        {keys:'asdfghjkl'.split('').map(k => ({k}))},
+        {keys:'zxcvbnm'.split('').map(k => ({k}))}
+      ],
+      sheetCats: s.sheet === 'cats',
+      catQuery: s.catQuery,
+      onCatQuery: (e) => this.set({catQuery: e.target.value}),
+      catRecents: ['Groceries','Food & Dining','Bills & Utilities','Transport'].map(l => ({
+        label: l,
+        pick: () => this.setState(st => ({picked: Object.assign({}, st.picked, {[st.catFor]: l}), sheet:null})),
+        style: `height:34px;padding:0 14px;border-radius:12px;display:flex;align-items:center;font:500 13px ${c.ui};background:${c.accentSoft};color:${c.accent}`
+      })),
+      catResults: ALL_CATEGORIES.filter(l => l.toLowerCase().indexOf(s.catQuery.toLowerCase()) >= 0).map(l => ({
+        label: l,
+        sub: l === 'Groceries' ? '6 payees' : (l === 'Food & Dining' ? '14 payees' : 'in use'),
+        on: s.picked[s.catFor] === l,
+        labelStyle: `flex:1;font:${s.picked[s.catFor] === l ? 600 : 400} 15px ${c.ui};color:${c.text}`,
+        pick: () => this.setState(st => ({picked: Object.assign({}, st.picked, {[st.catFor]: l}), sheet:null}))
+      })),
+      catCreateLabel: s.catQuery ? `Create "${s.catQuery}"` : 'Create a new category',
+      catCreate: () => this.setState(st => ({picked: st.catQuery ? Object.assign({}, st.picked, {[st.catFor]: st.catQuery}) : st.picked, sheet:null})),
+
+      sAll: s.screen === 'all', listTitle: s.listTitle, listSub: s.listSub,
+      openAllTxns: openList('All transactions', 'Every counted row in this range'),
+      listFilters: ['All','Counted','Not counted','Duplicates'].map((l, i) => ({
+        label: l, go: () => {},
+        style: `height:32px;padding:0 14px;border-radius:11px;display:flex;align-items:center;white-space:nowrap;font:600 12px ${c.ui};background:${i === 0 ? c.accent : c.card2};color:${i === 0 ? c.onAccent : c.muted}`
+      })),
+      listGroups: [
+        {day:'Saturday, 16 Aug 2026', total:'₹2,400', rows:[
+          {name:'Zomato', time:'1:12 PM', amount:'₹420', tag:'Food & Dining'},
+          {name:'Blinkit', time:'8:38 PM', amount:'₹1,140', tag:'Groceries'},
+          {name:'Uber', time:'10:04 PM', amount:'₹840', tag:'Transport'}
+        ]},
+        {day:'Friday, 15 Aug 2026', total:'₹1,180', rows:[
+          {name:'Morning tea stall', time:'9:02 AM', amount:'₹20', tag:'Food & Dining'},
+          {name:'Swiggy', time:'1:44 PM', amount:'₹380', tag:'Food & Dining', dup:true},
+          {name:'MSEDCL', time:'11:20 AM', amount:'₹780', tag:'Bills & Utilities'}
+        ]},
+        {day:'Thursday, 14 Aug 2026', total:'₹1,610', rows:[
+          {name:'Amazon', time:'7:15 PM', amount:'₹1,000', tag:'Shopping'},
+          {name:'Blue Tokai', time:'5:30 PM', amount:'₹610', tag:'Food & Dining'}
+        ]}
+      ].map(g => ({
+        day: g.day, total: g.total,
+        rows: g.rows.map(r => ({
+          name: r.name, time: r.time, amount: r.amount, tag: r.tag, dup: !!r.dup,
+          nameStyle: `font:500 14px ${c.ui};color:${r.dup ? c.muted : c.text}`,
+          amountStyle: `font:600 14px ${c.mono};color:${r.dup ? c.muted : c.text};${r.dup ? 'text-decoration:line-through' : ''}`,
+          tagStyle: `height:22px;padding:0 8px;border-radius:7px;background:${c.card2};color:${c.muted};display:inline-flex;align-items:center;font:500 10px ${c.ui}`,
+          open: openPayee('zomato')
+        }))
+      })),
+
+      tabletSeg1: `height:36px;padding:0 18px;border-radius:12px;background:${c.accent};color:${c.onAccent};display:flex;align-items:center;font:600 13px ${c.ui}`,
+      tabletSeg2: `height:36px;padding:0 18px;border-radius:12px;background:${c.card2};color:${c.muted};display:flex;align-items:center;font:600 13px ${c.ui}`
+    };
+  }
+}
+</script>
+</body>
+</html>

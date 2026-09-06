@@ -1,8 +1,12 @@
 # Design source
 
-The colour and layout source for the app's two themes. These files are what the
-Compose theme (`Color.kt`, `Type.kt`, `Shapes.kt`) is written against — when a token
-changes, it changes here first.
+Everything the app is built to look like. These files are what the Compose theme
+(`Color.kt`, `Type.kt`, `Shape.kt`) and every screen are written against — when
+something changes, it changes here first.
+
+There are **two sets**, made at different times, and the difference matters:
+
+**The theme set** — the palette, type and shape the whole app wears.
 
 | File | What it holds |
 |---|---|
@@ -11,8 +15,35 @@ changes, it changes here first.
 | `HomeDark.dc.html` / `HomeLight.dc.html` | The Home screen at 412 × 892, both themes |
 | `canvas.json` | Where each board sits on the canvas |
 
+**The dashboard set** — the navigation shell and the seven-dashboard system.
+
+| File | What it holds |
+|---|---|
+| `ReimaginedApp.dc.html` | The tappable prototype: every screen and state. **The source of truth for layout** |
+| `DashboardSpec.dc.html` | The written contract — widget-by-widget behaviour, data needs, states, copy |
+| `CurrentApp.dc.html` | A recreation of the app as it was, for comparison |
+
 Artboards are 412 × 892 at 1× density, so **every `px` here is a `dp` in Compose**,
 one for one. No conversion.
+
+## Where the two sets disagree
+
+They do disagree, and the conflict is already settled — do not re-open it:
+
+- **On colour, the theme set wins.** `DashboardSpec.dc.html` §1 offers three palette
+  variants (Pulse blue, Ledger teal, Feed warm). All three are **superseded**. The
+  amber-on-green palette in `Main.dc.html` is what ships, and the dashboards are to be
+  re-skinned into it. Section 1 of the spec is kept only for the roles it names
+  (`pos`, `neg`, `warn`, `card2`, `navbg`), not for its hex values.
+- **On the navigation shell and everything structural, the dashboard set wins.** It is
+  later. The bar is Variant A's — Home · Statements · centre `+` · Payees · You — with
+  tab chips rather than dots for moving between dashboards. The five-tab bar drawn in
+  `HomeLight.dc.html` is out of date.
+- **On typography, Sora + JetBrains Mono win**, not the Roboto named in the spec's
+  variant table — same supersession as the palette.
+
+The decisions behind all of this are recorded in the two design-review comments on
+[issue #16](https://github.com/SandeepChorge/transactions-platform/issues/16).
 
 ## The two rules worth knowing before you change a colour
 

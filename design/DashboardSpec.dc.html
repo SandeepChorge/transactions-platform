@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#1a1a1a}
+a{color:#22697C}a:hover{color:#17505f}
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+
+<doc-page margin="0.7in">
+
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
+<span style="font:600 10px/1 'JetBrains Mono',monospace;padding:4px 7px;background:#1a1a1a;color:#fff;border-radius:4px">SPEC</span>
+<span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578;letter-spacing:.5px">transactions-parser-android · dashboards · v1 · 02 Sep 2026</span>
+</div>
+<h1 style="font:700 30px/1.15 'Plus Jakarta Sans';letter-spacing:-.6px;margin:0 0 10px">Dashboard build specification</h1>
+<p style="font:400 14px/1.65 'Plus Jakarta Sans';color:#4a463e;margin:0 0 28px;max-width:36em">Implementation reference for the reimagined dashboards: every widget, the data it needs, how it looks, how it behaves, plus the tokens, dimensions, icons and strings needed to build it. Numbers in examples are sample data — the widget contracts are the spec.</p>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:0 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a">0 · How to use this document</h2>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 10px">Three artifacts, in priority order, when implementing a screen:</p>
+<div style="display:grid;grid-template-columns:22px 1fr;gap:6px 10px;font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin-bottom:12px">
+<b>1</b><div><b>The repo</b> (<code style="font:500 12px 'JetBrains Mono',monospace">SandeepChorge/transactions-platform</code>, branch <code style="font:500 12px 'JetBrains Mono',monospace">main</code>, path <code style="font:500 12px 'JetBrains Mono',monospace">transactions-parser-android</code>) is the source of truth for entities, DAOs, DI, navigation and existing composables. Read it first; do not take field names from this document.</div>
+<b>2</b><div><b><code style="font:500 12px 'JetBrains Mono',monospace">Reimagined App.dc.html</code></b> is the source of truth for layout: it is a live, tappable rendering of every screen and state described here. Open it next to this document.</div>
+<b>3</b><div><b>This document</b> is the contract: widget-by-widget behaviour, data requirements, states, tokens and copy — the things a screenshot cannot tell you.</div>
+</div>
+<div style="border:1px solid #ddd6c8;border-radius:10px;padding:14px 16px;background:#faf7f2;font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin-bottom:26px;break-inside:avoid">
+<b style="color:#1a1a1a">On &ldquo;can Claude fetch this automatically?&rdquo;</b><br>
+Yes, with a pointer. In a coding session, give it the repo plus these two files and it can read both directly — the prototype is plain HTML, so tokens, dimensions and copy are machine-readable, not trapped in an image. What it cannot infer is intent: which variant you picked, which dashboards ship in v1, and what a widget should do when data is missing. That is what sections 1&ndash;6 below pin down. Keep this file updated as decisions change; it is the handoff, not a snapshot.
+</div>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:0 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a;break-after:avoid">1 · Design tokens</h2>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 14px">Three complete themes exist in the prototype. <b>Pick one before building</b> — they are not interchangeable at runtime. Variant A keeps the current Material 3 shell and brand blue, so it is the lowest-risk migration; B and C are redesigns. Each has a full light and dark set; both must ship. Map these to <code style="font:500 12px 'JetBrains Mono',monospace">core/designsystem/Theme.kt</code> as <code style="font:500 12px 'JetBrains Mono',monospace">lightColorScheme</code>/<code style="font:500 12px 'JetBrains Mono',monospace">darkColorScheme</code> plus an extension object for the non-Material roles (<code style="font:500 12px 'JetBrains Mono',monospace">pos</code>, <code style="font:500 12px 'JetBrains Mono',monospace">neg</code>, <code style="font:500 12px 'JetBrains Mono',monospace">warn</code>, <code style="font:500 12px 'JetBrains Mono',monospace">card2</code>, <code style="font:500 12px 'JetBrains Mono',monospace">navbg</code>).</p>
+
+<h3 style="font:600 13px 'JetBrains Mono',monospace;letter-spacing:.5px;margin:0 0 8px;color:#22697C">A · PULSE (recommended) — evolves current shell</h3>
+<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:16px;break-inside:avoid">
+<b>role</b><b>light</b><b>dark</b>
+<div>bg · window</div><div>#FBF9FF</div><div>#111117</div>
+<div>card · surface</div><div>#FFFFFF</div><div>#1B1A22</div>
+<div>card2 · tracks, chips</div><div>#F1EDFA</div><div>#26252F</div>
+<div>text</div><div>#1B1B21</div><div>#E9E6F0</div>
+<div>muted · secondary</div><div>#55525E</div><div>#A6A2B2</div>
+<div>line · 1px borders</div><div>#E6E2EE</div><div>#2E2D38</div>
+<div>accent</div><div>#3D5AFE</div><div>#B3C0FF</div>
+<div>accentSoft · fills</div><div>#E7EAFF</div><div>#242844</div>
+<div>onAccent</div><div>#FFFFFF</div><div>#121233</div>
+<div>pos · money in</div><div>#00695C</div><div>#7FDBCB</div>
+<div>posSoft</div><div>#DCF2EC</div><div>#16302C</div>
+<div>neg · overspend</div><div>#B3261E</div><div>#F2B8B5</div>
+<div>warn</div><div>#7A5A00</div><div>#E7C46B</div>
+<div>warnSoft</div><div>#FBF0D4</div><div>#332C17</div>
+<div>navbg · bottom bar</div><div>#F5F1FC</div><div>#191822</div>
+</div>
+
+<h3 style="font:600 13px 'JetBrains Mono',monospace;letter-spacing:.5px;margin:0 0 8px;color:#22697C">B · LEDGER — analytical teal/coral</h3>
+<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:16px;break-inside:avoid">
+<b>role</b><b>light</b><b>dark</b>
+<div>bg</div><div>#F3F6F5</div><div>#0C0E10</div>
+<div>card</div><div>#FFFFFF</div><div>#15181B</div>
+<div>card2</div><div>#E9EFEE</div><div>#1E2327</div>
+<div>text</div><div>#12181A</div><div>#E7EDF0</div>
+<div>muted</div><div>#5B676C</div><div>#8F9BA2</div>
+<div>line</div><div>#DDE5E4</div><div>#242A2F</div>
+<div>accent</div><div>#22697C</div><div>#8FC7D8</div>
+<div>accentSoft</div><div>#DCECF0</div><div>#14262C</div>
+<div>onAccent</div><div>#FFFFFF</div><div>#08191F</div>
+<div>pos</div><div>#2F7D52</div><div>#92C9A4</div>
+<div>posSoft</div><div>#DDEFE3</div><div>#14251A</div>
+<div>neg</div><div>#C0563A</div><div>#E8927C</div>
+<div>warn</div><div>#8A6320</div><div>#D9B172</div>
+<div>warnSoft</div><div>#F6EBD8</div><div>#2A2214</div>
+<div>navbg</div><div>#FFFFFF</div><div>#101315</div>
+</div>
+
+<h3 style="font:600 13px 'JetBrains Mono',monospace;letter-spacing:.5px;margin:0 0 8px;color:#22697C">C · FEED — warm single-scroll</h3>
+<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:16px;break-inside:avoid">
+<b>role</b><b>light</b><b>dark</b>
+<div>bg</div><div>#FAF7F2</div><div>#141109</div>
+<div>card</div><div>#FFFFFF</div><div>#1D1913</div>
+<div>card2</div><div>#F1EBE1</div><div>#272118</div>
+<div>text</div><div>#1E1B16</div><div>#EFE8DE</div>
+<div>muted</div><div>#6A6156</div><div>#A79C8D</div>
+<div>line</div><div>#E6DDD0</div><div>#2F2820</div>
+<div>accent</div><div>#A34A1E</div><div>#E8A05C</div>
+<div>accentSoft</div><div>#F7E7DB</div><div>#2E2317</div>
+<div>onAccent</div><div>#FFFFFF</div><div>#241503</div>
+<div>pos</div><div>#3F6B3A</div><div>#9BC48F</div>
+<div>posSoft</div><div>#E5EEE1</div><div>#1C2618</div>
+<div>neg</div><div>#B03A2E</div><div>#E88C7A</div>
+<div>warn</div><div>#8A6320</div><div>#E0B872</div>
+<div>warnSoft</div><div>#F6EBD8</div><div>#2C2415</div>
+<div>navbg</div><div>#FFFFFF</div><div>#191510</div>
+</div>
+
+<h3 style="font:600 13px 'JetBrains Mono',monospace;letter-spacing:.5px;margin:0 0 8px;color:#22697C">CATEGORY SERIES (all variants, both modes)</h3>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 8px">Fixed 5-colour cycle, assigned by the category's index in the sorted result set — never stored per category, so the same colour means &ldquo;biggest&rdquo; on every chart. Index 5+ repeats the cycle. Uncategorized always takes the last slot in the sort and therefore <code style="font:500 12px 'JetBrains Mono',monospace">#B9A8DA</code>.</p>
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:6px">
+<div style="height:34px;border-radius:8px;background:#E8927C"></div>
+<div style="height:34px;border-radius:8px;background:#8FC7D8"></div>
+<div style="height:34px;border-radius:8px;background:#E3C08A"></div>
+<div style="height:34px;border-radius:8px;background:#92C9A4"></div>
+<div style="height:34px;border-radius:8px;background:#B9A8DA"></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;font:400 11px 'JetBrains Mono',monospace;color:#6a6156;margin-bottom:26px">
+<div>#E8927C</div><div>#8FC7D8</div><div>#E3C08A</div><div>#92C9A4</div><div>#B9A8DA</div>
+</div>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:0 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a;break-after:avoid">2 · Type, dimensions, icons</h2>
+
+<h3 style="font:600 13px 'JetBrains Mono',monospace;letter-spacing:.5px;margin:0 0 8px;color:#22697C">TYPE SCALE</h3>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 8px">Two families. UI text: <b>Roboto</b> in variant A, <b>Plus Jakarta Sans</b> in B and C. <b>Every money figure, percentage, date code and axis label uses JetBrains Mono</b> — this is the single most load-bearing type rule in the design: tabular digits are what make columns of amounts scannable. Sizes in sp.</p>
+<div style="display:grid;grid-template-columns:1.1fr 2fr 1.6fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:16px;break-inside:avoid">
+<b>token</b><b>spec</b><b>used for</b>
+<div>hero.xl</div><div>mono 700 · 44sp · -1 tracking</div><div>net spend number</div>
+<div>hero.l</div><div>mono 700 · 40sp · -1</div><div>mapping % · detail totals</div>
+<div>hero.m</div><div>mono 700 · 34sp / 26sp</div><div>category total · budget summary</div>
+<div>onb.title</div><div>ui 700 · 30sp · -0.5</div><div>onboarding titles</div>
+<div>screen.title</div><div>ui 700 · 24sp · -0.4</div><div>dashboard name in header</div>
+<div>sheet.title</div><div>ui 700 · 18&ndash;19sp</div><div>sheets, sub-screen headers</div>
+<div>card.title</div><div>ui 600 · 15sp</div><div>card headings</div>
+<div>row.title</div><div>ui 500&ndash;600 · 14sp</div><div>list rows, payee names</div>
+<div>row.value</div><div>mono 500&ndash;600 · 13sp</div><div>row amounts</div>
+<div>body</div><div>ui 400 · 13&ndash;16sp / 1.5&ndash;1.6</div><div>explanatory copy</div>
+<div>meta</div><div>ui 400 · 11&ndash;12sp</div><div>row subtitles, captions</div>
+<div>eyebrow</div><div>mono 500 · 10&ndash;11sp · +1 tracking · UPPER</div><div>card labels (NET SPEND ·)</div>
+</div>
+
+<h3 style="font:600 13px 'JetBrains Mono',monospace;letter-spacing:.5px;margin:0 0 8px;color:#22697C">DIMENSIONS</h3>
+<div style="display:grid;grid-template-columns:1.3fr 2fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:16px;break-inside:avoid">
+<b>element</b><b>value (dp)</b>
+<div>reference frame</div><div>412 × 892 (prototype canvas)</div>
+<div>screen h-padding</div><div>20</div>
+<div>card radius · large</div><div>22 (hero and chart cards)</div>
+<div>card radius · small</div><div>18 (KPI tiles) · 20 (detail cards)</div>
+<div>card padding</div><div>20, or 22 on hero cards</div>
+<div>card padding · KPI tile</div><div>16</div>
+<div>gap between cards</div><div>14</div>
+<div>card border</div><div>1 · line</div>
+<div>list row height</div><div>44&ndash;48 (11&ndash;13 vertical padding)</div>
+<div>row gap · icon to text</div><div>12</div>
+<div>category dot</div><div>10 × 10, r 5</div>
+<div>payee avatar</div><div>36&ndash;38 rounded square, radius 12&ndash;13, initials mono 700 11&ndash;12sp</div>
+<div>category avatar</div><div>34 rounded square, radius 12, category colour at .85</div>
+<div>progress track</div><div>h 5 (inline) · 6 (category) · 7 (budget) · 10 (mapping)</div>
+<div>bar width · category</div><div>70&ndash;80 fixed</div>
+<div>chart height · line</div><div>96 (viewBox 320×96, stroke 2.5)</div>
+<div>chart height · bars</div><div>132 plot + 1 baseline + 10 label gap</div>
+<div>donut</div><div>150 box · r 46 · stroke 17 · start -90&deg;</div>
+<div>primary button</div><div>h 52 (onboarding) · 48 (page) · 46 (in-card), radius 15&ndash;16</div>
+<div>header chip</div><div>h 34, radius 12, h-padding 12</div>
+<div>icon button</div><div>34 × 34, radius 12, glyph 18</div>
+<div>bottom sheet</div><div>radius 24 top, padding 20&ndash;24</div>
+<div>min touch target</div><div>48 (visual can be smaller; expand the hit box)</div>
+</div>
+
+<h3 style="font:600 13px 'JetBrains Mono',monospace;letter-spacing:.5px;margin:0 0 8px;color:#22697C">ICONS &amp; IMAGERY</h3>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 8px">Material Symbols Outlined only — no custom icon set, no illustrations, no photography anywhere in the app. Outlined (FILL 0) for UI affordances; filled (FILL 1) only for the onboarding feature glyph and the status bar. Default glyph size 20, 18 in dense rows, 22 for back arrows, 28 in the onboarding tile.</p>
+<div style="display:grid;grid-template-columns:1.2fr 2fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:12px;break-inside:avoid">
+<b>glyph</b><b>where</b>
+<div>space_dashboard</div><div>bottom nav · Home</div>
+<div>receipt_long</div><div>bottom nav · Statements</div>
+<div>add</div><div>bottom nav centre action · Add / upload</div>
+<div>dashboard_customize</div><div>header icon button, Settings row · manage dashboards</div>
+<div>expand_more</div><div>range chip</div>
+<div>chevron_right</div><div>drill-in rows</div>
+<div>arrow_back</div><div>sub-screen headers</div>
+<div>help</div><div>unmapped payee rows and the Uncategorized nudge</div>
+<div>event_repeat</div><div>recurring rows</div>
+<div>star</div><div>default-dashboard marker</div>
+<div>lock / bolt / insights</div><div>onboarding pages 1 / 2 / 3</div>
+<div>battery_full</div><div>status bar (prototype chrome only)</div>
+</div>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 26px">Payee identity is <b>never</b> a logo or a fetched image: it is a 36&ndash;38dp rounded square (radius 12&ndash;13) filled with <code style="font:500 12px 'JetBrains Mono',monospace">card2</code>, carrying two uppercase initials in muted mono 700 at 11&ndash;12sp. Income rows use <code style="font:500 12px 'JetBrains Mono',monospace">posSoft</code> with <code style="font:500 12px 'JetBrains Mono',monospace">pos</code> initials. The one coloured avatar is the category-detail header tile — 34dp, radius 12, filled with the category colour at .85 and no initials. This keeps the app offline and avoids shipping brand assets.</p>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:0 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a;break-after:avoid">3 · Dashboard system</h2>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 12px">Home is not one screen — it is a set of dashboards, each a stack of widget cards over the same date range. Seven ship; the user controls which are on, their order, and which opens at launch.</p>
+<div style="display:grid;grid-template-columns:1fr 1.1fr 2fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:14px;break-inside:avoid">
+<b>id</b><b>name</b><b>widgets, in order</b>
+<div>pulse</div><div>Pulse</div><div>net-spend hero · daily line · category list · unmapped nudge</div>
+<div>ledger</div><div>Ledger split</div><div>in/out/net tiles · weekly in-vs-out bars · category list with %</div>
+<div>category</div><div>Categories</div><div>lede sentence · donut + legend · top payees in top category</div>
+<div>mapping</div><div>Mapping health</div><div>mapped-% hero · waiting-on-you list + bulk CTA</div>
+<div>payees</div><div>Payees</div><div>payee ranking · money-coming-in list</div>
+<div>budget</div><div>Budget</div><div>planned-vs-actual hero · per-category limit rows</div>
+<div>recurring</div><div>Recurring</div><div>expected-total banner · recurring rows</div>
+</div>
+<div style="display:grid;grid-template-columns:110px 1fr;gap:5px 12px;font:400 13px/1.55 'Plus Jakarta Sans';color:#4a463e;margin-bottom:14px">
+<b style="color:#1a1a1a">Persistence</b><div>Per user, in preferences (not the DB): <code style="font:500 12px 'JetBrains Mono',monospace">order: List&lt;String&gt;</code>, <code style="font:500 12px 'JetBrains Mono',monospace">disabled: Set&lt;String&gt;</code>, <code style="font:500 12px 'JetBrains Mono',monospace">default: String</code>. Unknown ids are ignored on read; new dashboards ship enabled and appended.</div>
+<b style="color:#1a1a1a">Navigation</b><div>Variant A: horizontal pager over enabled dashboards, dot indicator + &ldquo;Swipe between dashboards · 2/6&rdquo;. Variant B: scrollable named tab chips. Variant C: no switching — every enabled dashboard renders as a section of one scroll, in <code style="font:500 12px 'JetBrains Mono',monospace">order</code>.</div>
+<b style="color:#1a1a1a">Range</b><div>One range applies to every widget on every dashboard, set from the header chip: Today · This week · This month · Last month · Last 3 months · This year. Default: This month. Changing it re-queries; it does not reset the pager position. Range survives process death; it does not persist across app restarts (always reopens on the default).</div>
+<b style="color:#1a1a1a">Gallery sheet</b><div>Star to set default, drag to reorder, switch to enable/disable, and &ldquo;Build a dashboard&rdquo; to enter the builder. Reached from the header icon button or Settings &rarr; Dashboards.</div>
+<b style="color:#1a1a1a">Builder</b><div>A checklist of the eight widget types (net spend, daily line, category breakdown, top payees, in vs out, budget progress, recurring due, mapping health) with a live count line; Save writes a user-defined dashboard composed of the checked widgets in list order. Widgets are the unit of composition — this only works if each is built as an independent composable driven by its own query.</div>
+</div>
+<div style="border:1px solid #ddd6c8;border-radius:10px;padding:14px 16px;background:#faf7f2;font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin-bottom:26px;break-inside:avoid"><b style="color:#1a1a1a">Suggested v1 cut:</b> ship <code style="font:500 12px 'JetBrains Mono',monospace">pulse</code>, <code style="font:500 12px 'JetBrains Mono',monospace">category</code> and <code style="font:500 12px 'JetBrains Mono',monospace">mapping</code> — they need no data the parser doesn't already produce. <code style="font:500 12px 'JetBrains Mono',monospace">budget</code> needs a new limits table, <code style="font:500 12px 'JetBrains Mono',monospace">recurring</code> needs a detection pass, and <code style="font:500 12px 'JetBrains Mono',monospace">ledger</code>/<code style="font:500 12px 'JetBrains Mono',monospace">payees</code> need reliable credit/debit direction on every row. Confirm each against the repo before committing.</div>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:0 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a;break-after:avoid">4 · Widget catalogue</h2>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 16px">Each widget is a self-contained composable: one query in, one card out, no knowledge of which dashboard it sits on. <b>Data</b> lists what it must be given, expressed against the parsed transaction set (transactions joined to payee alias and category, filtered by range) — verify the actual field names in the repo. <b>Empty</b> is mandatory: a fresh install has no statements, and every widget will be seen with zero rows.</p>
+
+<div style="display:grid;grid-template-columns:1fr;gap:14px">
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W1 · Net spend hero</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">pulse</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Answer &ldquo;how much did I spend&rdquo; in one glance, then explain the change in one sentence.</div>
+<b style="color:#1a1a1a">Data</b><div>Sum of debits in range; sum of debits in the immediately preceding equal-length range; the category with the largest absolute increase between them.</div>
+<b style="color:#1a1a1a">Look</b><div>Card radius 22, padding 22. Eyebrow &ldquo;NET SPEND · &lt;range hint&gt;&rdquo;. Amount mono 700/44, tracking -1. Below: delta in pos/neg colour, 600/14 with ↑ or ↓, followed by muted continuation text on the same baseline.</div>
+<b style="color:#1a1a1a">States</b><div>Empty: amount ₹0, delta line replaced by &ldquo;Upload a statement to see this.&rdquo; No prior period: delta line hidden entirely, never &ldquo;+0%&rdquo;. Loading: skeleton block at the amount's exact height (no spinner).</div>
+<b style="color:#1a1a1a">Taps</b><div>Card body &rarr; full transaction list for the range.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W2 · Daily spend line</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">pulse · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Show the shape of spending over the range — spikes, quiet stretches, weekends.</div>
+<b style="color:#1a1a1a">Data</b><div>Debit total per bucket, plus the mean. Bucket by range: Today &rarr; hourly, week/month &rarr; daily, 3 months &rarr; weekly, year &rarr; monthly. Zero-fill gaps; never skip empty buckets.</div>
+<b style="color:#1a1a1a">Look</b><div>Header row: &ldquo;Daily spend&rdquo; 600/15 left, mono muted average right (&ldquo;₹1.4k avg/day&rdquo;). Chart 96 high, full card width, non-uniform scaling allowed. Area fill accentSoft, line accent, stroke 2.5, rounded joins. No axes, no gridlines, no labels.</div>
+<b style="color:#1a1a1a">States</b><div>Fewer than 3 buckets: hide the widget (a two-point line is noise). Empty: hidden. All zeros: flat line at the baseline, average &ldquo;₹0&rdquo;.</div>
+<b style="color:#1a1a1a">Taps</b><div>None in v1. Do not add a tooltip or scrubber unless the label row can show the read-out.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W3 · Category breakdown list</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">pulse · ledger · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Rank categories and make the top one obvious without reading numbers.</div>
+<b style="color:#1a1a1a">Data</b><div>Per category in range: total, share of total spend. Sorted descending, top 5, with Uncategorized forced to the bottom regardless of size. Category colour = row index in the series (§1).</div>
+<b style="color:#1a1a1a">Look</b><div>Header &ldquo;By category&rdquo; 600/15 + accent &ldquo;See all&rdquo;. Rows: 10dp dot · name 500/14 · fixed 70&ndash;80dp track (h6, r3, card2) with a bar in the category colour scaled to <i>share of the largest row</i>, not of total · right-aligned value. Pulse shows amounts, Ledger shows percentages in muted — the layout is otherwise identical, so build one composable with a value-format flag.</div>
+<b style="color:#1a1a1a">States</b><div>Empty: single muted line &ldquo;Nothing categorised yet.&rdquo; One category: still render the bar (full width).</div>
+<b style="color:#1a1a1a">Taps</b><div>Row &rarr; category detail. &ldquo;See all&rdquo; &rarr; Categories dashboard.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W4 · Uncategorized nudge</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">pulse</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Make unnamed money visible where the user will actually see it, and give it a one-tap fix.</div>
+<b style="color:#1a1a1a">Data</b><div>Sum and distinct payee count of unmapped transactions in range.</div>
+<b style="color:#1a1a1a">Look</b><div>Inline banner inside the category card, accentSoft fill, radius 14, padding 14. help glyph in accent · text 400/13 with the amount and &ldquo;Uncategorized&rdquo; bold · accent &ldquo;Map&rdquo; label. Not a card, not dismissible.</div>
+<b style="color:#1a1a1a">States</b><div>Zero unmapped: the whole banner is absent. Never render a &ldquo;you're all done&rdquo; variant.</div>
+<b style="color:#1a1a1a">Taps</b><div>Whole banner &rarr; Mapping health dashboard.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W5 · In / Out / Net tiles</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">ledger · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>State the period's cash position in three numbers.</div>
+<b style="color:#1a1a1a">Data</b><div>Credit total, debit total, and their difference, for the range. Requires trustworthy direction on every parsed row; if direction is unknown for any row, exclude it and note the exclusion in the card rather than guessing.</div>
+<b style="color:#1a1a1a">Look</b><div>Three equal tiles, gap 10, radius 18, padding 16. Mono eyebrow IN / OUT / NET, value mono 700/19. IN in pos, OUT in neg, NET in pos or neg by sign, abbreviated (&ldquo;+₹13.5k&rdquo;).</div>
+<b style="color:#1a1a1a">States</b><div>Empty: three tiles showing ₹0 — the row keeps its shape.</div>
+<b style="color:#1a1a1a">Taps</b><div>Tile &rarr; filtered transaction list (credits / debits / all).</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W6 · In vs out bars</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">ledger · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Show whether each week earned or burned.</div>
+<b style="color:#1a1a1a">Data</b><div>Credit and debit totals per sub-bucket (weeks in a month, months in a year), with labels W1&hellip;W4 / Jan&hellip;.</div>
+<b style="color:#1a1a1a">Look</b><div>Title &ldquo;In vs. out, by week&rdquo;. Plot 132 high with a 1px baseline; per bucket a pair of bars, gap 5, in pos and neg, width ~14, radius 4 top only, heights scaled to the largest single value across both series. Labels mono 11 muted, centred under each pair.</div>
+<b style="color:#1a1a1a">States</b><div>Single bucket: hide. Missing credits: render the out bars alone, do not zero-pad a fake in series.</div>
+<b style="color:#1a1a1a">Taps</b><div>Bucket &rarr; transaction list for that sub-period.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W7 · Category donut + legend</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">category</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Show proportion, with the total held in the middle.</div>
+<b style="color:#1a1a1a">Data</b><div>Same query as W3 plus the grand total. Shares must sum to 100 — fold everything past the top 5 into the last slice.</div>
+<b style="color:#1a1a1a">Look</b><div>Above the card, a lede sentence: &ldquo;Food &amp; Dining is your biggest category at <b>32%</b> this month.&rdquo; Card is a row: donut 150 box (r46, stroke 17, first slice starts at 12 o'clock, clockwise, no gaps between slices) with abbreviated total mono 700/19 and &ldquo;this month&rdquo; 8sp muted centred inside; legend column right, one row per category — dot · short name 500/13 · muted mono percentage.</div>
+<b style="color:#1a1a1a">States</b><div>Empty: donut becomes a single card2 ring, centre reads ₹0, legend hidden, lede replaced by &ldquo;No spending in this period.&rdquo;</div>
+<b style="color:#1a1a1a">Taps</b><div>Legend row and slice &rarr; category detail.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W8 · Mapping health hero</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">mapping · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Score the data quality by <i>value</i>, not row count — one unnamed rent payment matters more than twenty unnamed tea stalls.</div>
+<b style="color:#1a1a1a">Data</b><div>Mapped debit value ÷ total debit value in range, as a percentage; plus the total.</div>
+<b style="color:#1a1a1a">Look</b><div>Eyebrow &ldquo;MAPPED THIS MONTH&rdquo;. Percentage mono 700/40 with muted trailing clause &ldquo;of ₹38,450 has a name&rdquo; on the same baseline. Track h10 r5 card2, fill accent. Closing body line explains the payoff (&ldquo;Every payee you name here is recognised automatically in next month's statement.&rdquo;).</div>
+<b style="color:#1a1a1a">States</b><div>100%: keep the card, fill full, body line becomes &ldquo;Everything in this period has a name.&rdquo; Empty: hide the dashboard from the pager entirely.</div>
+<b style="color:#1a1a1a">Taps</b><div>None — the CTA lives in W9.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W9 · Waiting on you</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">mapping</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Turn the score into a work queue.</div>
+<b style="color:#1a1a1a">Data</b><div>Unmapped payees in range: raw parsed string, occurrence count and last-seen date, total amount. Ordered by amount descending — biggest money first, always.</div>
+<b style="color:#1a1a1a">Look</b><div>Title &ldquo;Waiting on you&rdquo;. Rows separated by 1px line: help glyph muted · raw string 500/14 (single line, ellipsised — never wrap a raw UPI string) · meta &ldquo;3 payments · last 26 Aug&rdquo; · amount mono 600/13 · chevron. Below, a full-width accent button &ldquo;Name all 3 now&rdquo;.</div>
+<b style="color:#1a1a1a">States</b><div>Zero: card replaced by a single centred muted line, button hidden. Long lists: cap at 5 rows and let the button carry the rest.</div>
+<b style="color:#1a1a1a">Taps</b><div>Row &rarr; naming sheet for that payee. Button &rarr; the session's mapping flow, queued.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W10 · Payee ranking</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">payees · category · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Name the actual recipients, since a category answers &ldquo;what&rdquo; but not &ldquo;who&rdquo;.</div>
+<b style="color:#1a1a1a">Data</b><div>Per mapped payee in range: alias, category, total, transaction count. Descending by total, top 5. Unmapped payees are excluded — they belong to W9.</div>
+<b style="color:#1a1a1a">Look</b><div>Two shapes, same row grammar: on the Payees dashboard, avatar · alias with a full-width inline track (h5) underneath scaled to the top payee · amount. On the Categories dashboard, avatar · alias with a muted count subtitle (&ldquo;14 orders&rdquo;) · amount, no bar. Header carries an accent &ldquo;All payees&rdquo; link.</div>
+<b style="color:#1a1a1a">States</b><div>Empty: muted &ldquo;No named payees in this period yet.&rdquo;</div>
+<b style="color:#1a1a1a">Taps</b><div>Row &rarr; payee detail. Link &rarr; payee directory.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W11 · Money coming in</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">payees</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Separate income from spending so salary doesn't distort the spend charts.</div>
+<b style="color:#1a1a1a">Data</b><div>Credit-direction payees in range: alias, amount, date or frequency meta.</div>
+<b style="color:#1a1a1a">Look</b><div>Same row as W10 with the amount in pos and a date/frequency subtitle. Usually 1&ndash;3 rows; no bars.</div>
+<b style="color:#1a1a1a">States</b><div>Empty: hide the card (a zero-income month is normal, not an error).</div>
+<b style="color:#1a1a1a">Taps</b><div>Row &rarr; payee detail.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W12 · Budget progress</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">budget · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Compare intent to reality per category.</div>
+<b style="color:#1a1a1a">Data</b><div>New persistence required: a monthly limit per category. Per row: category, limit, spent in range. Hero: total spent vs total limit, and the count of categories over.</div>
+<b style="color:#1a1a1a">Look</b><div>Hero card: eyebrow &ldquo;PLANNED VS ACTUAL&rdquo;, mono 700/26 summary (&ldquo;₹37.6k of ₹36k&rdquo;), then a neg-coloured sentence naming what is over. Rows: category 500/14 · spent mono 600/13 · limit mono 400/11 muted; track h7 r4 filled accent under budget, neg when over, clamped at 100%; right-aligned note (&ldquo;₹2,320 over&rdquo; in neg / &ldquo;₹1,590 left&rdquo; in muted).</div>
+<b style="color:#1a1a1a">States</b><div>No limits set: replace the whole dashboard body with a single card inviting the user to set limits, listing their top 3 categories as starting points. Never show ₹0 limits.</div>
+<b style="color:#1a1a1a">Taps</b><div>Row &rarr; category detail; long-press or row action &rarr; edit limit.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W13 · Recurring</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">recurring · builder</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Surface the committed, predictable part of the month — the amount already spoken for.</div>
+<b style="color:#1a1a1a">Data</b><div>Detection pass over history, not user input: per payee, cluster payments by amount and day-of-month across months; keep clusters present in ≥3 of the last 6 months. Emit alias, typical amount, cadence, next expected date, and a confidence string (&ldquo;11 of 12 months · 1 UPI ID&rdquo;) — the confidence string is required, since detection is a guess and the user must be able to judge it.</div>
+<b style="color:#1a1a1a">Look</b><div>Banner card in accentSoft, no border, radius 22: one sentence with the expected total. Then rows: event_repeat glyph · alias 500/14 with cadence · confidence subtitle · right column with amount mono 600/13 above muted next date.</div>
+<b style="color:#1a1a1a">States</b><div>Under 3 months of history: hide the dashboard and explain in the gallery (&ldquo;needs a few months of statements&rdquo;). No clusters found: hide.</div>
+<b style="color:#1a1a1a">Taps</b><div>Row &rarr; payee detail. Row action &rarr; &ldquo;not recurring&rdquo;, which suppresses that cluster permanently.</div>
+</div>
+</div>
+
+<div style="border:1px solid #ddd6c8;border-radius:12px;padding:16px 18px;break-inside:avoid">
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span style="font:700 15px 'Plus Jakarta Sans'">W14 · Header: greeting, range chip, gallery button</span><span style="font:500 11px 'JetBrains Mono',monospace;color:#8a8578">all dashboards</span></div>
+<div style="display:grid;grid-template-columns:74px 1fr;gap:4px 12px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e">
+<b style="color:#1a1a1a">Job</b><div>Say where you are and what period you are looking at, in one 34dp-tall row.</div>
+<b style="color:#1a1a1a">Data</b><div>Current dashboard name, selected range, unmapped count (for the badge, if used).</div>
+<b style="color:#1a1a1a">Look</b><div>Left column: muted 12sp greeting over the dashboard name 700/24. Right: range chip (h34, card2, label + expand_more) and a 34dp icon button with dashboard_customize. Not sticky — it scrolls away.</div>
+<b style="color:#1a1a1a">States</b><div>Long dashboard names ellipsise; the chip never shrinks.</div>
+<b style="color:#1a1a1a">Taps</b><div>Chip &rarr; range sheet (6 options, selected row in accent with a check, hints muted). Icon &rarr; gallery sheet.</div>
+</div>
+</div>
+
+</div>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:30px 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a;break-after:avoid">5 · Formatting rules</h2>
+<div style="display:grid;grid-template-columns:1.15fr 2fr;gap:4px 14px;font:400 12.5px/1.55 'Plus Jakarta Sans';color:#4a463e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:9px 0;margin-bottom:26px;break-inside:avoid">
+<b style="color:#1a1a1a">Currency</b><div>₹ prefix, no space, Indian grouping (<code style="font:500 12px 'JetBrains Mono',monospace">en-IN</code>): ₹38,450 · ₹1,20,000. Never show paise on dashboards; round to the rupee. Reuse the repo's existing formatter (<code style="font:500 12px 'JetBrains Mono',monospace">core/presentation/Formatters</code>) rather than adding one.</div>
+<b style="color:#1a1a1a">Abbreviation</b><div>Only where space forces it (KPI tiles, donut centre, averages): ₹1.4k, ₹38.4k, ₹1.2L. One decimal, and never in a hero number or a list row.</div>
+<b style="color:#1a1a1a">Signs</b><div>Spend figures are unsigned — the label carries the direction. Net and deltas are signed. Direction arrows ↑ ↓ only on deltas, coloured neg/pos by meaning (up-spend is negative), never by raw sign.</div>
+<b style="color:#1a1a1a">Percentages</b><div>Whole numbers, trailing %. Under 1% renders &ldquo;&lt;1%&rdquo;, not 0%.</div>
+<b style="color:#1a1a1a">Dates</b><div>&ldquo;26 Aug&rdquo; · &ldquo;1&ndash;26 Aug&rdquo; · &ldquo;Jul 2026&rdquo;. Always mono. No weekday names outside chart axes.</div>
+<b style="color:#1a1a1a">Raw payee strings</b><div>Shown verbatim, uppercase as parsed, single line with ellipsis. Never title-cased or cleaned for display — the user recognises them by their exact form.</div>
+<b style="color:#1a1a1a">Colour meaning</b><div>pos = money in or under budget. neg = money out only in comparative context (deltas, overspend) — a plain spend amount uses text colour, or the whole screen turns red.</div>
+</div>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:0 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a;break-after:avoid">6 · String resources</h2>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 12px">Proposed keys for a <code style="font:500 12px 'JetBrains Mono',monospace">feature/dashboard</code> module's <code style="font:500 12px 'JetBrains Mono',monospace">strings.xml</code>, with the copy from the prototype. Sentence case throughout; no exclamation marks; second person. Counts use plurals, not string concatenation.</p>
+<div style="display:grid;grid-template-columns:1.25fr 2fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:14px;break-inside:avoid">
+<b>key</b><b>value</b>
+<div>dash_net_spend_label</div><div>NET SPEND · %1$s</div>
+<div>dash_delta_more</div><div>↑ %1$d%% more</div>
+<div>dash_delta_less</div><div>↓ %1$d%% less</div>
+<div>dash_delta_because</div><div>than last month, mostly %1$s</div>
+<div>dash_daily_title</div><div>Daily spend</div>
+<div>dash_daily_avg</div><div>%1$s avg/day</div>
+<div>dash_by_category</div><div>By category</div>
+<div>dash_see_all</div><div>See all</div>
+<div>dash_unmapped_nudge</div><div>%1$s sits in Uncategorized — %2$d payees still unnamed.</div>
+<div>dash_map_action</div><div>Map</div>
+<div>dash_in / _out / _net</div><div>IN · OUT · NET</div>
+<div>dash_inout_title</div><div>In vs. out, by week</div>
+<div>dash_spend_by_category</div><div>Spend by category</div>
+<div>dash_cat_lede</div><div>%1$s is your biggest category at %2$d%% this month.</div>
+<div>dash_donut_caption</div><div>this month</div>
+<div>dash_top_payees_in</div><div>Top payees · %1$s</div>
+<div>dash_mapped_label</div><div>MAPPED THIS MONTH</div>
+<div>dash_mapped_of</div><div>of %1$s has a name</div>
+<div>dash_mapped_note</div><div>Every payee you name here is recognised automatically in next month's statement.</div>
+<div>dash_waiting_title</div><div>Waiting on you</div>
+<div>dash_name_all</div><div>Name all %1$d now</div>
+<div>dash_payees_title</div><div>Where it goes, by payee</div>
+<div>dash_all_payees</div><div>All payees</div>
+<div>dash_income_title</div><div>Money coming in</div>
+<div>dash_budget_label</div><div>PLANNED VS ACTUAL</div>
+<div>dash_budget_over</div><div>%1$s over</div>
+<div>dash_budget_left</div><div>%1$s left</div>
+<div>dash_recurring_title</div><div>Recurring, spotted from your history</div>
+<div>dash_recurring_next</div><div>Next %1$s</div>
+<div>dash_swipe_hint</div><div>Swipe between dashboards · %1$d/%2$d</div>
+<div>dash_gallery_title</div><div>Your dashboards</div>
+<div>dash_gallery_note</div><div>Star one to make it your home screen. Drag to reorder, switch off what you don't read.</div>
+<div>dash_default_row</div><div>Default dashboard</div>
+<div>dash_default_sub</div><div>Opens when you launch the app</div>
+<div>dash_manage_row</div><div>Manage dashboards</div>
+<div>dash_enabled_count</div><div>%1$d of %2$d switched on</div>
+<div>dash_builder_title</div><div>Build a dashboard</div>
+<div>dash_builder_count</div><div>%1$d cards on this dashboard</div>
+<div>range_today &hellip; range_year</div><div>Today · This week · This month · Last month · Last 3 months · This year</div>
+</div>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 8px">Dashboard names and subtitles (gallery and tabs):</p>
+<div style="display:grid;grid-template-columns:1.25fr 2fr;gap:3px 14px;font:400 12px/1.5 'JetBrains Mono',monospace;color:#3a362e;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;padding:8px 0;margin-bottom:26px;break-inside:avoid">
+<div>Pulse</div><div>One number, one sentence, one chart</div>
+<div>Ledger split</div><div>Money in vs. money out</div>
+<div>Categories</div><div>Where the money actually goes</div>
+<div>Mapping health</div><div>What's still unnamed</div>
+<div>Payees</div><div>Who you actually pay, ranked</div>
+<div>Budget</div><div>Planned vs actual per category</div>
+<div>Recurring</div><div>Subscriptions and bills due</div>
+</div>
+
+<h2 style="font:700 17px 'Plus Jakarta Sans';margin:0 0 8px;padding-bottom:6px;border-bottom:1.5px solid #1a1a1a;break-after:avoid">7 · Open decisions</h2>
+<p style="font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin:0 0 10px">Answer these before implementation; each changes the data layer, not just the UI.</p>
+<div style="display:grid;grid-template-columns:22px 1fr;gap:6px 10px;font:400 13px/1.6 'Plus Jakarta Sans';color:#4a463e;margin-bottom:8px">
+<b>1</b><div>Which variant ships — A, B or C? Everything else in this document is variant-neutral.</div>
+<b>2</b><div>Does every parsed transaction carry a reliable credit/debit direction today? W5, W6 and W11 depend on it.</div>
+<b>3</b><div>Where do budget limits live — a new table, or preferences? Monthly only, or per range?</div>
+<b>4</b><div>Is recurring detection a background pass with cached results, or computed on read?</div>
+<b>5</b><div>Are dashboard preferences device-local or synced with the account?</div>
+<b>6</b><div>Do ranges span statements from multiple sources, and what happens when two statements overlap the same days — is the duplicate handling from session detail applied at query time?</div>
+</div>
+
+</doc-page>
+
+</x-dc>
+</body>
+</html>
