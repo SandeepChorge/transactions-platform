@@ -27,6 +27,25 @@ object AppChartDimens {
      */
     val donutSliceGap = 2.dp
 
+    /** How far the selected slice lifts out of the ring, in both radius and thickness. */
+    val donutSelectedLift = 4.dp
+
+    /**
+     * Added to each side of the ring's hit band. The ring is 17dp thick and the minimum touch
+     * target is 48dp, so a tap needs more room than the stroke gives it.
+     */
+    val donutHitSlack = 10.dp
+
+    /** The scrubber's marker on the trend line, and the ring of card colour around it. */
+    val trendMarkerRadius = 5.dp
+    val trendMarkerRing = 2.dp
+
+    /** The vertical hairline the scrubber drops through the plot. */
+    val crosshair = 1.dp
+
+    /** Backdrop behind a selected bar pair or ranked row. */
+    val selectionPadding = 6.dp
+
     // Trend line — W2
     val trendHeight = 96.dp
     val trendStroke = 2.5.dp

@@ -1,9 +1,17 @@
 package com.madtitan94.transactionsparser.core.designsystem.charts
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -12,8 +20,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.madtitan94.transactionsparser.core.designsystem.theme.AppTheme
+import kotlin.math.atan2
+import kotlin.math.hypot
 
 /**
  * The proportion chart — W7.
@@ -23,11 +37,21 @@ import com.madtitan94.transactionsparser.core.designsystem.theme.AppTheme
  * own idea of what an axis looks like, none of which match the artboards.
  *
  * [centerContent] is a slot rather than a string so the caller can put the period's total in the
- * hole without this composable needing to know how money is formatted.
+ * hole without this composable needing to know how money is formatted — and so it can swap to the
+ * selected slice's own total when one is picked.
+ *
+ * **Selection is the caller's state, not the chart's.** [selectedIndex] comes in and
+ * [onSliceClick] goes out, so tapping a slice and tapping its legend row drive the same one
+ * highlight. A chart that owned its own selection would let the two disagree.
  *
  * An empty period draws the ring in `surfaceAlt` and keeps its size. That is deliberate: a donut
  * that vanishes when there is nothing to show makes the card jump, and W7 asks for the centre to
  * keep reading ₹0.
+ *
+ * [contentDescription] is required for a chart that carries meaning, and it is a parameter rather
+ * than something built here because the copy belongs in the feature module's `strings.xml` — this
+ * module owns no user-facing English. Without it the whole donut is invisible to TalkBack, since a
+ * `Canvas` has nothing to read.
  */
 @Composable
 fun DonutChart(
@@ -37,24 +61,96 @@ fun DonutChart(
     radius: Dp = AppChartDimens.donutRadius,
     strokeWidth: Dp = AppChartDimens.donutStroke,
     sliceGap: Dp = AppChartDimens.donutSliceGap,
+    selectedIndex: Int? = null,
+    onSliceClick: ((Int) -> Unit)? = null,
+    contentDescription: String? = null,
+    animated: Boolean = true,
     centerContent: (@Composable () -> Unit)? = null
 ) {
     val colors = AppTheme.colors
 
-    Box(modifier.size(box), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(box)) {
+    // Re-sweeping from zero whenever the data changes is a deliberate choice over morphing one set
+    // of slices into the next. A range change is not one month growing into another — it is a
+    // different question being asked — and the redraw says so. It also means the enter animation
+    // and the update animation are the same code.
+    val reveal = remember { Animatable(if (animated) 0f else 1f) }
+    LaunchedEffect(slices, animated) {
+        if (!animated) {
+            reveal.snapTo(1f)
+        } else {
+            reveal.snapTo(0f)
+            reveal.animateTo(1f, tween(durationMillis = 550, easing = FastOutSlowInEasing))
+        }
+    }
+
+    // The selected slice lifts out of the ring rather than the others dimming down. Dimming would
+    // put the series colours below the contrast they were validated at, and the validation is the
+    // reason this palette can be trusted at all.
+    val lift by animateDpAsState(
+        targetValue = if (selectedIndex != null) AppChartDimens.donutSelectedLift else 0.dp,
+        label = "donutLift"
+    )
+
+    Box(
+        modifier
+            .size(box)
+            .then(
+                if (contentDescription != null) {
+                    Modifier.semantics { this.contentDescription = contentDescription }
+                } else {
+                    Modifier
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(
+            Modifier
+                .size(box)
+                .then(
+                    if (onSliceClick == null) {
+                        Modifier
+                    } else {
+                        Modifier.pointerInput(slices, radius, strokeWidth, sliceGap) {
+                            detectTapGestures { tap ->
+                                val middle = Offset(size.width / 2f, size.height / 2f)
+                                val ringRadius = radius.toPx()
+                                val stroke = strokeWidth.toPx()
+                                val distance = hypot(tap.x - middle.x, tap.y - middle.y)
+
+                                // The ring is 17dp thick, well under the 48dp minimum target, so
+                                // the hit band is widened on both sides. It stops short of
+                                // swallowing the hole: the centre holds the period total and is
+                                // not a slice.
+                                val slack = AppChartDimens.donutHitSlack.toPx()
+                                val inner = (ringRadius - stroke / 2f - slack)
+                                    .coerceAtLeast(ringRadius - stroke / 2f - stroke)
+                                val outer = ringRadius + stroke / 2f + slack
+                                if (distance < inner || distance > outer) return@detectTapGestures
+
+                                val angle = Math.toDegrees(
+                                    atan2(
+                                        (tap.y - middle.y).toDouble(),
+                                        (tap.x - middle.x).toDouble()
+                                    )
+                                ).toFloat()
+
+                                val arcs = donutArcs(
+                                    slices.map { it.amountPaise },
+                                    gapDegreesFor(sliceGap.toPx(), ringRadius)
+                                )
+                                sliceIndexAt(arcs, angle)?.let(onSliceClick)
+                            }
+                        }
+                    }
+                )
+        ) {
             val stroke = strokeWidth.toPx()
             val ringRadius = radius.toPx()
             val middle = center
-
-            // The gap is specified as a distance along the ring, so it has to be converted against
-            // this donut's own circumference. Hard-coding a degree value would open a visibly
-            // wider gap on a smaller donut.
-            val circumference = 2f * Math.PI.toFloat() * ringRadius
-            val gapDegrees =
-                if (circumference <= 0f) 0f else sliceGap.toPx() / circumference * 360f
-
-            val arcs = donutArcs(slices.map { it.amountPaise }, gapDegrees)
+            val arcs = donutArcs(
+                slices.map { it.amountPaise },
+                gapDegreesFor(sliceGap.toPx(), ringRadius)
+            )
 
             if (arcs.isEmpty()) {
                 drawCircle(
@@ -67,7 +163,12 @@ fun DonutChart(
 
             slices.forEachIndexed { i, slice ->
                 val arc = arcs[i]
-                if (arc.sweepDegrees <= 0f) return@forEachIndexed
+                val sweep = arc.sweepDegrees * reveal.value
+                if (sweep <= 0f) return@forEachIndexed
+
+                val selected = i == selectedIndex
+                val sliceRadius = if (selected) ringRadius + lift.toPx() else ringRadius
+                val sliceStroke = if (selected) stroke + lift.toPx() else stroke
 
                 if (slice.slot == null) {
                     // The hatch is a texture, so it cannot ride on a stroke colour the way a solid
@@ -76,10 +177,10 @@ fun DonutChart(
                     clipPath(
                         ringSegmentPath(
                             middle = middle,
-                            innerRadius = ringRadius - stroke / 2f,
-                            outerRadius = ringRadius + stroke / 2f,
+                            innerRadius = sliceRadius - sliceStroke / 2f,
+                            outerRadius = sliceRadius + sliceStroke / 2f,
                             startDegrees = arc.startDegrees,
-                            sweepDegrees = arc.sweepDegrees
+                            sweepDegrees = sweep
                         )
                     ) {
                         drawHatch(
@@ -93,17 +194,29 @@ fun DonutChart(
                     drawArc(
                         color = chartSlotColor(colors.chartSeries, slice.slot),
                         startAngle = arc.startDegrees,
-                        sweepAngle = arc.sweepDegrees,
+                        sweepAngle = sweep,
                         useCenter = false,
-                        topLeft = Offset(middle.x - ringRadius, middle.y - ringRadius),
-                        size = Size(ringRadius * 2f, ringRadius * 2f),
-                        style = Stroke(width = stroke)
+                        topLeft = Offset(middle.x - sliceRadius, middle.y - sliceRadius),
+                        size = Size(sliceRadius * 2f, sliceRadius * 2f),
+                        style = Stroke(width = sliceStroke)
                     )
                 }
             }
         }
         centerContent?.invoke()
     }
+}
+
+/**
+ * The slice gap, specified as a distance along the ring, converted for this donut's own
+ * circumference.
+ *
+ * Hard-coding a degree value would open a visibly wider gap on a smaller donut, and the gallery
+ * draws two sizes side by side.
+ */
+private fun gapDegreesFor(gapPx: Float, ringRadius: Float): Float {
+    val circumference = 2f * Math.PI.toFloat() * ringRadius
+    return if (circumference <= 0f) 0f else gapPx / circumference * 360f
 }
 
 /**

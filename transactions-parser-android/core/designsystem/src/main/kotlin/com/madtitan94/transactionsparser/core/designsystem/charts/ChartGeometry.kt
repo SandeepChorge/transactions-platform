@@ -83,6 +83,43 @@ internal fun pairedBarFractions(
 }
 
 /**
+ * Which slice a tap at [angleDegrees] landed on, or null when there is nothing to hit.
+ *
+ * Each slice claims everything from its own start to the next slice's start, so the gap between two
+ * slices belongs to the one before it. A 2dp gap is a couple of degrees wide and a tap that fell in
+ * one would otherwise do nothing at all, which reads as a broken chart rather than as a near miss.
+ *
+ * The caller has already decided the tap was on the ring; this only answers *where* around it.
+ */
+internal fun sliceIndexAt(arcs: List<DonutArc>, angleDegrees: Float): Int? {
+    if (arcs.isEmpty()) return null
+
+    val origin = arcs.first().startDegrees
+    val relative = (((angleDegrees - origin) % 360f) + 360f) % 360f
+    val starts = arcs.map { (((it.startDegrees - origin) % 360f) + 360f) % 360f }
+
+    // The last slice whose start is at or before the tap. Slices are laid out in order, so this is
+    // the one whose claim contains it.
+    return arcs.indices.lastOrNull { starts[it] <= relative }
+}
+
+/**
+ * Which bucket of a trend line a touch at [x] is nearest to.
+ *
+ * Nearest rather than "the bucket whose segment was touched": the line is a polyline between
+ * points, and the thing being read out is a day's total, not a position along a segment. Snapping
+ * to the point means the marker always lands on real data.
+ *
+ * Fewer than two buckets has nothing to scrub — that matches [trendFractions], which draws nothing
+ * below two points either.
+ */
+internal fun bucketIndexAt(x: Float, width: Float, bucketCount: Int): Int? {
+    if (bucketCount < 2 || width <= 0f) return null
+    val step = width / (bucketCount - 1)
+    return (x / step).let { Math.round(it) }.coerceIn(0, bucketCount - 1)
+}
+
+/**
  * How full a ranked row's track is, against the largest row rather than the total (W3).
  *
  * Against the total, a period split evenly across five categories would draw five tracks each a

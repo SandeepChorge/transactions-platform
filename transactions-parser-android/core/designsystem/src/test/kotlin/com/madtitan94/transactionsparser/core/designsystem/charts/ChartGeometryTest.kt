@@ -6,6 +6,7 @@ import assertk.assertions.hasSize
 import assertk.assertions.isBetween
 import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
+import assertk.assertions.isNull
 import org.junit.jupiter.api.Test
 
 /**
@@ -112,6 +113,68 @@ class ChartGeometryTest {
     fun `a period with no movement gives zero-height bars rather than a division by zero`() {
         assertThat(pairedBarFractions(listOf(0L, 0L), listOf(0L, 0L)))
             .containsExactly(0f to 0f, 0f to 0f)
+    }
+
+    // ---- hit testing -------------------------------------------------------------------------
+
+    @Test
+    fun `a tap at twelve o'clock lands on the first slice`() {
+        val arcs = donutArcs(listOf(50L, 30L, 20L), gapDegrees = 2f)
+
+        assertThat(sliceIndexAt(arcs, DONUT_START_DEGREES)).isEqualTo(0)
+    }
+
+    @Test
+    fun `a tap lands on the slice it is inside, wherever round the ring it is`() {
+        // Half, then a third, then the rest — so three o'clock is inside the first slice and six
+        // o'clock is inside the second.
+        val arcs = donutArcs(listOf(50L, 30L, 20L), gapDegrees = 0f)
+
+        assertThat(sliceIndexAt(arcs, 0f)).isEqualTo(0)
+        assertThat(sliceIndexAt(arcs, 120f)).isEqualTo(1)
+        assertThat(sliceIndexAt(arcs, 240f)).isEqualTo(2)
+    }
+
+    @Test
+    fun `a tap in the gap between two slices goes to the one before it`() {
+        val arcs = donutArcs(listOf(1L, 1L), gapDegrees = 10f)
+
+        // Just past the end of the first slice, inside the gap that follows it.
+        val insideGap = arcs[0].startDegrees + arcs[0].sweepDegrees + 5f
+        assertThat(sliceIndexAt(arcs, insideGap)).isEqualTo(0)
+    }
+
+    @Test
+    fun `angles outside zero to three-sixty are wrapped rather than missed`() {
+        val arcs = donutArcs(listOf(1L, 1L), gapDegrees = 0f)
+
+        assertThat(sliceIndexAt(arcs, -90f)).isEqualTo(sliceIndexAt(arcs, 270f))
+        assertThat(sliceIndexAt(arcs, 450f)).isEqualTo(sliceIndexAt(arcs, 90f))
+    }
+
+    @Test
+    fun `there is nothing to hit on an empty ring`() {
+        assertThat(sliceIndexAt(emptyList(), 0f)).isNull()
+    }
+
+    @Test
+    fun `a scrub snaps to the nearest bucket rather than the one to its left`() {
+        // Five buckets across 400px sit at 0, 100, 200, 300, 400.
+        assertThat(bucketIndexAt(x = 149f, width = 400f, bucketCount = 5)).isEqualTo(1)
+        assertThat(bucketIndexAt(x = 151f, width = 400f, bucketCount = 5)).isEqualTo(2)
+    }
+
+    @Test
+    fun `a scrub past either end stays on the end bucket`() {
+        assertThat(bucketIndexAt(x = -40f, width = 400f, bucketCount = 5)).isEqualTo(0)
+        assertThat(bucketIndexAt(x = 900f, width = 400f, bucketCount = 5)).isEqualTo(4)
+    }
+
+    @Test
+    fun `there is nothing to scrub on a chart that draws no line`() {
+        // Matches trendFractions, which needs two points before it plots anything.
+        assertThat(bucketIndexAt(x = 10f, width = 400f, bucketCount = 1)).isNull()
+        assertThat(bucketIndexAt(x = 10f, width = 0f, bucketCount = 5)).isNull()
     }
 
     // ---- ranked track ------------------------------------------------------------------------
