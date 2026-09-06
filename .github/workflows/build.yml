@@ -86,7 +86,11 @@ jobs:
             echo "::error::The GOOGLE_WEB_CLIENT_ID secret is empty. The build would succeed and Google Sign-In would fail at runtime."
             exit 1
           fi
-      - run: ./gradlew test --no-daemon
+      # `verifyRoomMigrations` is named explicitly rather than left to `check`. It is wired into
+      # `check`, but this job runs `test`, which does not depend on it — so the guard that is meant
+      # to stop a schema bump shipping without a migration path has never actually run on a pull
+      # request. Naming it here costs seconds and makes the check real.
+      - run: ./gradlew test verifyRoomMigrations --no-daemon
 
   # Cheap job: decides whether this run releases anything, and says so out loud.
   # Split from the build so that a merged pull request with no flag costs seconds
