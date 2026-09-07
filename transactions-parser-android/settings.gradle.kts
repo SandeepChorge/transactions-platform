@@ -25,6 +25,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Transactions Parser"
 include(":app")
+include(":core:analytics")
 include(":core:domain")
 include(":core:presentation")
 include(":core:designsystem")

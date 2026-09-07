@@ -12,4 +12,8 @@ dependencies {
     // The backup file format is defined here, so its serializer is a dependency of the contract
     // rather than of whichever module happens to write the file.
     implementation(libs.kotlinx.serialization.json)
+
+    // Test-only: AnalyticsEventTest walks the sealed AnalyticsEvent hierarchy so a new event cannot
+    // dodge the Firebase parameter-budget check by being left out of a hand-written list.
+    testImplementation(libs.kotlin.reflect)
 }

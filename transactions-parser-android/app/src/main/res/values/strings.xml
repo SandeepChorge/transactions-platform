@@ -1,5 +1,10 @@
 <resources>
-    <string name="app_name">Transactions Parser</string>
+    <!--
+      The Play Store display name. Free to change at any time — unlike the applicationId, which is
+      fixed for the life of the listing. Also sent as `appName` on every analytics event, so a
+      change here shows up as a new value of that dimension rather than rewriting the old one.
+    -->
+    <string name="app_name">Statement Sense</string>
     <string name="tab_home">Home</string>
     <string name="tab_statements">Statements</string>
     <string name="tab_payees">Payees</string>

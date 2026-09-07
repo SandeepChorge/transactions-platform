@@ -3,6 +3,12 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // Reads app/google-services.json and generates the Firebase config resources. Must come after
+    // the Android plugin, and must be applied only here — it is the module that owns the file.
+    alias(libs.plugins.google.services)
+    // Uploads the R8 mapping file so release stack traces are readable. Without it, every crash
+    // from a release build arrives obfuscated, which is the same as not having Crashlytics at all.
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 // Versioning is CI-driven (issue #9): CI computes both fields and passes them in as
@@ -31,6 +37,21 @@ val releaseKeyPassword = providers.environmentVariable("KEY_PASSWORD").orNull
 val hasReleaseSigning = listOf(keystoreFile, keystorePassword, releaseKeyAlias, releaseKeyPassword)
     .none { it.isNullOrBlank() }
 
+// The salt mixed into the analytics identity hashes. It exists so that an email cannot be recovered
+// from a digest in the analytics export, which an unsalted hash of an address does not prevent —
+// the input space is small enough to brute-force.
+//
+// It is honestly a *build* secret rather than a runtime one: it ends up inside the APK, so someone
+// who decompiles a published build can read it. That is fine for what it defends against. The threat
+// is a leaked analytics export, and the salt is not in the export.
+//
+// Not committed, because this repository is public. CI must export ANALYTICS_SALT; a local build
+// falls back to a fixed development value, which keeps debug hashes stable across runs without
+// pretending to be the production one.
+val analyticsSalt = providers.environmentVariable("ANALYTICS_SALT").orNull
+    ?.takeIf { it.isNotBlank() }
+    ?: "transactions-parser-local-development-salt"
+
 android {
     namespace = "com.madtitan94.transactionsparser"
     compileSdk {
@@ -46,6 +67,8 @@ android {
         versionName = providers.environmentVariable("APP_VERSION_STRING").orNull ?: localVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "ANALYTICS_SALT", "\"$analyticsSalt\"")
     }
 
     signingConfigs {
@@ -114,6 +137,7 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 }
 
 dependencies {
+    implementation(project(":core:analytics"))
     implementation(project(":core:domain"))
     implementation(project(":core:presentation"))
     implementation(project(":core:designsystem"))

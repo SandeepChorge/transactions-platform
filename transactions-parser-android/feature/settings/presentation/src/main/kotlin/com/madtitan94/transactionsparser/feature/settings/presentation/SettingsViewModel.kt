@@ -2,6 +2,9 @@ package com.madtitan94.transactionsparser.feature.settings.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsParams
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
 import com.madtitan94.transactionsparser.core.domain.backup.BackupPreview
 import com.madtitan94.transactionsparser.core.domain.backup.CreateBackupUseCase
 import com.madtitan94.transactionsparser.core.domain.backup.ReadBackupUseCase
@@ -104,7 +107,8 @@ class SettingsViewModel(
     private val createBackup: CreateBackupUseCase,
     private val readBackup: ReadBackupUseCase,
     private val restoreBackup: RestoreBackupUseCase,
-    private val themeStorage: ThemeStorage
+    private val themeStorage: ThemeStorage,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsState())
@@ -148,6 +152,10 @@ class SettingsViewModel(
             SettingsAction.OnDismissLogoutConfirm -> _state.update { it.copy(showLogoutConfirm = false) }
             SettingsAction.OnConfirmLogout -> {
                 _state.update { it.copy(showLogoutConfirm = false) }
+                // Raised before the session is cleared, so it still carries the account it belongs
+                // to. Afterwards there is no identity left and the event lands anonymous — which
+                // makes "who signs out" unanswerable, the one question the event exists for.
+                analytics.track(AnalyticsEvent.LoggedOut)
                 viewModelScope.launch { sessionStorage.clear() }
             }
             SettingsAction.OnExportClick -> startExport()
@@ -198,7 +206,17 @@ class SettingsViewModel(
             // the same as a failure.
             val message = when (val written = documentWriter.write(destination, TransactionCsv.build(rows))) {
                 is Result.Error -> written.error.toUiText()
-                is Result.Success -> UiText.StringResource(R.string.settings_export_done, arrayOf(rows.size))
+                is Result.Success -> {
+                    // Only once the file is actually written. Counting the attempt would report
+                    // exports that failed at the picker as data that left the app.
+                    analytics.track(
+                        AnalyticsEvent.DataExported(
+                            format = AnalyticsParams.FORMAT_CSV,
+                            rowCount = rows.size
+                        )
+                    )
+                    UiText.StringResource(R.string.settings_export_done, arrayOf(rows.size))
+                }
             }
             finishExport(message)
         }
@@ -224,10 +242,18 @@ class SettingsViewModel(
             // saying "1,247 rows" would be a number with nothing to compare it to.
             val message = when (val result = createBackup(destination)) {
                 is Result.Error -> result.error.toUiText()
-                is Result.Success -> UiText.StringResource(
-                    R.string.settings_backup_done,
-                    arrayOf(result.data.transactions)
-                )
+                is Result.Success -> {
+                    analytics.track(
+                        AnalyticsEvent.DataExported(
+                            format = AnalyticsParams.FORMAT_BACKUP,
+                            rowCount = result.data.transactions
+                        )
+                    )
+                    UiText.StringResource(
+                        R.string.settings_backup_done,
+                        arrayOf(result.data.transactions)
+                    )
+                }
             }
             _state.update { it.copy(isBackingUp = false) }
             _events.send(SettingsEvent.ShowMessage(message))

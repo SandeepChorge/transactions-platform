@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
@@ -135,7 +137,8 @@ class SessionDetailViewModel(
     private val sessions: SessionLocalDataSource,
     private val transactions: TransactionLocalDataSource,
     private val payees: PayeeLocalDataSource,
-    private val categories: CategoryLocalDataSource
+    private val categories: CategoryLocalDataSource,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val sessionId: Long = savedStateHandle.toRoute<SessionDetailRoute>().sessionId
@@ -402,6 +405,17 @@ class SessionDetailViewModel(
     private suspend fun completeSessionIfFullyMapped() {
         val unmapped = (transactions.unmappedCount(sessionId) as? Result.Success)?.data ?: return
         if (unmapped == 0) {
+            // Guarded on the transition, not the condition. This runs after every save, and a
+            // session that is already complete satisfies `unmapped == 0` on each one — counting
+            // those would report one completed mapping per subsequent edit.
+            if (!_state.value.isReadOnly) {
+                analytics.track(
+                    AnalyticsEvent.MappingCompleted(
+                        payeeCount = _state.value.totalGroups,
+                        transactionCount = _state.value.transactionCount
+                    )
+                )
+            }
             sessions.updateStatus(sessionId, SessionStatus.COMPLETED)
             _state.update { it.copy(isReadOnly = true, statusLabel = "Completed") }
             _events.send(

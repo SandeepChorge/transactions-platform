@@ -217,6 +217,12 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          # Salts the analytics identity hashes. Without it the build silently falls back to the
+          # development salt committed in app/build.gradle.kts, which is public — the hashes would
+          # still be stable and still look right, and would no longer protect anything. It must
+          # also never change once released: a new salt re-hashes every account into a new id, and
+          # every returning user is counted as a new one from that build onward.
+          ANALYTICS_SALT: ${{ secrets.ANALYTICS_SALT }}
         # APK for Firebase, AAB for Play — both from one run, so the two channels can
         # never be serving different builds of the same version.
         run: ./gradlew assembleRelease bundleRelease --no-daemon

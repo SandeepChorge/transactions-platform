@@ -2,6 +2,9 @@ package com.madtitan94.transactionsparser.feature.dashboard.presentation.manage
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsParams
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardDefinition
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardPreferences
@@ -54,7 +57,8 @@ sealed interface DashboardLayoutAction {
  * screen simply uses the part of the state and the actions it needs.
  */
 class DashboardLayoutViewModel(
-    private val preferences: DashboardPreferences
+    private val preferences: DashboardPreferences,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardLayoutState())
@@ -91,6 +95,17 @@ class DashboardLayoutViewModel(
 
             is DashboardLayoutAction.OnDefaultSelected -> viewModelScope.launch {
                 preferences.setDefaultDashboard(action.key)
+                // The kind, never the storage id. A custom dashboard's id is `custom:<uuid>`,
+                // unique to one user, which as an analytics dimension answers nothing and quietly
+                // makes the event per-user identifying.
+                analytics.track(
+                    AnalyticsEvent.DefaultDashboardChanged(
+                        dashboard = when (val key = action.key) {
+                            is DashboardKey.BuiltIn -> key.id.name
+                            is DashboardKey.Custom -> AnalyticsParams.DASHBOARD_CUSTOM
+                        }
+                    )
+                )
             }
 
             is DashboardLayoutAction.OnDeleteClick ->

@@ -2,6 +2,9 @@ package com.madtitan94.transactionsparser.feature.upload.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsParams
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.parsing.ParseError
@@ -53,7 +56,8 @@ sealed interface UploadEvent {
 class UploadViewModel(
     private val importStatement: ImportStatementUseCase,
     private val fileDataSource: StatementFileDataSource,
-    private val uploadLogs: UploadLogLocalDataSource
+    private val uploadLogs: UploadLogLocalDataSource,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(UploadState())
@@ -153,6 +157,37 @@ class UploadViewModel(
             } finally {
                 // The statement copy never outlives parsing — privacy guarantee.
                 fileDataSource.deleteTempFile(tempPath)
+            }
+
+            // Both outcomes are reported, and the file name is not part of either: on a phone it
+            // routinely contains the account holder's own name.
+            analytics.track(
+                when (result) {
+                    is Result.Error -> AnalyticsEvent.StatementImported(
+                        source = AnalyticsParams.SOURCE_UNKNOWN,
+                        transactionCount = 0,
+                        succeeded = false,
+                        failureReason = result.error.name
+                    )
+
+                    is Result.Success -> AnalyticsEvent.StatementImported(
+                        source = result.data.source.name,
+                        transactionCount = result.data.totalTransactions,
+                        succeeded = true
+                    )
+                }
+            )
+
+            // An import that leaves nothing to map has completed its mapping, and has to say so or
+            // the funnel reads as an import that was abandoned. It is the one path to
+            // MappingCompleted that never passes through the session screen.
+            if (result is Result.Success && result.data.completedOnImport) {
+                analytics.track(
+                    AnalyticsEvent.MappingCompleted(
+                        payeeCount = result.data.autoMappedPayees,
+                        transactionCount = result.data.totalTransactions
+                    )
+                )
             }
 
             when (result) {
