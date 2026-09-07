@@ -71,6 +71,7 @@ fun DashboardRoot(
     onOpenPayee: (normalizedPayee: String, rawPayee: String) -> Unit,
     onOpenCategories: () -> Unit,
     onManageDashboards: () -> Unit,
+    onOpenCategoryInsight: (categoryId: Long?, categoryName: String?) -> Unit,
     viewModel: DashboardViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -81,7 +82,8 @@ fun DashboardRoot(
         onAction = viewModel::onAction,
         onOpenPayee = onOpenPayee,
         onOpenCategories = onOpenCategories,
-        onManageDashboards = onManageDashboards
+        onManageDashboards = onManageDashboards,
+        onOpenCategoryInsight = onOpenCategoryInsight
     )
 }
 
@@ -92,7 +94,8 @@ fun DashboardScreen(
     onAction: (DashboardAction) -> Unit,
     onOpenPayee: (String, String) -> Unit,
     onOpenCategories: () -> Unit,
-    onManageDashboards: () -> Unit
+    onManageDashboards: () -> Unit,
+    onOpenCategoryInsight: (categoryId: Long?, categoryName: String?) -> Unit
 ) {
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -124,7 +127,8 @@ fun DashboardScreen(
                 rangeWindow = rangeWindow,
                 onAction = onAction,
                 onOpenPayee = onOpenPayee,
-                onOpenCategories = onOpenCategories
+                onOpenCategories = onOpenCategories,
+                onOpenCategoryInsight = onOpenCategoryInsight
             )
         }
     }
@@ -279,7 +283,8 @@ private fun DashboardPager(
     rangeWindow: DateRange,
     onAction: (DashboardAction) -> Unit,
     onOpenPayee: (String, String) -> Unit,
-    onOpenCategories: () -> Unit
+    onOpenCategories: () -> Unit,
+    onOpenCategoryInsight: (categoryId: Long?, categoryName: String?) -> Unit
 ) {
     val startPage = state.dashboards.indexOfFirst { it.key == state.selected }.coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = startPage) { state.dashboards.size }
@@ -306,7 +311,8 @@ private fun DashboardPager(
             state = state,
             rangeWindow = rangeWindow,
             onOpenPayee = onOpenPayee,
-            onOpenCategories = onOpenCategories
+            onOpenCategories = onOpenCategories,
+            onOpenCategoryInsight = onOpenCategoryInsight
         )
     }
 }
@@ -324,7 +330,8 @@ private fun DashboardWidgetList(
     state: DashboardState,
     rangeWindow: DateRange,
     onOpenPayee: (String, String) -> Unit,
-    onOpenCategories: () -> Unit
+    onOpenCategories: () -> Unit,
+    onOpenCategoryInsight: (categoryId: Long?, categoryName: String?) -> Unit
 ) {
     val data = state.data
     val uncategorised = stringResource(R.string.dash_uncategorised)
@@ -403,15 +410,24 @@ private fun DashboardWidgetList(
                     TrendWidget(series = trend)
                 }
 
+                // A slice and a ranked row are two ways of pointing at the same category, so both
+                // open the same screen. "Other" is several categories summed and opens nothing —
+                // `openCategory` drops it rather than guessing which of them the user meant.
                 DashboardWidgetConfig.CategoryDonut -> CategoryDonutWidget(
                     slices = slices,
                     totalPaise = data.debitPaise,
-                    rangeCaption = caption
+                    rangeCaption = caption,
+                    onSliceClick = { index ->
+                        slices.getOrNull(index)?.openCategory(onOpenCategoryInsight)
+                    }
                 )
 
                 is DashboardWidgetConfig.CategoryRanked -> CategoryRankedWidget(
                     slices = slices,
-                    valueFormat = widget.value
+                    valueFormat = widget.value,
+                    onRowClick = { index ->
+                        slices.getOrNull(index)?.openCategory(onOpenCategoryInsight)
+                    }
                 )
 
                 is DashboardWidgetConfig.PayeeRanked -> PayeeRankedWidget(
@@ -426,5 +442,23 @@ private fun DashboardWidgetList(
                 )
             }
         }
+    }
+}
+
+/**
+ * Opens the one category a slice stands for, if it stands for exactly one.
+ *
+ * Three cases, and only two of them navigate. A named slice carries its own id. The uncategorised
+ * slice carries none and is still openable — the unmapped bucket is a real place, and the slice most
+ * worth tapping is the one telling the user something needs fixing. "Other" is a fold over several
+ * categories with nothing single behind it, so it is inert rather than opening an arbitrary member.
+ */
+private fun ChartSlice.openCategory(
+    onOpen: (categoryId: Long?, categoryName: String?) -> Unit
+) {
+    when {
+        categoryId != null -> onOpen(categoryId, label)
+        isUnnamed -> onOpen(null, null)
+        else -> Unit
     }
 }

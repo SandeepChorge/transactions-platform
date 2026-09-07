@@ -348,6 +348,28 @@ data class CategoryTotalRow(
 )
 
 /**
+ * One category's spend beside the whole account's, over the same range — the insight header.
+ *
+ * The two are read together so the share between them is taken from one moment; see
+ * [TransactionDao.observeCategoryShare].
+ */
+data class CategoryShareRow(
+    val categoryPaise: Long,
+    val categoryCount: Int,
+    /**
+     * Distinct payees the category's spend reached *in this range*, merged identities counted once.
+     *
+     * Range-scoped rather than a count of `payees.categoryId` rows, and counted rather than derived
+     * from the ranked list beside it: that list is fetched with a limit, so counting its rows would
+     * report the limit on any category larger than it — the bug the Pulse hero shipped with in #31
+     * and had to be fixed for. It also gives the unmapped bucket, which has no `payees` rows at all,
+     * an answer of its own.
+     */
+    val categoryPayeeCount: Int,
+    val accountPaise: Long
+)
+
+/**
  * Spend to one payee. [alias] is null while the name is unmapped, which is when [statementName] —
  * the name the bank printed — is what the row has to be called.
  */
@@ -509,6 +531,26 @@ private const val PAYEE_GROUP_KEY =
     "CASE WHEN $RESOLVED_PAYEE_ID IS NULL " +
         "THEN 'name:' || t.normalizedPayee " +
         "ELSE 'payee:' || $RESOLVED_PAYEE_ID END"
+
+/**
+ * Narrows a resolved row to one category, where a null `:categoryId` means the unmapped bucket.
+ *
+ * Null is a real value to ask for here, not a missing argument. `payees.categoryId` is non-null, so
+ * spend arrives without a category in exactly one way — its payee is not mapped yet — and that
+ * bucket is what the donut draws as the hatch and what the Categories screen offers as
+ * *Uncategorised*. Making it unopenable would leave the one slice the user most needs to act on as
+ * the only one with nothing behind it.
+ *
+ * The two branches cannot both fire: `p.categoryId = NULL` is NULL rather than true in SQL, so an
+ * asked-for null falls to the first branch and an asked-for id falls to the second.
+ *
+ * Matched on `payees.categoryId` rather than by joining `categories`, and deliberately without an
+ * `isDeleted` filter, for the same reason [TransactionDao.observeCategoryTotals] does it: a category
+ * the user has since deleted still names the spend that was mapped to it, and dropping the mapping
+ * would move real spend into the unmapped bucket and overstate how much of the account is unmapped.
+ */
+private const val SAME_CATEGORY =
+    "((:categoryId IS NULL AND p.categoryId IS NULL) OR p.categoryId = :categoryId) "
 
 @Dao
 interface TransactionDao {
@@ -764,6 +806,138 @@ interface TransactionDao {
         fromMillis: Long,
         toMillisExclusive: Long
     ): Flow<PayeeSummaryRow>
+
+    /**
+     * Month-bucketed spend under one category — the insight screen's trend card.
+     *
+     * Months need calendar arithmetic rather than a divisor, hence `start of month`, the same way
+     * [observePayeeMonthTotals] does it. The bucket is computed in UTC because that is the clock the
+     * rows are stored in; see [observeDayTotals].
+     *
+     * Deliberately *not* bounded by the dashboard's active filter in practice: the caller passes a
+     * months-back window instead, because "how is this going over time" is a longer question than
+     * any single period answers. The parameters are still a plain half-open range, so the query has
+     * no opinion about which window it is given.
+     *
+     * Debits only, matching every other category aggregate: a salary landing is not spend under a
+     * category.
+     */
+    @Query(
+        """
+        SELECT CAST(strftime('%s', t.dateTimeUtcMillis / 1000, 'unixepoch', 'start of month')
+                    AS INTEGER) * 1000 AS startMillis,
+               IFNULL(SUM(t.amountPaise), 0) AS countedTotalPaise,
+               COUNT(t.id) AS countedCount
+        $COUNTABLE_ROWS_FROM
+        $RESOLVED_PAYEE_JOIN
+        $COUNTABLE_ROWS_WHERE
+        AND t.type = 'DEBIT' AND $SAME_CATEGORY
+        GROUP BY startMillis
+        ORDER BY startMillis DESC
+        """
+    )
+    fun observeCategoryMonthTotals(
+        ownerId: String,
+        categoryId: Long?,
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Flow<List<PeriodTotalRow>>
+
+    /**
+     * Day-bucketed spend under one category — the insight screen's spend-by-day card, and the same
+     * rows its by-weekday card re-buckets rather than re-queries.
+     *
+     * Days with no rows are absent rather than zero, for the reason [observeDayTotals] gives: a gap
+     * is not the same fact as a day of no spending, and only the caller knows which the chart draws.
+     */
+    @Query(
+        """
+        SELECT (t.dateTimeUtcMillis / $DAY_MILLIS) * $DAY_MILLIS AS startMillis,
+               IFNULL(SUM(t.amountPaise), 0) AS countedTotalPaise,
+               COUNT(t.id) AS countedCount
+        $COUNTABLE_ROWS_FROM
+        $RESOLVED_PAYEE_JOIN
+        $COUNTABLE_ROWS_WHERE
+        AND t.type = 'DEBIT' AND $SAME_CATEGORY
+        GROUP BY startMillis
+        ORDER BY startMillis DESC
+        """
+    )
+    fun observeCategoryDayTotals(
+        ownerId: String,
+        categoryId: Long?,
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Flow<List<PeriodTotalRow>>
+
+    /**
+     * The [limit] largest payees *within one category* — the same aggregate [observeTopPayees]
+     * computes for the whole account, with a category added to the `WHERE`.
+     *
+     * One query, two call sites, and the same merged-payee grouping: the identifiers of a merged
+     * payee total as one row here too, which is the failure this app was built to stop repeating.
+     *
+     * Asked for the unmapped bucket, this is the breakdown that stops "₹5,770 has no name on it"
+     * being a dead end — the rows come back grouped by statement name, which is the only identity
+     * they have.
+     */
+    @Query(
+        """
+        SELECT $RESOLVED_PAYEE_ID AS payeeId,
+               MIN(p.alias) AS alias,
+               MIN(t.rawPayee) AS statementName,
+               MIN(t.normalizedPayee) AS normalizedName,
+               IFNULL(SUM(t.amountPaise), 0) AS totalPaise,
+               COUNT(t.id) AS transactionCount
+        $COUNTABLE_ROWS_FROM
+        $RESOLVED_PAYEE_JOIN
+        $COUNTABLE_ROWS_WHERE
+        AND t.type = 'DEBIT' AND $SAME_CATEGORY
+        GROUP BY $PAYEE_GROUP_KEY
+        ORDER BY totalPaise DESC, statementName
+        LIMIT :limit
+        """
+    )
+    fun observeCategoryTopPayees(
+        ownerId: String,
+        categoryId: Long?,
+        fromMillis: Long,
+        toMillisExclusive: Long,
+        limit: Int
+    ): Flow<List<PayeeTotalRow>>
+
+    /**
+     * One category's spend beside the account's, over the same range, in a single row.
+     *
+     * Both figures come from one pass on purpose. The insight header states a share — "32% of all
+     * spend" — and a share computed from two independently collected flows can be assembled from
+     * two different moments, so the header would occasionally contradict the dashboard the user
+     * just came from. One row cannot disagree with itself.
+     *
+     * Conditional aggregation rather than two queries also means the empty case behaves: a range
+     * with nothing in it yields one row of zeroes rather than no row at all.
+     */
+    @Query(
+        """
+        SELECT IFNULL(SUM(CASE WHEN $SAME_CATEGORY THEN t.amountPaise ELSE 0 END), 0)
+                   AS categoryPaise,
+               IFNULL(SUM(CASE WHEN $SAME_CATEGORY THEN 1 ELSE 0 END), 0)
+                   AS categoryCount,
+               COUNT(DISTINCT CASE WHEN $SAME_CATEGORY
+                                   THEN $PAYEE_GROUP_KEY END) AS categoryPayeeCount,
+               IFNULL(SUM(t.amountPaise), 0) AS accountPaise
+        $COUNTABLE_ROWS_FROM
+        $RESOLVED_PAYEE_JOIN
+        $COUNTABLE_ROWS_WHERE
+        AND t.type = 'DEBIT'
+        """
+    )
+    fun observeCategoryShare(
+        ownerId: String,
+        categoryId: Long?,
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Flow<CategoryShareRow>
 
     /**
      * Every row of this account, with its mapping resolved, for CSV export.

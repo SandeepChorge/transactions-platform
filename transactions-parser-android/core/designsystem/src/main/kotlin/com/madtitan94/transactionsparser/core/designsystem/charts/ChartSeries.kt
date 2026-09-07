@@ -59,7 +59,17 @@ data class ChartSlice(
     val label: String,
     val amountPaise: Long,
     val slot: Int?,
-    val sharePercent: Int
+    val sharePercent: Int,
+    /**
+     * The category this slice *is*, when it is exactly one — what a tap on it opens.
+     *
+     * Null for both folds, and they are told apart by [isUnnamed]: the uncategorised slice is one
+     * openable thing with no id (the unmapped bucket), while "Other" is several categories summed
+     * and has nothing single to open. Carried here rather than recovered by the caller from the
+     * slice's position, which would mean re-deriving this function's ordering rules somewhere else
+     * and getting them subtly wrong the first time either changed.
+     */
+    val categoryId: Long? = null
 ) {
     /**
      * True for the uncategorised slice — money with no category at all, drawn as the hatch.
@@ -159,6 +169,9 @@ fun buildCategorySlices(
     val labels = kept.map { it.label } + folds.map { it.first }
     val values = kept.map { it.amountPaise } + folds.map { it.second }
     val assigned = slots + folds.map { it.third }
+    // Only the kept slices are one category each. Both folds carry null, and `isUnnamed` is what
+    // separates the openable one from "Other".
+    val ids = kept.map { it.categoryId } + folds.map { null }
 
     val percentages = wholePercentages(values)
 
@@ -167,7 +180,8 @@ fun buildCategorySlices(
             label = labels[i],
             amountPaise = values[i],
             slot = assigned[i],
-            sharePercent = percentages[i]
+            sharePercent = percentages[i],
+            categoryId = ids[i]
         )
     }
 }

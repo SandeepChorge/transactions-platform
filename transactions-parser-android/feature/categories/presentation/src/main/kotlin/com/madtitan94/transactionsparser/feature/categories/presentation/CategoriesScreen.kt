@@ -1,5 +1,6 @@
 package com.madtitan94.transactionsparser.feature.categories.presentation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,6 +48,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun CategoriesRoot(
+    onOpenInsight: (categoryId: Long, categoryName: String) -> Unit,
     viewModel: CategoriesViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -65,7 +67,8 @@ fun CategoriesRoot(
     CategoriesScreen(
         state = state,
         snackbarHostState = snackbarHostState,
-        onAction = viewModel::onAction
+        onAction = viewModel::onAction,
+        onOpenInsight = onOpenInsight
     )
 }
 
@@ -74,7 +77,8 @@ fun CategoriesRoot(
 fun CategoriesScreen(
     state: CategoriesState,
     snackbarHostState: SnackbarHostState,
-    onAction: (CategoriesAction) -> Unit
+    onAction: (CategoriesAction) -> Unit,
+    onOpenInsight: (categoryId: Long, categoryName: String) -> Unit
 ) {
     Scaffold(
         // Add lives in the top bar rather than in a FAB: a FAB floats over the last row's edit
@@ -110,7 +114,15 @@ fun CategoriesScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(items = state.categories, key = { it.id }) { category ->
-                    Card(Modifier.fillMaxWidth()) {
+                    // The row body opens the category's insight; edit and delete keep their own
+                    // buttons. Making the whole card tappable rather than adding a fourth control
+                    // is what the design asks for — "tapping any category" is the gesture, and the
+                    // two icon buttons already claim the right-hand end of the row.
+                    Card(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenInsight(category.id, category.name) }
+                    ) {
                         Row(
                             modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically

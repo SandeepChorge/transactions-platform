@@ -119,6 +119,39 @@ data class PayeeSummary(
 )
 
 /**
+ * What one category spent over a range, against what the whole account spent over the same one.
+ *
+ * The pair is read together rather than assembled from two flows so that [sharePercent] is taken
+ * from a single moment. A share stitched from two independently collected totals can briefly
+ * describe a state the database was never in, and the header would then contradict the dashboard
+ * the user tapped through from.
+ *
+ * Debits only, throughout — this answers "where did it go", and a salary landing is not spend under
+ * a category.
+ */
+data class CategoryShare(
+    val totalPaise: Long,
+    val transactionCount: Int,
+    /** Distinct payees this category's spend reached in the range, merged identities counted once. */
+    val payeeCount: Int,
+    /** Every countable debit of the account over the same range, this category's included. */
+    val accountTotalPaise: Long
+) {
+    /**
+     * This category's share of the account's spend, 0-100, or null when there is nothing to divide.
+     *
+     * Null rather than zero for an empty account: "0% of all spend" is a claim about a period that
+     * had spending, and a month with nothing in it has not earned it.
+     */
+    val sharePercent: Int?
+        get() = if (accountTotalPaise <= 0L) {
+            null
+        } else {
+            ((totalPaise * 100.0) / accountTotalPaise).toInt()
+        }
+}
+
+/**
  * One row of the payee directory — everyone the account knows about, over all time.
  *
  * Unlike [PayeeTotal] this is not ranked spend for a period; it is the roster. Two things follow

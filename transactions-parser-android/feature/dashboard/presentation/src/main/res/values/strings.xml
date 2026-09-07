@@ -140,4 +140,48 @@
     <string name="widget_payee_ranked">Payees, ranked</string>
     <string name="widget_payee_ranked_sub">Who you actually paid, largest first.</string>
 
+    <!-- Phase 8 · Category insight carousel. -->
+    <plurals name="insight_payee_count">
+        <item quantity="one">%1$d payee this period</item>
+        <item quantity="other">%1$d payees this period</item>
+    </plurals>
+    <string name="insight_showing">Showing %1$s</string>
+    <string name="insight_change_range">Change ›</string>
+    <string name="insight_spent_label">SPENT · %1$s</string>
+    <string name="insight_delta_more">↑ %1$d%% more than the period before</string>
+    <string name="insight_delta_less">↓ %1$d%% less than the period before</string>
+    <string name="insight_delta_flat">Level with the period before</string>
+    <string name="insight_share_of_spend">%1$d%% of all spend</string>
+    <string name="insight_swipe_hint">SWIPE FOR MORE</string>
+    <string name="insight_card_position">%1$d / %2$d</string>
+
+    <!-- Card 1 · Trend over time. Deliberately ignores the range filter. -->
+    <string name="insight_trend_title">Trend over time</string>
+    <string name="insight_trend_empty">Not enough months to show a trend yet.</string>
+    <string name="insight_trend_rising">Rising for %1$d months in a row</string>
+    <string name="insight_trend_falling">Falling for %1$d months in a row</string>
+    <string name="insight_window_3m">3M</string>
+    <string name="insight_window_6m">6M</string>
+    <string name="insight_window_1y">1Y</string>
+
+    <!-- Card 2 · Spend by day. -->
+    <string name="insight_day_title">Spend by day</string>
+    <string name="insight_day_empty">Nothing spent here in this period.</string>
+    <string name="insight_day_most">Most:</string>
+    <string name="insight_day_least">Least:</string>
+    <string name="insight_day_value">%1$s · %2$s</string>
+
+    <!-- Card 3 · By day of week. -->
+    <string name="insight_weekday_title">By day of week</string>
+    <string name="insight_weekday_empty">Nothing spent here in this period.</string>
+    <string name="insight_weekday_weekend">Weekends take %1$d%% of this period</string>
+    <string name="insight_weekday_peak">%1$s is the heaviest day</string>
+    <string name="insight_mon">Mon</string>
+    <string name="insight_tue">Tue</string>
+    <string name="insight_wed">Wed</string>
+    <string name="insight_thu">Thu</string>
+    <string name="insight_fri">Fri</string>
+    <string name="insight_sat">Sat</string>
+    <string name="insight_sun">Sun</string>
+
 </resources>

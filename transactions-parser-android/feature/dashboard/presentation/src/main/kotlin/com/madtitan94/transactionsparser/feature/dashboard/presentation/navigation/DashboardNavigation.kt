@@ -5,6 +5,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.DashboardRoot
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.builder.DashboardBuilderRoot
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.insight.CategoryInsightRoot
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.manage.DefaultDashboardRoot
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.manage.ManageDashboardsRoot
 import kotlinx.serialization.Serializable
@@ -42,6 +43,33 @@ data class DashboardBuilderRoute(val dashboardId: String? = null) {
 }
 
 /**
+ * One category, opened from a ranked row, a donut slice, or the Categories tab.
+ *
+ * [categoryId] carries [UNCATEGORISED] rather than a null for the unmapped bucket. Type-safe routes
+ * have no built-in `NavType` for a nullable `Long`, and a sentinel is honest here because category
+ * ids come from an `AUTOINCREMENT` column and are always positive — nothing real can collide with
+ * it. [DateRange.AllTime] already uses the same device for a bound that has no value.
+ *
+ * [categoryName] travels with the id so the header can be drawn on the first frame, before any
+ * query has returned. Looking it up would leave the title blank for as long as the read took, on a
+ * screen the user reached *by tapping that very name*.
+ */
+@Serializable
+data class CategoryInsightRoute(
+    val categoryId: Long,
+    val categoryName: String? = null
+) {
+    companion object {
+        /** The unmapped bucket: spend whose payee is not mapped, so it has no category row. */
+        const val UNCATEGORISED = -1L
+
+        /** See `DashboardBuilderRoute.ID_ARG` for why the ViewModel reads arguments by key. */
+        const val ID_ARG = "categoryId"
+        const val NAME_ARG = "categoryName"
+    }
+}
+
+/**
  * [onOpenPayee] and [onOpenCategories] are callbacks rather than direct navigation because both
  * destinations live in other feature modules — the same shape `settingsGraph` uses to reach Profile,
  * which keeps this module from depending on ones it has nothing else to say to.
@@ -59,7 +87,12 @@ fun NavGraphBuilder.dashboardGraph(
         DashboardRoot(
             onOpenPayee = onOpenPayee,
             onOpenCategories = onOpenCategories,
-            onManageDashboards = { navController.navigate(ManageDashboardsRoute) }
+            onManageDashboards = { navController.navigate(ManageDashboardsRoute) },
+            onOpenCategoryInsight = { id, name ->
+                navController.navigate(
+                    CategoryInsightRoute(id ?: CategoryInsightRoute.UNCATEGORISED, name)
+                )
+            }
         )
     }
     composable<ManageDashboardsRoute> {
@@ -74,5 +107,11 @@ fun NavGraphBuilder.dashboardGraph(
     }
     composable<DashboardBuilderRoute> {
         DashboardBuilderRoot(onClose = { navController.navigateUp() })
+    }
+    composable<CategoryInsightRoute> {
+        CategoryInsightRoot(
+            onBack = { navController.navigateUp() },
+            onOpenPayee = onOpenPayee
+        )
     }
 }

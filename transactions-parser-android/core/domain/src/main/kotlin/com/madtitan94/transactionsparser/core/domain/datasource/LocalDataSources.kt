@@ -5,6 +5,7 @@ import com.madtitan94.transactionsparser.core.domain.backup.BackupSnapshot
 import com.madtitan94.transactionsparser.core.domain.backup.RestorePayload
 import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.domain.model.Category
+import com.madtitan94.transactionsparser.core.domain.model.CategoryShare
 import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.DayTotal
@@ -194,6 +195,47 @@ interface DashboardLocalDataSource {
 
     /** How many payees the range's spend reached, and how much of it reached nobody. */
     fun observePayeeSummary(range: DateRange): Flow<PayeeSummary>
+}
+
+/**
+ * Everything the category insight screen reads, scoped to one category.
+ *
+ * Its own contract rather than five more functions on [DashboardLocalDataSource], for the reason
+ * that one is separate from [TransactionLocalDataSource]: these answer "what is happening inside
+ * this one category", which is a different question from "what did this account do", and the fakes
+ * that stand in for the dashboards in unit tests should not have to grow stubs for it.
+ *
+ * **A null `categoryId` is a category to ask about, not a missing argument.** `payees.categoryId` is
+ * non-null, so spend arrives without a category in exactly one way — its payee is not mapped yet.
+ * That bucket is the *Uncategorised* slice the donut hatches, and it is the one the user most needs
+ * to open, so every function here accepts it.
+ *
+ * Every stream counts only what the user counts (`isExcluded = 0`, never `isDuplicate`), leaves out
+ * cancelled statements, and is debits only — the same three rules the dashboard aggregates bake in.
+ */
+interface CategoryInsightLocalDataSource {
+    /**
+     * Month buckets for the trend card, over whatever window the caller asks for.
+     *
+     * The caller passes a months-back window rather than the dashboard's active filter: "how is this
+     * going over time" is a longer question than any single period answers, and it is the one place
+     * on the screen that deliberately ignores the shared filter.
+     */
+    fun observeMonthTotals(categoryId: Long?, range: DateRange): Flow<List<PeriodTotal>>
+
+    /**
+     * Day buckets for the spend-by-day card, over the dashboard's active range.
+     *
+     * The by-weekday card re-buckets these same rows rather than running a query of its own, so the
+     * two cards cannot disagree about what a day held.
+     */
+    fun observeDayTotals(categoryId: Long?, range: DateRange): Flow<List<PeriodTotal>>
+
+    /** The [limit] largest payees inside this category, merged identities totalled as one row. */
+    fun observeTopPayees(categoryId: Long?, range: DateRange, limit: Int): Flow<List<PayeeTotal>>
+
+    /** This category's spend beside the account's over the same range — the header, in one row. */
+    fun observeShare(categoryId: Long?, range: DateRange): Flow<CategoryShare>
 }
 
 /**

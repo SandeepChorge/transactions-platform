@@ -71,6 +71,24 @@ object AppChartDimens {
     /** Between the plot's baseline and the bucket labels under it. */
     val pairedLabelGap = 10.dp
 
+    // Single-series columns — the category insight cards
+    /**
+     * Shorter than the paired plot: these sit inside a carousel card that also carries a title and
+     * a callout, where the paired chart is a widget of its own with the card to itself.
+     */
+    val columnPlotHeight = 104.dp
+
+    /**
+     * Between two columns, whatever their count.
+     *
+     * Fixed rather than proportional so a month of days and a week of weekdays read as the same
+     * chart at two densities. Below about 2dp the gaps close up into a solid block at phone width.
+     */
+    val columnGap = 3.dp
+
+    /** Between the plot's baseline and the axis under it. */
+    val columnLabelGap = 6.dp
+
     // Stacked share bar — design/Charts.dc.html
     val shareBarHeight = 14.dp
 
@@ -117,4 +135,10 @@ object AppChartShapes {
 
     /** A vertical bar in the paired plot: rounded at the top, square where it meets the baseline. */
     val pairedBar = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+
+    /**
+     * A column of the single-series plot. Rounded less than the paired bar because a column can be
+     * as narrow as 4dp on a month of days, where a 4dp radius eats the whole bar.
+     */
+    val column = RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)
 }

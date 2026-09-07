@@ -15,6 +15,8 @@ private val dateTimeFormat = DateTimeFormatter.ofPattern("dd MMM yyyy, h:mm a", 
 private val timeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
 private val dayHeaderFormat = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.ENGLISH)
 private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+private val axisDayFormat = DateTimeFormatter.ofPattern("dd MMM", Locale.ENGLISH)
+private val axisMonthFormat = DateTimeFormatter.ofPattern("MMM yy", Locale.ENGLISH)
 
 /** "₹2,580" for whole rupees, "₹2,580.50" otherwise. */
 fun formatPaise(paise: Long): String {
@@ -59,6 +61,19 @@ fun formatStatementTime(utcMillis: Long): String = timeFormat.format(statementDa
 
 /** "Sunday, 01 Jun 2026" — the day header above a run of that day's transactions. */
 fun formatStatementDayHeader(utcMillis: Long): String = dayHeaderFormat.format(statementDateTime(utcMillis))
+
+/**
+ * "05 May" — a date at chart-axis length.
+ *
+ * The year is dropped and the weekday never appears. An axis has room for two of these side by
+ * side on a 360dp phone and no more: the full "Tuesday, 05 May 2026" ran the two ends of a
+ * spend-by-day chart into each other and truncated the right-hand one. The long form still belongs
+ * in a callout, where it is one line to itself.
+ */
+fun formatAxisDay(utcMillis: Long): String = axisDayFormat.format(statementDateTime(utcMillis))
+
+/** "May 26" — a month at chart-axis length, for the same reason [formatAxisDay] exists. */
+fun formatAxisMonth(utcMillis: Long): String = axisMonthFormat.format(statementDateTime(utcMillis))
 
 /** "June 2026" — the month header a day run rolls up into. */
 fun formatStatementMonth(utcMillis: Long): String = monthFormat.format(statementDateTime(utcMillis))
