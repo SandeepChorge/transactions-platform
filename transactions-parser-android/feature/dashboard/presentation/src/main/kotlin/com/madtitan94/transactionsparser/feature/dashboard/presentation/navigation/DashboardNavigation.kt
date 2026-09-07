@@ -1,26 +1,78 @@
 package com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation
 
+import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.DashboardRoot
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.builder.DashboardBuilderRoot
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.manage.DefaultDashboardRoot
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.manage.ManageDashboardsRoot
 import kotlinx.serialization.Serializable
 
 @Serializable
 data object DashboardRoute
 
+/** The gallery: switch dashboards on and off, reorder them, and reach the builder. */
+@Serializable
+data object ManageDashboardsRoute
+
+/** Which dashboard Home opens on. Its own destination, reached from Settings. */
+@Serializable
+data object DefaultDashboardRoute
+
+/**
+ * The builder, creating when [dashboardId] is null and editing when it is not.
+ *
+ * One destination rather than two because the screen is identical either way — the id only decides
+ * whether the checklist starts empty or from what is already saved.
+ */
+@Serializable
+data class DashboardBuilderRoute(val dashboardId: String? = null) {
+    companion object {
+        /**
+         * The key navigation stores [dashboardId] under, which is the property's own name.
+         *
+         * Named here rather than left implicit because the ViewModel reads the argument by key
+         * instead of through `toRoute`: `toRoute` decodes via `android.os.Bundle`, which is not
+         * available in a JVM unit test, and this phase's builder logic is worth more covered than
+         * uncovered. Keeping the constant on the route is what stops the two drifting apart.
+         */
+        const val ID_ARG = "dashboardId"
+    }
+}
+
 /**
  * [onOpenPayee] and [onOpenCategories] are callbacks rather than direct navigation because both
  * destinations live in other feature modules — the same shape `settingsGraph` uses to reach Profile,
  * which keeps this module from depending on ones it has nothing else to say to.
+ *
+ * The three settings destinations below are this module's own, so they navigate directly. Settings
+ * reaches them by route rather than by owning them: the screens are about dashboards and every
+ * string and model they need is here.
  */
 fun NavGraphBuilder.dashboardGraph(
+    navController: NavController,
     onOpenPayee: (normalizedPayee: String, rawPayee: String) -> Unit,
     onOpenCategories: () -> Unit
 ) {
     composable<DashboardRoute> {
         DashboardRoot(
             onOpenPayee = onOpenPayee,
-            onOpenCategories = onOpenCategories
+            onOpenCategories = onOpenCategories,
+            onManageDashboards = { navController.navigate(ManageDashboardsRoute) }
         )
+    }
+    composable<ManageDashboardsRoute> {
+        ManageDashboardsRoot(
+            onBack = { navController.navigateUp() },
+            onBuildDashboard = { navController.navigate(DashboardBuilderRoute()) },
+            onEditDashboard = { id -> navController.navigate(DashboardBuilderRoute(id)) }
+        )
+    }
+    composable<DefaultDashboardRoute> {
+        DefaultDashboardRoot(onBack = { navController.navigateUp() })
+    }
+    composable<DashboardBuilderRoute> {
+        DashboardBuilderRoot(onClose = { navController.navigateUp() })
     }
 }

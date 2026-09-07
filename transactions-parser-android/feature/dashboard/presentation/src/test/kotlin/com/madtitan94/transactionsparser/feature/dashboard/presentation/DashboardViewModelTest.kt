@@ -13,7 +13,10 @@ import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
+import com.madtitan94.transactionsparser.feature.dashboard.domain.CustomDashboard
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardId
+import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
+import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardLayout
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardPreferences
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
 import java.time.LocalDate
@@ -81,14 +84,17 @@ class DashboardViewModelTest {
             flowOf(PayeeSummary())
     }
 
+    /** Shorthand — every dashboard this ViewModel deals with is one of the four that ship. */
+    private fun key(id: DashboardId) = DashboardKey.BuiltIn(id)
+
     private class FakeDashboardPreferences(
         range: DashboardRange = DashboardRange.Default,
-        enabled: List<DashboardId> = DashboardId.entries,
-        default: DashboardId = DashboardId.PULSE
+        layout: DashboardLayout = DashboardLayout(
+            defaultKey = DashboardKey.BuiltIn(DashboardId.PULSE)
+        )
     ) : DashboardPreferences {
         val range = MutableStateFlow(range)
-        val enabled = MutableStateFlow(enabled)
-        val default = MutableStateFlow(default)
+        val layout = MutableStateFlow(layout)
         var writes = 0
 
         override fun observeRange(): Flow<DashboardRange> = range
@@ -97,8 +103,18 @@ class DashboardViewModelTest {
             this.range.value = range
         }
 
-        override fun observeEnabledDashboards(): Flow<List<DashboardId>> = enabled
-        override fun observeDefaultDashboard(): Flow<DashboardId> = default
+        override fun observeLayout(): Flow<DashboardLayout> = layout
+
+        // The ViewModel behind Home reads the layout and never writes it — every write below belongs
+        // to the manage and builder screens. Failing loudly here is the assertion: a Home screen
+        // that quietly rewrote the user's saved layout as they swiped would pass a silent stub.
+        override suspend fun setDashboardOrder(order: List<DashboardKey>) = error("not written here")
+        override suspend fun setDashboardEnabled(key: DashboardKey, enabled: Boolean) =
+            error("not written here")
+        override suspend fun setDefaultDashboard(key: DashboardKey) = error("not written here")
+        override suspend fun saveCustomDashboard(dashboard: CustomDashboard) =
+            error("not written here")
+        override suspend fun deleteCustomDashboard(id: String) = error("not written here")
     }
 
     private fun viewModel(
@@ -108,62 +124,70 @@ class DashboardViewModelTest {
 
     @Test
     fun `the screen opens on the starred dashboard`() = runTest {
-        val preferences = FakeDashboardPreferences(default = DashboardId.MAPPING_HEALTH)
+        val preferences = FakeDashboardPreferences(
+            layout = DashboardLayout(defaultKey = key(DashboardId.MAPPING_HEALTH))
+        )
         viewModel(preferences = preferences).state.test {
-            assertThat(awaitItem().selected).isEqualTo(DashboardId.MAPPING_HEALTH)
+            assertThat(awaitItem().selected).isEqualTo(key(DashboardId.MAPPING_HEALTH))
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
     fun `choosing a dashboard does not touch the stored default`() = runTest {
-        val preferences = FakeDashboardPreferences(default = DashboardId.PULSE)
+        val preferences = FakeDashboardPreferences()
         val vm = viewModel(preferences = preferences)
 
-        vm.onAction(DashboardAction.OnDashboardSelected(DashboardId.PAYEES))
+        vm.onAction(DashboardAction.OnDashboardSelected(key(DashboardId.PAYEES)))
 
-        assertThat(vm.state.value.selected).isEqualTo(DashboardId.PAYEES)
+        assertThat(vm.state.value.selected).isEqualTo(key(DashboardId.PAYEES))
         // Swiping to another dashboard is looking around, not re-deciding where Home opens. Writing
         // it back would mean the last dashboard glanced at silently became the landing screen.
-        assertThat(preferences.default.value).isEqualTo(DashboardId.PULSE)
+        assertThat(preferences.layout.value.defaultKey).isEqualTo(key(DashboardId.PULSE))
         assertThat(preferences.writes).isEqualTo(0)
     }
 
     @Test
     fun `a preference change underneath the user does not move them`() = runTest {
-        val preferences = FakeDashboardPreferences(default = DashboardId.PULSE)
+        val preferences = FakeDashboardPreferences()
         val vm = viewModel(preferences = preferences)
-        vm.onAction(DashboardAction.OnDashboardSelected(DashboardId.CATEGORIES))
+        vm.onAction(DashboardAction.OnDashboardSelected(key(DashboardId.CATEGORIES)))
 
-        preferences.default.value = DashboardId.PAYEES
+        preferences.layout.value = DashboardLayout(defaultKey = key(DashboardId.PAYEES))
 
-        assertThat(vm.state.value.selected).isEqualTo(DashboardId.CATEGORIES)
+        assertThat(vm.state.value.selected).isEqualTo(key(DashboardId.CATEGORIES))
     }
 
     @Test
     fun `a dashboard that has been switched off gives the selection back to the default`() =
         runTest {
-            val preferences = FakeDashboardPreferences(default = DashboardId.PULSE)
+            val preferences = FakeDashboardPreferences()
             val vm = viewModel(preferences = preferences)
-            vm.onAction(DashboardAction.OnDashboardSelected(DashboardId.PAYEES))
+            vm.onAction(DashboardAction.OnDashboardSelected(key(DashboardId.PAYEES)))
 
-            preferences.enabled.value = listOf(DashboardId.PULSE, DashboardId.CATEGORIES)
+            preferences.layout.value = DashboardLayout(
+                disabled = setOf(key(DashboardId.PAYEES)),
+                defaultKey = key(DashboardId.PULSE)
+            )
 
             // Otherwise the pager holds a page nothing in the chip row points at, and the screen
             // shows a dashboard the user has just turned off.
-            assertThat(vm.state.value.selected).isEqualTo(DashboardId.PULSE)
+            assertThat(vm.state.value.selected).isEqualTo(key(DashboardId.PULSE))
         }
 
     @Test
     fun `only the dashboards the account enabled are shown, in that order`() = runTest {
         val preferences = FakeDashboardPreferences(
-            enabled = listOf(DashboardId.PAYEES, DashboardId.PULSE),
-            default = DashboardId.PAYEES
+            layout = DashboardLayout(
+                order = listOf(key(DashboardId.PAYEES), key(DashboardId.PULSE)),
+                disabled = setOf(key(DashboardId.CATEGORIES), key(DashboardId.MAPPING_HEALTH)),
+                defaultKey = key(DashboardId.PAYEES)
+            )
         )
         val vm = viewModel(preferences = preferences)
 
-        assertThat(vm.state.value.dashboards.map { it.id })
-            .isEqualTo(listOf(DashboardId.PAYEES, DashboardId.PULSE))
+        assertThat(vm.state.value.dashboards.map { it.key })
+            .isEqualTo(listOf(key(DashboardId.PAYEES), key(DashboardId.PULSE)))
     }
 
     @Test

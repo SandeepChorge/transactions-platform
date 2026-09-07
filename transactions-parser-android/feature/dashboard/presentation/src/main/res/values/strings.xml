@@ -85,4 +85,59 @@
     <string name="dash_open_range">Change the period</string>
     <string name="dash_swipe_hint">Swipe between dashboards · %1$d/%2$d</string>
 
+    <!-- Phase 7 · Manage dashboards. -->
+    <string name="dash_manage_title">Your dashboards</string>
+    <string name="dash_manage_note">Drag to reorder. Switch off the ones you don\'t read — they stay here if you want them back.</string>
+    <plurals name="dash_enabled_count">
+        <item quantity="one">%1$d of %2$d switched on</item>
+        <item quantity="other">%1$d of %2$d switched on</item>
+    </plurals>
+    <plurals name="dash_card_count">
+        <item quantity="one">%1$d card</item>
+        <item quantity="other">%1$d cards</item>
+    </plurals>
+    <string name="dash_build_action">Build a dashboard</string>
+    <string name="dash_reorder">Reorder</string>
+    <string name="dash_move_up">Move up</string>
+    <string name="dash_move_down">Move down</string>
+    <string name="dash_edit">Edit</string>
+    <string name="dash_back">Back</string>
+    <string name="dash_cancel">Cancel</string>
+    <string name="dash_untitled">Untitled dashboard</string>
+    <string name="dash_delete_title">Delete this dashboard?</string>
+    <string name="dash_delete_message">%1$s is removed from Home. Nothing in your statements changes.</string>
+    <string name="dash_delete_action">Delete</string>
+
+    <!-- Phase 7 · Default dashboard. -->
+    <string name="dash_default_title">Default dashboard</string>
+    <string name="dash_default_note">This is the one Home opens on. You can still swipe to the others.</string>
+
+    <!-- Phase 7 · Builder. -->
+    <string name="dash_builder_title">Build a dashboard</string>
+    <string name="dash_builder_edit_title">Edit dashboard</string>
+    <string name="dash_builder_name">Name</string>
+    <string name="dash_builder_name_hint">Weekend spending</string>
+    <string name="dash_builder_save">Save</string>
+    <string name="dash_builder_empty">Tick a card below and it appears here.</string>
+    <plurals name="dash_builder_count">
+        <item quantity="one">%1$d card on this dashboard</item>
+        <item quantity="other">%1$d cards on this dashboard</item>
+    </plurals>
+
+    <!-- Phase 7 · The card types the builder offers. -->
+    <string name="widget_hero">Total spend</string>
+    <string name="widget_hero_sub">One big number, with how it compares to the period before.</string>
+    <string name="widget_insight_banner">Unnamed money</string>
+    <string name="widget_insight_banner_sub">How much has no payee on it yet, with a way to fix it.</string>
+    <string name="widget_type_tiles">In, out and net</string>
+    <string name="widget_type_tiles_sub">Three tiles: money in, money out, and the difference.</string>
+    <string name="widget_trend">Spend over time</string>
+    <string name="widget_trend_sub">The shape of the period — spikes and quiet stretches.</string>
+    <string name="widget_donut">Category donut</string>
+    <string name="widget_donut_sub">Proportion by category, with the total in the middle.</string>
+    <string name="widget_category_ranked">Categories, ranked</string>
+    <string name="widget_category_ranked_sub">Largest category first, with a bar per row.</string>
+    <string name="widget_payee_ranked">Payees, ranked</string>
+    <string name="widget_payee_ranked_sub">Who you actually paid, largest first.</string>
+
 </resources>

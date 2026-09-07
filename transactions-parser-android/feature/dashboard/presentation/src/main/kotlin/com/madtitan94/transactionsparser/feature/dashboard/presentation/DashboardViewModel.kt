@@ -10,10 +10,9 @@ import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardDefinition
-import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardId
+import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardPreferences
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
-import com.madtitan94.transactionsparser.feature.dashboard.domain.V1_DASHBOARDS
 import com.madtitan94.transactionsparser.feature.dashboard.domain.lengthInDays
 import com.madtitan94.transactionsparser.feature.dashboard.domain.previous
 import com.madtitan94.transactionsparser.feature.dashboard.domain.resolve
@@ -114,16 +113,16 @@ data class DashboardState(
     val isLoading: Boolean = true,
     val range: DashboardRange = DashboardRange.Default,
     val dashboards: List<DashboardDefinition> = emptyList(),
-    val selected: DashboardId? = null,
+    val selected: DashboardKey? = null,
     val data: DashboardData = DashboardData(),
     /** Open while the custom-range picker is on screen. */
     val isPickingCustomRange: Boolean = false
 ) {
-    val current: DashboardDefinition? get() = dashboards.firstOrNull { it.id == selected }
+    val current: DashboardDefinition? get() = dashboards.firstOrNull { it.key == selected }
 }
 
 sealed interface DashboardAction {
-    data class OnDashboardSelected(val id: DashboardId) : DashboardAction
+    data class OnDashboardSelected(val key: DashboardKey) : DashboardAction
     data class OnRangeSelected(val range: DashboardRange) : DashboardAction
     data object OnCustomRangeClick : DashboardAction
     data class OnCustomRangePicked(val fromMillis: Long, val toMillisInclusive: Long) : DashboardAction
@@ -155,19 +154,16 @@ class DashboardViewModel(
 
     init {
         viewModelScope.launch {
-            combine(
-                preferences.observeEnabledDashboards(),
-                preferences.observeDefaultDashboard()
-            ) { enabled, default -> enabled to default }.collect { (enabled, default) ->
+            preferences.observeLayout().collect { layout ->
+                val definitions = layout.enabled
                 _state.update { current ->
-                    val definitions = enabled.mapNotNull { id -> V1_DASHBOARDS.firstOrNull { it.id == id } }
                     current.copy(
                         dashboards = definitions,
                         // Keep the user where they are while they are looking: the starred
                         // dashboard decides where the screen *opens*, not where it jumps to when a
                         // preference changes underneath them.
-                        selected = current.selected?.takeIf { chosen -> definitions.any { it.id == chosen } }
-                            ?: default
+                        selected = current.selected?.takeIf { chosen -> definitions.any { it.key == chosen } }
+                            ?: layout.defaultDashboard
                     )
                 }
             }
@@ -231,7 +227,7 @@ class DashboardViewModel(
 
     fun onAction(action: DashboardAction) {
         when (action) {
-            is DashboardAction.OnDashboardSelected -> _state.update { it.copy(selected = action.id) }
+            is DashboardAction.OnDashboardSelected -> _state.update { it.copy(selected = action.key) }
             is DashboardAction.OnRangeSelected -> viewModelScope.launch {
                 preferences.setRange(action.range)
             }

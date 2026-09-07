@@ -1,6 +1,8 @@
 package com.madtitan94.transactionsparser.feature.dashboard.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,9 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DashboardCustomize
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.charts.ChartSlice
 import com.madtitan94.transactionsparser.core.designsystem.charts.CategoryAmount
@@ -42,7 +50,7 @@ import com.madtitan94.transactionsparser.core.designsystem.theme.AppTypography
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardDefinition
-import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardId
+import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardWidgetConfig
 import com.madtitan94.transactionsparser.feature.dashboard.domain.HeroMeasure
@@ -62,6 +70,7 @@ import org.koin.androidx.compose.koinViewModel
 fun DashboardRoot(
     onOpenPayee: (normalizedPayee: String, rawPayee: String) -> Unit,
     onOpenCategories: () -> Unit,
+    onManageDashboards: () -> Unit,
     viewModel: DashboardViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -71,7 +80,8 @@ fun DashboardRoot(
         rangeWindow = viewModel.resolvedRange(),
         onAction = viewModel::onAction,
         onOpenPayee = onOpenPayee,
-        onOpenCategories = onOpenCategories
+        onOpenCategories = onOpenCategories,
+        onManageDashboards = onManageDashboards
     )
 }
 
@@ -81,15 +91,17 @@ fun DashboardScreen(
     rangeWindow: DateRange,
     onAction: (DashboardAction) -> Unit,
     onOpenPayee: (String, String) -> Unit,
-    onOpenCategories: () -> Unit
+    onOpenCategories: () -> Unit,
+    onManageDashboards: () -> Unit
 ) {
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(AppTheme.colors.screen)) {
         DashboardHeader(
-            title = state.current?.id?.let { stringResource(dashboardNameRes(it)) }.orEmpty(),
+            title = state.current?.let { dashboardName(it) }.orEmpty(),
             range = state.range,
-            onRangeClick = { sheetOpen = true }
+            onRangeClick = { sheetOpen = true },
+            onManageClick = onManageDashboards
         )
 
         if (state.dashboards.size > 1) {
@@ -156,7 +168,8 @@ private val RANGE_CHIP_MAX_WIDTH = 164.dp
 private fun DashboardHeader(
     title: String,
     range: DashboardRange,
-    onRangeClick: () -> Unit
+    onRangeClick: () -> Unit,
+    onManageClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -173,13 +186,22 @@ private fun DashboardHeader(
         horizontalArrangement = Arrangement.spacedBy(AppDimens.labelToAmountGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
+        // Shrunk to fit rather than ellipsised. The header carries three things now — name, period
+        // and the manage button — and on a 360dp phone that left "Mapping health" as "Mapping …",
+        // which reads as a rendering fault rather than as a long name. `DashboardSpec` W14 does say
+        // long names ellipsise, but it says so of a header with no icon button in it; giving up type
+        // size is the smaller loss, and every shipped name fits well above the floor.
+        BasicText(
             text = title,
-            style = AppTypography.title,
-            color = AppTheme.colors.textPrimary,
+            modifier = Modifier.weight(1f),
+            style = AppTypography.title.copy(color = AppTheme.colors.textPrimary),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            autoSize = TextAutoSize.StepBased(
+                minFontSize = 15.sp,
+                maxFontSize = AppTypography.title.fontSize,
+                stepSize = 1.sp
+            )
         )
         // Capped, because the chip is unweighted and so is measured first: left uncapped, a custom
         // range's "01 May 2026 – 30 May 2026" would claim the row on one line and leave the title a
@@ -189,6 +211,16 @@ private fun DashboardHeader(
             onClick = onRangeClick,
             modifier = Modifier.widthIn(max = RANGE_CHIP_MAX_WIDTH)
         )
+        // `DashboardSpec` W14's second header control. It is the only route to the manage screen
+        // that does not go through Settings, and the one a user reaches for the moment the chip row
+        // shows a dashboard they do not want.
+        IconButton(onClick = onManageClick) {
+            Icon(
+                imageVector = Icons.Default.DashboardCustomize,
+                contentDescription = stringResource(R.string.dash_manage_title),
+                tint = AppTheme.colors.textSecondary
+            )
+        }
     }
 }
 
@@ -203,20 +235,30 @@ private fun DashboardHeader(
 @Composable
 private fun DashboardChipRow(
     dashboards: List<DashboardDefinition>,
-    selected: DashboardId?,
-    onSelect: (DashboardId) -> Unit
+    selected: DashboardKey?,
+    onSelect: (DashboardKey) -> Unit
 ) {
+    // Follows the selection rather than sitting still. With four dashboards every chip fitted on an
+    // artboard-width screen; a fifth does not, and swiping the pager to one that is off the end of
+    // the row would leave the chips showing a selection the user cannot see.
+    val listState = rememberLazyListState()
+    LaunchedEffect(selected, dashboards) {
+        val target = dashboards.indexOfFirst { it.key == selected }
+        if (target >= 0) listState.animateScrollToItem(target)
+    }
+
     LazyRow(
+        state = listState,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
             horizontal = AppDimens.screenHorizontalPadding
         ),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(dashboards, key = { it.id }) { definition ->
-            val isSelected = definition.id == selected
+        items(dashboards, key = { it.key.storageId }) { definition ->
+            val isSelected = definition.key == selected
             Text(
-                text = stringResource(dashboardNameRes(definition.id)),
+                text = dashboardName(definition),
                 style = AppTypography.row,
                 color = if (isSelected) AppTheme.colors.onAccent else AppTheme.colors.textSecondary,
                 modifier = Modifier
@@ -224,7 +266,7 @@ private fun DashboardChipRow(
                         if (isSelected) AppTheme.colors.accent else AppTheme.colors.surfaceAlt,
                         AppShapes.button
                     )
-                    .clickable { onSelect(definition.id) }
+                    .clickable { onSelect(definition.key) }
                     .padding(horizontal = 14.dp, vertical = 8.dp)
             )
         }
@@ -239,20 +281,20 @@ private fun DashboardPager(
     onOpenPayee: (String, String) -> Unit,
     onOpenCategories: () -> Unit
 ) {
-    val startPage = state.dashboards.indexOfFirst { it.id == state.selected }.coerceAtLeast(0)
+    val startPage = state.dashboards.indexOfFirst { it.key == state.selected }.coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = startPage) { state.dashboards.size }
 
     // The chips and the pager are two views of one selection, so each follows the other. Without
     // the guards this is an infinite loop: settling the pager sets the selection, which scrolls the
     // pager, which settles it again.
     LaunchedEffect(state.selected) {
-        val target = state.dashboards.indexOfFirst { it.id == state.selected }
+        val target = state.dashboards.indexOfFirst { it.key == state.selected }
         if (target >= 0 && target != pagerState.currentPage) pagerState.animateScrollToPage(target)
     }
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.collect { page ->
             state.dashboards.getOrNull(page)?.let { settled ->
-                if (settled.id != state.selected) onAction(DashboardAction.OnDashboardSelected(settled.id))
+                if (settled.key != state.selected) onAction(DashboardAction.OnDashboardSelected(settled.key))
             }
         }
     }
@@ -385,11 +427,4 @@ private fun DashboardWidgetList(
             }
         }
     }
-}
-
-private fun dashboardNameRes(id: DashboardId): Int = when (id) {
-    DashboardId.PULSE -> R.string.dash_pulse
-    DashboardId.CATEGORIES -> R.string.dash_categories
-    DashboardId.MAPPING_HEALTH -> R.string.dash_mapping_health
-    DashboardId.PAYEES -> R.string.dash_payees
 }

@@ -1,20 +1,25 @@
 package com.madtitan94.transactionsparser.feature.dashboard.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionStorage
-import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardId
+import com.madtitan94.transactionsparser.feature.dashboard.domain.CustomDashboard
+import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
+import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardLayout
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardPreferences
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
-import com.madtitan94.transactionsparser.feature.dashboard.domain.V1_DASHBOARDS
+import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardWidgetId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.time.LocalDate
 
 private val Context.dashboardDataStore by preferencesDataStore(name = "dashboard_store")
@@ -24,6 +29,29 @@ private const val OWNER_SEPARATOR = "::"
 
 /** The owner a signed-out read writes under, so it can never collide with a real account. */
 private const val NO_OWNER = "__none__"
+
+/** Separates ids inside the order and disabled lists. Neither an enum name nor a UUID contains it. */
+private const val ID_SEPARATOR = ","
+
+/**
+ * Lenient on purpose: this decodes a file the user's own device wrote, and a field added in a later
+ * version must not make every dashboard they built unreadable after a downgrade.
+ */
+private val json = Json { ignoreUnknownKeys = true }
+
+/**
+ * A user-built dashboard on disk.
+ *
+ * JSON rather than a delimited string because one of these fields is free text the user typed: a
+ * dashboard called "Food, drink" would split a comma-joined record in half, and escaping by hand is
+ * a bug waiting for the first name with a backslash in it.
+ */
+@Serializable
+private data class StoredCustomDashboard(
+    val id: String,
+    val name: String,
+    val widgets: List<String>
+)
 
 /**
  * Dashboard preferences in their own DataStore file, namespaced per account.
@@ -50,6 +78,7 @@ class DataStoreDashboardPreferences(
         const val ORDER = "dashboard_order"
         const val DISABLED = "dashboard_disabled"
         const val DEFAULT = "dashboard_default"
+        const val CUSTOM = "dashboard_custom"
     }
 
     private fun ownerId(): Flow<String> = sessionStorage.observeSession()
@@ -60,6 +89,19 @@ class DataStoreDashboardPreferences(
         combine(ownerId(), context.dashboardDataStore.data) { owner, prefs ->
             read(prefs) { name -> stringPreferencesKey("$owner$OWNER_SEPARATOR$name") }
         }.distinctUntilChanged()
+
+    /**
+     * Reads the current account's keys, edits them, and writes them back.
+     *
+     * Every write goes through this rather than opening `edit` directly, so no caller can write an
+     * unscoped key and leave one account's layout visible to another.
+     */
+    private suspend fun editScoped(block: (MutablePreferences, (String) -> Preferences.Key<String>) -> Unit) {
+        val owner = ownerId().first()
+        context.dashboardDataStore.edit { prefs ->
+            block(prefs) { name -> stringPreferencesKey("$owner$OWNER_SEPARATOR$name") }
+        }
+    }
 
     override fun observeRange(): Flow<DashboardRange> = scoped { prefs, key ->
         when (prefs[key(Keys.RANGE)]) {
@@ -90,45 +132,104 @@ class DataStoreDashboardPreferences(
         return DashboardRange.Custom(start, end)
     }
 
-    override suspend fun setRange(range: DashboardRange) {
-        val owner = ownerId().first()
-        context.dashboardDataStore.edit { prefs ->
-            fun key(name: String) = stringPreferencesKey("$owner$OWNER_SEPARATOR$name")
-            prefs[key(Keys.RANGE)] = range.key
-            if (range is DashboardRange.Custom) {
-                prefs[key(Keys.RANGE_FROM)] = range.fromDate.toString()
-                prefs[key(Keys.RANGE_TO)] = range.toDateInclusive.toString()
-            } else {
-                // Clear the endpoints rather than leaving them behind: a stale pair read back after
-                // a later downgrade would resurrect a period the user has since moved off.
-                prefs.remove(key(Keys.RANGE_FROM))
-                prefs.remove(key(Keys.RANGE_TO))
-            }
+    override suspend fun setRange(range: DashboardRange) = editScoped { prefs, key ->
+        prefs[key(Keys.RANGE)] = range.key
+        if (range is DashboardRange.Custom) {
+            prefs[key(Keys.RANGE_FROM)] = range.fromDate.toString()
+            prefs[key(Keys.RANGE_TO)] = range.toDateInclusive.toString()
+        } else {
+            // Clear the endpoints rather than leaving them behind: a stale pair read back after
+            // a later downgrade would resurrect a period the user has since moved off.
+            prefs.remove(key(Keys.RANGE_FROM))
+            prefs.remove(key(Keys.RANGE_TO))
         }
     }
 
-    override fun observeEnabledDashboards(): Flow<List<DashboardId>> = scoped { prefs, key ->
-        val known = V1_DASHBOARDS.map { it.id }
-        val stored = prefs[key(Keys.ORDER)].orEmpty().split(',').mapNotNull { it.toDashboardId() }
-        val disabled = prefs[key(Keys.DISABLED)].orEmpty().split(',').mapNotNull { it.toDashboardId() }
-
-        // Stored order first, then anything this build added since it was written. A dashboard
-        // shipped in a later version arrives switched on and appended, per DashboardSpec §3 — it
-        // must not stay invisible just because the preference predates it.
-        val ordered = (stored + known).distinct()
-        val enabled = ordered.filterNot { it in disabled }
-        enabled.ifEmpty { known }
+    /**
+     * The four stored facts, unresolved.
+     *
+     * Nothing is filtered or defaulted here beyond dropping ids that will not parse — the rules
+     * about what Home shows live on [DashboardLayout], where they can be tested without a device
+     * and cannot drift between the screens that read them.
+     */
+    override fun observeLayout(): Flow<DashboardLayout> = scoped { prefs, key ->
+        DashboardLayout(
+            order = prefs[key(Keys.ORDER)].toKeys(),
+            disabled = prefs[key(Keys.DISABLED)].toKeys().toSet(),
+            defaultKey = prefs[key(Keys.DEFAULT)]?.let(DashboardKey::parse),
+            custom = prefs[key(Keys.CUSTOM)].toCustomDashboards()
+        )
     }
 
-    override fun observeDefaultDashboard(): Flow<DashboardId> = combine(
-        scoped { prefs, key -> prefs[key(Keys.DEFAULT)]?.toDashboardId() },
-        observeEnabledDashboards()
-    ) { stored, enabled ->
-        // The starred dashboard only counts while it is still switched on; otherwise the chip row
-        // would open on a dashboard the user cannot see.
-        stored?.takeIf { it in enabled } ?: enabled.first()
-    }.distinctUntilChanged()
+    override suspend fun setDashboardOrder(order: List<DashboardKey>) = editScoped { prefs, key ->
+        prefs[key(Keys.ORDER)] = order.joinToString(ID_SEPARATOR) { it.storageId }
+    }
 
-    private fun String.toDashboardId(): DashboardId? =
-        runCatching { DashboardId.valueOf(trim()) }.getOrNull()
+    /**
+     * Stores the *disabled* set rather than the enabled one, per `DashboardSpec` §3.
+     *
+     * Which way round this goes is the whole upgrade story: an enabled set written by today's build
+     * would not name a dashboard shipped next year, so that dashboard would arrive switched off and
+     * the user would never learn it existed. Naming what is switched off means anything new is on.
+     */
+    override suspend fun setDashboardEnabled(key: DashboardKey, enabled: Boolean) =
+        editScoped { prefs, prefKey ->
+            val current = prefs[prefKey(Keys.DISABLED)].toKeys().toMutableSet()
+            if (enabled) current.remove(key) else current.add(key)
+            prefs[prefKey(Keys.DISABLED)] = current.joinToString(ID_SEPARATOR) { it.storageId }
+        }
+
+    override suspend fun setDefaultDashboard(key: DashboardKey) = editScoped { prefs, prefKey ->
+        prefs[prefKey(Keys.DEFAULT)] = key.storageId
+    }
+
+    override suspend fun saveCustomDashboard(dashboard: CustomDashboard) = editScoped { prefs, key ->
+        val existing = prefs[key(Keys.CUSTOM)].toCustomDashboards()
+        // Replaced in place rather than removed and appended, so editing a dashboard does not send
+        // it to the end of the user's Home behind everything they put after it.
+        val index = existing.indexOfFirst { it.id == dashboard.id }
+        val updated = if (index >= 0) {
+            existing.toMutableList().apply { set(index, dashboard) }
+        } else {
+            existing + dashboard
+        }
+        prefs[key(Keys.CUSTOM)] = updated.encode()
+    }
+
+    override suspend fun deleteCustomDashboard(id: String) = editScoped { prefs, key ->
+        prefs[key(Keys.CUSTOM)] = prefs[key(Keys.CUSTOM)].toCustomDashboards()
+            .filterNot { it.id == id }
+            .encode()
+        // The order and disabled lists are deliberately left alone. They are read through
+        // DashboardKey.parse against the dashboards that exist, so a dangling id is already ignored,
+        // and rewriting three keys to tidy up one deletion is three chances to corrupt a layout.
+    }
+
+    private fun String?.toKeys(): List<DashboardKey> =
+        orEmpty().split(ID_SEPARATOR).mapNotNull { DashboardKey.parse(it) }
+
+    /**
+     * Unreadable JSON yields no dashboards rather than an exception.
+     *
+     * The user loses the ones they built, which is bad; the alternative is an app that cannot open
+     * its Home screen, which is worse and unrecoverable without clearing app data.
+     */
+    private fun String?.toCustomDashboards(): List<CustomDashboard> {
+        val raw = this?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val stored = runCatching { json.decodeFromString<List<StoredCustomDashboard>>(raw) }
+            .getOrElse { return emptyList() }
+        return stored.mapNotNull { entry ->
+            // A widget this build has never heard of is dropped, not fatal — the rest of the
+            // dashboard still renders. One with nothing left is dropped entirely, because an empty
+            // dashboard is a blank page the user cannot tell from a failure.
+            val widgets = entry.widgets.mapNotNull { name ->
+                runCatching { DashboardWidgetId.valueOf(name) }.getOrNull()
+            }
+            if (widgets.isEmpty()) null else CustomDashboard(entry.id, entry.name, widgets)
+        }
+    }
+
+    private fun List<CustomDashboard>.encode(): String = json.encodeToString(
+        map { StoredCustomDashboard(it.id, it.name, it.widgets.map(DashboardWidgetId::name)) }
+    )
 }

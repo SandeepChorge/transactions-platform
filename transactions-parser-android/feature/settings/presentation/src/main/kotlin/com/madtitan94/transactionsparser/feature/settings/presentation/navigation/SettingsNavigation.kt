@@ -18,6 +18,10 @@ data object RecentlyDeletedRoute
  * Profile and Categories live in other feature modules — the same shape `uploadGraph` uses to reach
  * session detail, which keeps this module from depending on ones it has nothing else to say to.
  *
+ * The two dashboard rows are callbacks for the same reason: the screens behind them are about
+ * dashboards, so they live in the dashboard feature with the strings and models they need, and
+ * Settings only has to know how to get there.
+ *
  * Categories arrives here because the bottom bar has five slots and the design spends them on
  * Home, Statements, Add, Payees and You. Categories is something you set up once and revisit
  * occasionally, which is what this screen is for.
@@ -30,7 +34,9 @@ fun NavGraphBuilder.settingsGraph(
     appVersion: String,
     appVersionCode: Int,
     onOpenProfile: () -> Unit,
-    onOpenCategories: () -> Unit
+    onOpenCategories: () -> Unit,
+    onOpenManageDashboards: () -> Unit,
+    onOpenDefaultDashboard: () -> Unit
 ) {
     composable<SettingsRoute> {
         SettingsRoot(
@@ -38,6 +44,8 @@ fun NavGraphBuilder.settingsGraph(
             appVersionCode = appVersionCode,
             onOpenProfile = onOpenProfile,
             onOpenCategories = onOpenCategories,
+            onOpenManageDashboards = onOpenManageDashboards,
+            onOpenDefaultDashboard = onOpenDefaultDashboard,
             onOpenRecentlyDeleted = { navController.navigate(RecentlyDeletedRoute) }
         )
     }
