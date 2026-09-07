@@ -39,6 +39,9 @@
     <!-- W3 · Category breakdown. -->
     <string name="dash_by_category">By category</string>
     <string name="dash_uncategorised">Uncategorised</string>
+    <!-- The fold for categories past the top five. Distinct from Uncategorised: this is
+         mapped spend that simply did not fit, and it must never read as unmapped money. -->
+    <string name="dash_other">Other</string>
     <string name="dash_category_empty">Nothing categorised yet.</string>
     <string name="dash_share_percent">%1$d%%</string>
     <string name="dash_share_tiny">&lt;1%%</string>

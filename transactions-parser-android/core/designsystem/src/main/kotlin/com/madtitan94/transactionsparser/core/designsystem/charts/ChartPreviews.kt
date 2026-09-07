@@ -43,7 +43,8 @@ private val SampleSlices = buildCategorySlices(
         CategoryAmount(5L, "Shopping", 2_400_00),
         CategoryAmount(null, "unnamed", 1_690_00)
     ),
-    uncategorisedLabel = "Uncategorised"
+    uncategorisedLabel = "Uncategorised",
+    otherLabel = "Other"
 )
 
 private val SampleDaily = listOf(320L, 180L, 640L, 90L, 1_200L, 410L, 760L, 240L, 980L)

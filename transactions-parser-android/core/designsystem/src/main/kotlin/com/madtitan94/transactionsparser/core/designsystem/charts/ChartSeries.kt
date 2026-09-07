@@ -36,8 +36,8 @@ const val DEFAULT_MAX_NAMED_SLICES = 5
  * One category's spend for the period, as the data layer produces it.
  *
  * [categoryId] is null when the transaction has no category at all — an unmapped payee. Those rows
- * are the thing the dashboard most needs to admit, so they are never dropped; they are folded into
- * the hatched slice by [buildCategorySlices].
+ * are the thing the dashboard most needs to admit, so they are never dropped; they become the
+ * hatched slice in [buildCategorySlices], and nothing else ever joins them there.
  */
 data class CategoryAmount(
     val categoryId: Long?,
@@ -48,8 +48,9 @@ data class CategoryAmount(
 /**
  * One drawable slice, with its colour slot already decided.
  *
- * [slot] is an index into `AppColors.chartSeries`, or null for the folded slice — which is drawn as
- * the 115° hatch rather than as an eighth hue, so that "we don't know" never looks like a category.
+ * [slot] is an index into `AppColors.chartSeries`, or null for the uncategorised slice — which is
+ * drawn as the 115° hatch rather than as an eighth hue, so that "we don't know" never looks like a
+ * category.
  *
  * [sharePercent] values are whole numbers that sum to exactly 100 (see [wholePercentages]), so a
  * legend cannot show a column that adds up to 99.
@@ -60,7 +61,13 @@ data class ChartSlice(
     val slot: Int?,
     val sharePercent: Int
 ) {
-    /** True for the folded slice — the one drawn as a hatch and sorted to the bottom. */
+    /**
+     * True for the uncategorised slice — money with no category at all, drawn as the hatch.
+     *
+     * This is deliberately *not* true of the "Other" slice. Both sit at the bottom of the chart and
+     * both are folds, but only one of them means the user has something to fix, and the hatch is
+     * what says so.
+     */
     val isUnnamed: Boolean get() = slot == null
 }
 
@@ -90,18 +97,29 @@ fun preferredSlot(categoryId: Long): Int {
  * - Non-positive amounts are dropped. A category with nothing in it is not a zero-width slice.
  * - Named categories sort by amount descending; ties break on category id so two runs of the same
  *   data cannot swap two rows.
- * - Everything past [maxNamed], plus every uncategorised row, folds into one slice at the bottom.
- *   It keeps [uncategorisedLabel] and is drawn as the hatch.
+ * - Named categories past [maxNamed] fold into one [otherLabel] slice. It is still categorised
+ *   money, so it takes a real colour.
+ * - Rows with no category at all fold into one [uncategorisedLabel] slice, drawn as the hatch and
+ *   sorted last.
  * - Slots come from [preferredSlot], with a collision pushed to the next free slot. Two slices in
  *   one chart never share a colour.
  * - Shares are whole percentages summing to 100.
  *
- * The folded slice is emitted only when it holds something — a period where every rupee has a name
- * shows no hatch at all, rather than a zero-width one the legend would still list.
+ * **The two folds are separate on purpose.** Merging them — which this function used to do — labels
+ * a tail of perfectly well-mapped categories "Uncategorised" and hatches it, telling the user to go
+ * fix mapping that is already correct. An account with six categories and nothing unmapped saw its
+ * six smallest categories reported as unnamed money. `design/DashboardSpec.dc.html` W3 has it as two
+ * things throughout ("top 5, with Uncategorized forced to the bottom regardless of size"), and W4's
+ * nudge reads the unmapped total directly — so the merged version also contradicted the banner
+ * sitting inches above it, which stayed silent while the donut claimed 16% was unnamed.
+ *
+ * Either fold is emitted only when it holds something. A period where every rupee has a name shows
+ * no hatch at all, rather than a zero-width one the legend would still list.
  */
 fun buildCategorySlices(
     amounts: List<CategoryAmount>,
     uncategorisedLabel: String,
+    otherLabel: String,
     maxNamed: Int = DEFAULT_MAX_NAMED_SLICES
 ): List<ChartSlice> {
     val positive = amounts.filter { it.amountPaise > 0L }
@@ -114,8 +132,8 @@ fun buildCategorySlices(
         .sortedWith(compareByDescending<CategoryAmount> { it.amountPaise }.thenBy { it.categoryId })
 
     val kept = named.take(cap)
-    val foldedPaise = named.drop(cap).sumOf { it.amountPaise } +
-        positive.filter { it.categoryId == null }.sumOf { it.amountPaise }
+    val otherPaise = named.drop(cap).sumOf { it.amountPaise }
+    val unnamedPaise = positive.filter { it.categoryId == null }.sumOf { it.amountPaise }
 
     val taken = mutableSetOf<Int>()
     val slots = kept.map { amount ->
@@ -126,9 +144,21 @@ fun buildCategorySlices(
         slot
     }
 
-    val labels = kept.map { it.label } + if (foldedPaise > 0L) listOf(uncategorisedLabel) else emptyList()
-    val values = kept.map { it.amountPaise } + if (foldedPaise > 0L) listOf(foldedPaise) else emptyList()
-    val assigned = slots + if (foldedPaise > 0L) listOf(null) else emptyList()
+    // "Other" is real spend in real categories, so it gets a real colour rather than the hatch. The
+    // lowest free slot keeps it deterministic without letting it steal a colour a kept category
+    // prefers. At the default cap of five there are always two spare; only a caller asking for all
+    // seven named slices can exhaust the palette, and then the hatch is the honest fallback — it is
+    // still not a category, whatever it is drawn as.
+    val otherSlot = (0 until CHART_SLOT_COUNT).firstOrNull { it !in taken }
+
+    val folds = buildList {
+        if (otherPaise > 0L) add(Triple(otherLabel, otherPaise, otherSlot))
+        if (unnamedPaise > 0L) add(Triple(uncategorisedLabel, unnamedPaise, null))
+    }
+
+    val labels = kept.map { it.label } + folds.map { it.first }
+    val values = kept.map { it.amountPaise } + folds.map { it.second }
+    val assigned = slots + folds.map { it.third }
 
     val percentages = wholePercentages(values)
 
