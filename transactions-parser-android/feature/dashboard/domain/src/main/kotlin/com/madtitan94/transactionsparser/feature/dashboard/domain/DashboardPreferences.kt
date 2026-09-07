@@ -45,4 +45,22 @@ interface DashboardPreferences {
     suspend fun saveCustomDashboard(dashboard: CustomDashboard)
 
     suspend fun deleteCustomDashboard(id: String)
+
+    /**
+     * Transactions the user has waved off as not worth flagging, by row id.
+     *
+     * Preferences rather than a column on the row, and that is the reason this whole feature needs
+     * no schema change. "I have seen this callout" is not a fact about the transaction — the charge
+     * is exactly as unusual after the dismissal as before it — so recording it on the transaction
+     * would put a piece of UI state into the statement data, where it would ride along into every
+     * export and backup and have to be migrated.
+     *
+     * Dismissals are never cleared. A user who has decided one charge is fine has decided it
+     * permanently, and a callout that came back next month for the same transaction would read as
+     * the app having forgotten. The set only grows by the number of charges a user actually waves
+     * off, which is a handful.
+     */
+    fun observeDismissedAnomalies(): Flow<Set<Long>>
+
+    suspend fun dismissAnomaly(transactionId: Long)
 }

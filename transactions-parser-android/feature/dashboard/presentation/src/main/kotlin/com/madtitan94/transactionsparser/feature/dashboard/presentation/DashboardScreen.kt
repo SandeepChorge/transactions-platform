@@ -20,6 +20,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DashboardCustomize
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -55,6 +56,8 @@ import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardWidgetConfig
 import com.madtitan94.transactionsparser.feature.dashboard.domain.HeroMeasure
 import com.madtitan94.transactionsparser.feature.dashboard.domain.PayeeScope
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.AnomalyCallout
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.AnomalyCalloutUi
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.CategoryDonutWidget
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.CategoryRankedWidget
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.InsightBanner
@@ -64,6 +67,7 @@ import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.TrendWidget
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.TypeTilesWidget
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.buildTrendSeries
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.toCalloutUi
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -71,6 +75,7 @@ fun DashboardRoot(
     onOpenPayee: (normalizedPayee: String, rawPayee: String) -> Unit,
     onOpenCategories: () -> Unit,
     onManageDashboards: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenCategoryInsight: (categoryId: Long?, categoryName: String?) -> Unit,
     viewModel: DashboardViewModel = koinViewModel()
 ) {
@@ -83,6 +88,7 @@ fun DashboardRoot(
         onOpenPayee = onOpenPayee,
         onOpenCategories = onOpenCategories,
         onManageDashboards = onManageDashboards,
+        onOpenSearch = onOpenSearch,
         onOpenCategoryInsight = onOpenCategoryInsight
     )
 }
@@ -95,6 +101,7 @@ fun DashboardScreen(
     onOpenPayee: (String, String) -> Unit,
     onOpenCategories: () -> Unit,
     onManageDashboards: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenCategoryInsight: (categoryId: Long?, categoryName: String?) -> Unit
 ) {
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
@@ -104,6 +111,7 @@ fun DashboardScreen(
             title = state.current?.let { dashboardName(it) }.orEmpty(),
             range = state.range,
             onRangeClick = { sheetOpen = true },
+            onSearchClick = onOpenSearch,
             onManageClick = onManageDashboards
         )
 
@@ -173,6 +181,7 @@ private fun DashboardHeader(
     title: String,
     range: DashboardRange,
     onRangeClick: () -> Unit,
+    onSearchClick: () -> Unit,
     onManageClick: () -> Unit
 ) {
     Row(
@@ -215,6 +224,16 @@ private fun DashboardHeader(
             onClick = onRangeClick,
             modifier = Modifier.widthIn(max = RANGE_CHIP_MAX_WIDTH)
         )
+        // Search lives in the header rather than the bottom bar. The bar's five destinations are
+        // places the app *is*; search is something the user does to what is already there, and it
+        // has to be reachable from the screen they land on rather than costing a tab of its own.
+        IconButton(onClick = onSearchClick) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = stringResource(R.string.dash_search),
+                tint = AppTheme.colors.textSecondary
+            )
+        }
         // `DashboardSpec` W14's second header control. It is the only route to the manage screen
         // that does not go through Settings, and the one a user reaches for the moment the chip row
         // shows a dashboard they do not want.
@@ -310,6 +329,7 @@ private fun DashboardPager(
             definition = definition,
             state = state,
             rangeWindow = rangeWindow,
+            onAction = onAction,
             onOpenPayee = onOpenPayee,
             onOpenCategories = onOpenCategories,
             onOpenCategoryInsight = onOpenCategoryInsight
@@ -329,6 +349,7 @@ private fun DashboardWidgetList(
     definition: DashboardDefinition,
     state: DashboardState,
     rangeWindow: DateRange,
+    onAction: (DashboardAction) -> Unit,
     onOpenPayee: (String, String) -> Unit,
     onOpenCategories: () -> Unit,
     onOpenCategoryInsight: (categoryId: Long?, categoryName: String?) -> Unit
@@ -357,6 +378,8 @@ private fun DashboardWidgetList(
         buildTrendSeries(data.dayTotals, rangeWindow.fromMillis, rangeWindow.toMillisExclusive)
     }
 
+    val anomalyCallouts = data.anomalies.map { it.toCalloutUi() }
+
     val topPayees = remember(data.payees) { data.payees.take(DASHBOARD_ROW_LIMIT) }
     val unmappedPayees = remember(data.payees) {
         data.payees.filter { it.isUnmapped }.take(DASHBOARD_ROW_LIMIT)
@@ -372,6 +395,18 @@ private fun DashboardWidgetList(
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Above the widgets rather than among them, and on every dashboard rather than as a widget
+        // the user opts into. A callout is not a view of the period the way a chart is — it is the
+        // app saying something happened — so burying it behind a dashboard the user has switched off
+        // would mean the one message worth interrupting for is the one they never see.
+        items(anomalyCallouts, key = { "anomaly-" + it.transactionId }) { callout ->
+            AnomalyCallout(
+                callout = callout,
+                onDismiss = { id -> onAction(DashboardAction.OnDismissAnomaly(id)) },
+                onClick = { onOpenPayee(callout.normalizedName, callout.statementName) }
+            )
+        }
+
         items(definition.widgets, key = { it.id.name + it.hashCode() }) { widget ->
             when (widget) {
                 is DashboardWidgetConfig.Hero -> when (widget.measure) {

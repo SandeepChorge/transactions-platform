@@ -3,13 +3,18 @@ package com.madtitan94.transactionsparser.feature.dashboard.presentation.insight
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.datasource.AnomalyLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryInsightLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyScope
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyThresholds
 import com.madtitan94.transactionsparser.core.domain.model.CategoryShare
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
+import com.madtitan94.transactionsparser.core.domain.model.SpendAnomaly
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardPreferences
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
+import com.madtitan94.transactionsparser.feature.dashboard.domain.anomalyBaseline
 import com.madtitan94.transactionsparser.feature.dashboard.domain.previous
 import com.madtitan94.transactionsparser.feature.dashboard.domain.resolve
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.CategoryInsightRoute
@@ -85,6 +90,8 @@ data class CategoryInsightState(
     val range: DashboardRange = DashboardRange.Default,
     val trendWindow: TrendWindow = TrendWindow.Default,
     val data: CategoryInsightData = CategoryInsightData(),
+    /** Charges out of character for *this* category, with the ones already waved off removed. */
+    val anomalies: List<SpendAnomaly> = emptyList(),
     /** Open while the shared range picker is on screen. */
     val isPickingCustomRange: Boolean = false
 )
@@ -96,6 +103,7 @@ sealed interface CategoryInsightAction {
     data class OnCustomRangePicked(val fromMillis: Long, val toMillisInclusive: Long) :
         CategoryInsightAction
     data object OnCustomRangeDismiss : CategoryInsightAction
+    data class OnDismissAnomaly(val transactionId: Long) : CategoryInsightAction
 }
 
 /**
@@ -114,6 +122,7 @@ sealed interface CategoryInsightAction {
 class CategoryInsightViewModel(
     savedStateHandle: SavedStateHandle,
     private val insights: CategoryInsightLocalDataSource,
+    private val anomalies: AnomalyLocalDataSource,
     private val preferences: DashboardPreferences,
     /** Injected so a test can pin "today" instead of depending on the machine's calendar. */
     private val today: () -> LocalDate = LocalDate::now
@@ -150,6 +159,46 @@ class CategoryInsightViewModel(
             combine(preferences.observeRange(), trendWindow) { range, window -> range to window }
                 .flatMapLatest { (range, window) -> observeData(range, window) }
                 .collect { data -> _state.update { it.copy(isLoading = false, data = data) } }
+        }
+
+        // A separate collector rather than a sixth source in `observeData`'s combine. The five
+        // there are the card data and arrive together on purpose — a share and the days beneath it
+        // must describe one moment — while a callout is an independent claim about the same period
+        // and has no such pairing to preserve. `combine` also stops at five arguments, and nesting
+        // one to carry a banner would obscure why the other five are grouped at all.
+        viewModelScope.launch {
+            preferences.observeRange()
+                .flatMapLatest { range -> observeAnomalies(range) }
+                .collect { found -> _state.update { it.copy(anomalies = found) } }
+        }
+    }
+
+    /**
+     * Unusual charges inside this one category, over the shared range.
+     *
+     * Scoped to the category in SQL rather than filtered out of the dashboard's account-wide list.
+     * The account-wide read is limited, so filtering it here would silently hide a category's own
+     * anomaly whenever a few larger ones elsewhere crowded it out of the top of the list — and the
+     * screen that would hide it is the one screen dedicated to that category.
+     */
+    private fun observeAnomalies(range: DashboardRange): Flow<List<SpendAnomaly>> {
+        val on = today()
+        val baseline = range.anomalyBaseline(on, AnomalyThresholds.BASELINE_MONTHS)
+            ?: return flowOf(emptyList())
+
+        return combine(
+            anomalies.observeAnomalies(
+                range = range.resolve(on),
+                baseline = baseline,
+                scope = AnomalyScope.OneCategory(categoryId),
+                multiplier = AnomalyThresholds.MULTIPLIER,
+                minSampleCount = AnomalyThresholds.MIN_SAMPLE_COUNT,
+                minAmountPaise = AnomalyThresholds.MIN_AMOUNT_PAISE,
+                limit = AnomalyThresholds.FETCH_LIMIT
+            ),
+            preferences.observeDismissedAnomalies()
+        ) { found, dismissed ->
+            found.filterNot { it.transactionId in dismissed }.take(AnomalyThresholds.LIMIT)
         }
     }
 
@@ -219,6 +268,9 @@ class CategoryInsightViewModel(
                 trendWindow.value = action.window
             }
 
+            is CategoryInsightAction.OnDismissAnomaly -> viewModelScope.launch {
+                preferences.dismissAnomaly(action.transactionId)
+            }
             is CategoryInsightAction.OnRangeSelected -> viewModelScope.launch {
                 preferences.setRange(action.range)
             }

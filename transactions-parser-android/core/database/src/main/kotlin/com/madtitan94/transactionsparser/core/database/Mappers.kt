@@ -1,7 +1,9 @@
 package com.madtitan94.transactionsparser.core.database
 
+import com.madtitan94.transactionsparser.core.database.dao.AnomalyRow
 import com.madtitan94.transactionsparser.core.database.dao.CategoryTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.DayTotalRow
+import com.madtitan94.transactionsparser.core.database.dao.SearchResultRow
 import com.madtitan94.transactionsparser.core.database.dao.DuplicateCandidate
 import com.madtitan94.transactionsparser.core.database.dao.PayeeSummaryRow
 import com.madtitan94.transactionsparser.core.database.dao.PayeeDirectoryRow
@@ -31,11 +33,13 @@ import com.madtitan94.transactionsparser.core.domain.model.CategoryShare
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
+import com.madtitan94.transactionsparser.core.domain.model.SpendAnomaly
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.StatementSource
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
 import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
+import com.madtitan94.transactionsparser.core.domain.model.TransactionSearchResult
 import com.madtitan94.transactionsparser.core.domain.model.TransactionType
 import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
@@ -233,4 +237,31 @@ fun PayeeDirectoryRow.toPayeeDirectoryEntry() = PayeeDirectoryEntry(
     identifierCount = identifierCount,
     totalPaise = totalPaise,
     transactionCount = transactionCount
+)
+
+/** Same alias-then-statement-name fallback the ranked rows use, so one payee reads alike anywhere. */
+fun SearchResultRow.toSearchResult() = TransactionSearchResult(
+    id = id,
+    dateTimeUtcMillis = dateTimeUtcMillis,
+    label = alias ?: rawPayee,
+    statementName = rawPayee,
+    normalizedName = normalizedPayee,
+    categoryName = categoryName,
+    amountPaise = amountPaise,
+    type = TransactionType.valueOf(type),
+    isExcluded = isExcluded,
+    isDuplicate = isDuplicate
+)
+
+fun AnomalyRow.toSpendAnomaly() = SpendAnomaly(
+    transactionId = id,
+    dateTimeUtcMillis = dateTimeUtcMillis,
+    label = alias ?: rawPayee,
+    statementName = rawPayee,
+    normalizedName = normalizedPayee,
+    categoryId = categoryId,
+    categoryName = categoryName,
+    amountPaise = amountPaise,
+    baselineMeanPaise = baselineMeanPaise,
+    baselineSampleCount = baselineSampleCount
 )

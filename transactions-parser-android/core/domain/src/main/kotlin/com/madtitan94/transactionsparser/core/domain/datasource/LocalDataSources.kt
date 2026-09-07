@@ -16,12 +16,17 @@ import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
+import com.madtitan94.transactionsparser.core.domain.model.SEARCH_RESULT_LIMIT
+import com.madtitan94.transactionsparser.core.domain.model.SearchQuery
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyScope
+import com.madtitan94.transactionsparser.core.domain.model.SpendAnomaly
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
 import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
+import com.madtitan94.transactionsparser.core.domain.model.TransactionSearchPage
 import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.model.UserSession
@@ -236,6 +241,66 @@ interface CategoryInsightLocalDataSource {
 
     /** This category's spend beside the account's over the same range — the header, in one row. */
     fun observeShare(categoryId: Long?, range: DateRange): Flow<CategoryShare>
+}
+
+/**
+ * Finding one transaction in an account that holds thousands.
+ *
+ * Its own contract, for the reason [CategoryInsightLocalDataSource] is: this answers "where is the
+ * charge I am thinking of", which is neither a screen's rows nor an account's totals, and the four
+ * fakes that already stand in for [TransactionLocalDataSource] in unit tests should not have to
+ * grow a search implementation none of them call.
+ *
+ * **Search deliberately does not apply the dashboard's countable-rows rules.** Excluded rows,
+ * flagged duplicates and rows belonging to a cancelled statement are all findable, because a user
+ * searching for a specific charge is very often searching for exactly the one the app decided not
+ * to count — and a search that cannot find it leaves them with no way to reach the screen where
+ * that decision is reversed. Only soft-deleted rows are hidden. Aggregates are the opposite case
+ * and stay strict; the two are answering different questions.
+ */
+interface TransactionSearchLocalDataSource {
+    /**
+     * Rows matching [query], newest first, capped at [SEARCH_RESULT_LIMIT] with the true count
+     * beside them.
+     *
+     * Reactive rather than one-shot — unlike `exportRows`, which is the closest existing query —
+     * because the results are live rows the user acts on: excluding a transaction from the search
+     * results should redraw them, not leave a stale list behind.
+     */
+    fun observeSearch(query: SearchQuery): Flow<TransactionSearchPage>
+}
+
+/**
+ * Charges that are out of character for the category they fell in.
+ *
+ * Separate again, and for a sharper reason than the others: this is the only read in the app whose
+ * result is a *claim* rather than a figure. Everything else reports what the account contains; this
+ * says something is unusual, and it can be wrong. Keeping it behind its own contract is what makes
+ * the thresholds it is run with visible at the call site rather than buried in an aggregate.
+ */
+interface AnomalyLocalDataSource {
+    /**
+     * Unusually large charges inside [range], measured against each category's own recent habit.
+     *
+     * [baseline] is passed rather than derived here so that the window is the caller's decision and
+     * a test can state it outright. It must not overlap [range]: an unusual charge that is allowed
+     * into its own baseline raises the average it is being measured against, and a large enough one
+     * hides itself entirely.
+     */
+    fun observeAnomalies(
+        range: DateRange,
+        baseline: DateRange,
+        /**
+         * Which categories to look in: [AnomalyScope.All] for the dashboard, or one category for
+         * the insight screen. A scope rather than a nullable id, because a null id already means the
+         * unmapped bucket everywhere else in this app and would otherwise stop meaning it here.
+         */
+        scope: AnomalyScope,
+        multiplier: Double,
+        minSampleCount: Int,
+        minAmountPaise: Long,
+        limit: Int
+    ): Flow<List<SpendAnomaly>>
 }
 
 /**

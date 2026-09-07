@@ -139,6 +139,37 @@ class DashboardRangeTest {
     }
 
     @Test
+    fun `the anomaly baseline stops exactly where the period begins`() {
+        // The non-overlap is the whole point of the window: a charge allowed into the average it is
+        // judged against raises that average, and a large enough one hides itself entirely.
+        val window = DashboardRange.ThisMonth.anomalyBaseline(today, months = 3)
+        assertThat(window).isEqualTo(DateRange(utc(2026, 6, 1), utc(2026, 9, 1)))
+        assertThat(window!!.toMillisExclusive)
+            .isEqualTo(DashboardRange.ThisMonth.resolve(today).fromMillis)
+    }
+
+    @Test
+    fun `the anomaly baseline of last month ends before last month, not before this one`() {
+        assertThat(DashboardRange.LastMonth.anomalyBaseline(today, months = 3))
+            .isEqualTo(DateRange(utc(2026, 5, 1), utc(2026, 8, 1)))
+    }
+
+    @Test
+    fun `a short period still gets three whole months of baseline`() {
+        // Today is one day, and one day of history would be no baseline at all — the window is
+        // three months regardless of how long the period being examined is.
+        assertThat(DashboardRange.Today.anomalyBaseline(today, months = 3))
+            .isEqualTo(DateRange(utc(2026, 6, 3), utc(2026, 9, 3)))
+    }
+
+    @Test
+    fun `all time has no anomaly baseline`() {
+        // Every charge the account holds is already inside the period, so there is no habit left
+        // over to call anything unusual against. Null drops the callout rather than inventing one.
+        assertThat(DashboardRange.AllTime.anomalyBaseline(today, months = 3)).isNull()
+    }
+
+    @Test
     fun `a year end does not roll the month into the wrong one`() {
         val newYearsDay = LocalDate.of(2027, 1, 1)
         assertThat(DashboardRange.LastMonth.resolve(newYearsDay))

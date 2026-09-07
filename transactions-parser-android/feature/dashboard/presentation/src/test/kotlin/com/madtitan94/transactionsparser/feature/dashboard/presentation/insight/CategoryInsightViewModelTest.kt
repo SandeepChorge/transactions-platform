@@ -6,11 +6,14 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isNull
+import com.madtitan94.transactionsparser.core.domain.datasource.AnomalyLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryInsightLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyScope
 import com.madtitan94.transactionsparser.core.domain.model.CategoryShare
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
+import com.madtitan94.transactionsparser.core.domain.model.SpendAnomaly
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.FakeDashboardPreferences
 import java.time.LocalDate
@@ -18,6 +21,7 @@ import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -95,14 +99,52 @@ class CategoryInsightViewModelTest {
             mapOf("categoryId" to categoryId, "categoryName" to categoryName)
         )
 
+    /** Records the scope it was asked for — the insight screen must ask about its own category. */
+    private class FakeAnomalies(
+        anomalies: List<SpendAnomaly> = emptyList()
+    ) : AnomalyLocalDataSource {
+        var scope: AnomalyScope? = null
+        var baseline: DateRange? = null
+        val found = MutableStateFlow(anomalies)
+
+        override fun observeAnomalies(
+            range: DateRange,
+            baseline: DateRange,
+            scope: AnomalyScope,
+            multiplier: Double,
+            minSampleCount: Int,
+            minAmountPaise: Long,
+            limit: Int
+        ): Flow<List<SpendAnomaly>> {
+            this.scope = scope
+            this.baseline = baseline
+            return found
+        }
+    }
+
+    private fun anomaly(id: Long) = SpendAnomaly(
+        transactionId = id,
+        dateTimeUtcMillis = utc(2026, 5, 12),
+        label = "Payee $id",
+        statementName = "PAYEE $id",
+        normalizedName = "payee$id",
+        categoryId = 7L,
+        categoryName = "Food",
+        amountPaise = 500_000L,
+        baselineMeanPaise = 100_000L,
+        baselineSampleCount = 8
+    )
+
     private fun viewModel(
         insights: FakeInsights = FakeInsights(),
+        anomalies: AnomalyLocalDataSource = FakeAnomalies(),
         preferences: FakeDashboardPreferences = FakeDashboardPreferences(),
         categoryId: Long = 7L,
         categoryName: String? = "Food"
     ) = CategoryInsightViewModel(
         savedStateHandle = handle(categoryId, categoryName),
         insights = insights,
+        anomalies = anomalies,
         preferences = preferences,
         today = { today }
     )
@@ -245,5 +287,58 @@ class CategoryInsightViewModelTest {
         val insights = FakeInsights()
         viewModel(insights = insights)
         assertThat(insights.lastLimit).isEqualTo(INSIGHT_PAYEE_LIMIT)
+    }
+
+    @Test
+    fun `the insight screen asks about its own category, not the whole account`() = runTest {
+        // Filtering the account-wide list instead would hide this category's own unusual charge
+        // whenever a few larger ones elsewhere crowded it out of the limited result set — on the
+        // one screen dedicated to that category.
+        val found = FakeAnomalies()
+        viewModel(anomalies = found)
+
+        assertThat(found.scope).isEqualTo(AnomalyScope.OneCategory(7L))
+    }
+
+    @Test
+    fun `the unmapped bucket asks about itself rather than about every category`() = runTest {
+        // The sentinel arrives as a null category id, which is a category to ask about here, not a
+        // missing argument — and the bucket users most need callouts from.
+        val found = FakeAnomalies()
+        viewModel(anomalies = found, categoryId = -1L, categoryName = null)
+
+        assertThat(found.scope).isEqualTo(AnomalyScope.OneCategory(null))
+    }
+
+    @Test
+    fun `the callout baseline stops where the viewed period starts`() = runTest {
+        val found = FakeAnomalies()
+        val preferences = FakeDashboardPreferences().apply { range.value = DashboardRange.ThisMonth }
+        viewModel(anomalies = found, preferences = preferences)
+
+        assertThat(found.baseline).isEqualTo(DateRange(utc(2026, 6, 1), utc(2026, 9, 1)))
+    }
+
+    @Test
+    fun `dismissing a callout on this screen removes it`() = runTest {
+        val found = FakeAnomalies(listOf(anomaly(1L), anomaly(2L)))
+        val preferences = FakeDashboardPreferences()
+        val vm = viewModel(anomalies = found, preferences = preferences)
+
+        assertThat(vm.state.value.anomalies.map { it.transactionId }).isEqualTo(listOf(1L, 2L))
+
+        vm.onAction(CategoryInsightAction.OnDismissAnomaly(2L))
+
+        assertThat(vm.state.value.anomalies.map { it.transactionId }).isEqualTo(listOf(1L))
+    }
+
+    @Test
+    fun `all time shows no callouts here either`() = runTest {
+        val found = FakeAnomalies(listOf(anomaly(1L)))
+        val preferences = FakeDashboardPreferences().apply { range.value = DashboardRange.AllTime }
+        val vm = viewModel(anomalies = found, preferences = preferences)
+
+        assertThat(vm.state.value.anomalies).isEqualTo(emptyList<SpendAnomaly>())
+        assertThat(found.scope).isNull()
     }
 }

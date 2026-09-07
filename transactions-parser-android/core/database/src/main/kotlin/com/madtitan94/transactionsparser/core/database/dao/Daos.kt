@@ -442,6 +442,46 @@ data class TransactionExportRowEntity(
     val statementFileName: String
 )
 
+/**
+ * One search hit, with the alias and category the account would give it today already joined in.
+ *
+ * [alias] and [categoryName] are nullable independently of each other: a payee can be named without
+ * being categorised, and an unmapped statement name has neither. The screen falls back to
+ * [rawPayee] for the first and prints nothing for the second.
+ */
+data class SearchResultRow(
+    val id: Long,
+    val dateTimeUtcMillis: Long,
+    val rawPayee: String,
+    val normalizedPayee: String,
+    val alias: String?,
+    val categoryName: String?,
+    val amountPaise: Long,
+    val type: String,
+    val isExcluded: Boolean,
+    val isDuplicate: Boolean
+)
+
+/**
+ * One unusually large charge, carrying the baseline it was judged against.
+ *
+ * The baseline travels with the row rather than being looked up again by the caller, because the
+ * callout's sentence quotes it — "3.4× your usual Groceries charge" is only checkable if the number
+ * behind it came from the same read that decided the row was unusual.
+ */
+data class AnomalyRow(
+    val id: Long,
+    val dateTimeUtcMillis: Long,
+    val rawPayee: String,
+    val normalizedPayee: String,
+    val alias: String?,
+    val categoryId: Long?,
+    val categoryName: String?,
+    val amountPaise: Long,
+    val baselineMeanPaise: Long,
+    val baselineSampleCount: Int
+)
+
 /** Milliseconds in a day — the divisor that floors a timestamp to its day. */
 private const val DAY_MILLIS = 86_400_000
 
@@ -551,6 +591,63 @@ private const val PAYEE_GROUP_KEY =
  */
 private const val SAME_CATEGORY =
     "((:categoryId IS NULL AND p.categoryId IS NULL) OR p.categoryId = :categoryId) "
+
+/**
+ * Escape hatch for the one query that asks about every category *and* about one of them.
+ *
+ * A separate flag rather than a nullable `:categoryId` meaning "all", because null already means
+ * something else here — [SAME_CATEGORY] reads it as the unmapped bucket, which is a category to ask
+ * about rather than the absence of one. Overloading it would make the unmapped bucket unaskable in
+ * exactly the query that most needs to reach it.
+ */
+private const val ALL_CATEGORIES = ":allCategories = 1"
+
+/**
+ * Every row a search is allowed to return, with its payee and category resolved.
+ *
+ * Deliberately *not* built on [COUNTABLE_ROWS_FROM]. Search is a finding tool, not an aggregate: it
+ * reaches excluded rows, flagged duplicates and the rows of a cancelled statement, because the row
+ * a user is hunting for is very often exactly the one the app decided not to count, and a search
+ * that cannot find it leaves no route to the screen where that decision is undone. `sessions` is
+ * not joined at all, which is what makes that true and also keeps the scan to three tables.
+ *
+ * Resolved through [RESOLVED_PAYEE_JOIN] so a row imported before its payee existed still shows the
+ * alias and category the account would give it today — the same fallback the dashboard aggregates
+ * use, for the same reason.
+ */
+private const val SEARCHABLE_ROWS_FROM =
+    "FROM transactions t " +
+        RESOLVED_PAYEE_JOIN +
+        "LEFT JOIN categories c ON c.id = p.categoryId "
+
+/**
+ * What counts as a match, across the five fields the requirement names plus the payee's alias.
+ *
+ * The alias is the addition. A user who renamed `SWIGGY*ORDER` to *Dinner* thinks of it as Dinner,
+ * and a search that only knew the statement's spelling would fail on the only name they remember.
+ * This mirrors the payee directory, which already matches on the alias and the statement name
+ * together; the statement name stays searchable so a figure copied off a PDF still lands.
+ *
+ * The amount branch is an `OR` rather than a mode. `1250` is a plausible rupee amount *and* a
+ * plausible fragment of a UTR, and nothing in a search box says which the user meant, so both are
+ * offered. The bounds arrive already widened to the rupee or narrowed to the paise by
+ * `SearchQuery`, which is where that judgement is written down and tested.
+ *
+ * `ESCAPE '\'` matters more than it looks: without it a typed `%` matches every row in the account
+ * and presents it as a result. `SearchQuery.likePattern` escapes to match.
+ *
+ * A `LIKE` against a NULL column yields NULL rather than false, which `OR` skips — so the nullable
+ * `utr` and `transactionRef` need no `IFNULL` wrapper and deliberately do not carry one.
+ */
+private const val SEARCH_MATCH =
+    "t.ownerId = :ownerId AND t.isDeleted = 0 AND (" +
+        "t.rawPayee LIKE :pattern ESCAPE '\\' " +
+        "OR t.normalizedPayee LIKE :pattern ESCAPE '\\' " +
+        "OR p.alias LIKE :pattern ESCAPE '\\' " +
+        "OR t.utr LIKE :pattern ESCAPE '\\' " +
+        "OR t.transactionRef LIKE :pattern ESCAPE '\\' " +
+        "OR (:amountFromPaise IS NOT NULL " +
+        "AND t.amountPaise BETWEEN :amountFromPaise AND :amountToPaise)) "
 
 @Dao
 interface TransactionDao {
@@ -1045,6 +1142,132 @@ interface TransactionDao {
             "AND isExcluded = 0 AND sessionId = :sessionId AND payeeId IS NULL"
     )
     suspend fun unmappedCount(ownerId: String, sessionId: Long): Int
+
+    /**
+     * Rows matching a search, newest first, with the payee's alias and category resolved.
+     *
+     * `LIKE` over a scan rather than an FTS index, and that is a decision rather than a shortcut.
+     * FTS4/5 needs a shadow table, which is a schema change this phase does not have; its default
+     * tokenizers match whole tokens, so `swig` would not find `SWIGGY` — the infix matching a
+     * search box implies would need a trigram tokenizer on top; and the volume this app actually
+     * holds is a personal statement history, where a scan of a few thousand rows costs less than
+     * the keystroke that triggered it. Revisit if an account ever reaches six figures of rows.
+     */
+    @Query(
+        """
+        SELECT t.id AS id,
+               t.dateTimeUtcMillis AS dateTimeUtcMillis,
+               t.rawPayee AS rawPayee,
+               t.normalizedPayee AS normalizedPayee,
+               p.alias AS alias,
+               c.name AS categoryName,
+               t.amountPaise AS amountPaise,
+               t.type AS type,
+               t.isExcluded AS isExcluded,
+               t.isDuplicate AS isDuplicate
+        $SEARCHABLE_ROWS_FROM
+        WHERE $SEARCH_MATCH
+        ORDER BY t.dateTimeUtcMillis DESC, t.id DESC
+        LIMIT :limit
+        """
+    )
+    fun observeSearch(
+        ownerId: String,
+        pattern: String,
+        amountFromPaise: Long?,
+        amountToPaise: Long?,
+        limit: Int
+    ): Flow<List<SearchResultRow>>
+
+    /**
+     * How many rows the same predicate matches, unlimited.
+     *
+     * A second query rather than a window function beside the rows, because the rows are limited
+     * and a count taken from them would report the limit. Two reads of the same predicate can in
+     * principle see different moments; they are combined into one flow rather than one query
+     * because the cost of the results and the count disagreeing for a frame is a number that is
+     * briefly off by one, and the cost of the alternative is a query neither Room nor SQLite make
+     * cheap to express.
+     */
+    @Query(
+        """
+        SELECT COUNT(*)
+        $SEARCHABLE_ROWS_FROM
+        WHERE $SEARCH_MATCH
+        """
+    )
+    fun observeSearchCount(
+        ownerId: String,
+        pattern: String,
+        amountFromPaise: Long?,
+        amountToPaise: Long?
+    ): Flow<Int>
+
+    /**
+     * Charges inside the range that are [multiplier] times their category's usual charge or more.
+     *
+     * The baseline window carries its own parameter names rather than reusing
+     * [COUNTABLE_ROWS_WHERE]: the same predicate is applied twice here with two different windows,
+     * and one set of named bindings cannot hold both. The three counting rules are repeated
+     * verbatim on purpose — a baseline built from rows the dashboard would not count would be a
+     * different account's habit than the one the flagged charge is measured against.
+     *
+     * `b.categoryId IS p.categoryId` rather than `=`, because the unmapped bucket is a real
+     * category to have a habit in and `NULL = NULL` is NULL. `IS` is SQLite's null-safe comparison
+     * and is what keeps unmapped spend — the part of the account least under the user's eye — from
+     * being the one place anomalies are never reported.
+     */
+    @Query(
+        """
+        WITH baseline AS (
+            SELECT p.categoryId AS categoryId,
+                   AVG(t.amountPaise) AS meanPaise,
+                   COUNT(*) AS sampleCount
+            $COUNTABLE_ROWS_FROM $RESOLVED_PAYEE_JOIN
+            WHERE t.ownerId = :ownerId AND t.isDeleted = 0 AND t.isExcluded = 0
+              AND s.isDeleted = 0 AND s.status <> 'CANCELLED'
+              AND t.type = 'DEBIT'
+              AND t.dateTimeUtcMillis >= :baselineFromMillis
+              AND t.dateTimeUtcMillis < :baselineToMillisExclusive
+            GROUP BY p.categoryId
+        )
+        SELECT t.id AS id,
+               t.dateTimeUtcMillis AS dateTimeUtcMillis,
+               t.rawPayee AS rawPayee,
+               t.normalizedPayee AS normalizedPayee,
+               p.alias AS alias,
+               p.categoryId AS categoryId,
+               c.name AS categoryName,
+               t.amountPaise AS amountPaise,
+               CAST(b.meanPaise AS INTEGER) AS baselineMeanPaise,
+               b.sampleCount AS baselineSampleCount
+        $COUNTABLE_ROWS_FROM $RESOLVED_PAYEE_JOIN
+        LEFT JOIN categories c ON c.id = p.categoryId
+        JOIN baseline b ON b.categoryId IS p.categoryId
+        $COUNTABLE_ROWS_WHERE
+          AND t.type = 'DEBIT'
+          AND ($ALL_CATEGORIES OR $SAME_CATEGORY)
+          AND b.sampleCount >= :minSampleCount
+          AND b.meanPaise > 0
+          AND t.amountPaise >= :minAmountPaise
+          AND t.amountPaise >= b.meanPaise * :multiplier
+        ORDER BY (t.amountPaise * 1.0 / b.meanPaise) DESC, t.amountPaise DESC
+        LIMIT :limit
+        """
+    )
+    fun observeAnomalies(
+        ownerId: String,
+        fromMillis: Long,
+        toMillisExclusive: Long,
+        baselineFromMillis: Long,
+        baselineToMillisExclusive: Long,
+        allCategories: Boolean,
+        categoryId: Long?,
+        multiplier: Double,
+        minSampleCount: Int,
+        minAmountPaise: Long,
+        limit: Int
+    ): Flow<List<AnomalyRow>>
 }
 
 @Dao

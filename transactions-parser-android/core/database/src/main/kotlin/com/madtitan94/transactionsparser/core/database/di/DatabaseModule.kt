@@ -7,20 +7,24 @@ import com.madtitan94.transactionsparser.core.database.account.ActiveAccountProv
 import com.madtitan94.transactionsparser.core.database.account.LegacyDataClaimer
 import com.madtitan94.transactionsparser.core.database.datasource.RoomBackupDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomCategoryDataSource
+import com.madtitan94.transactionsparser.core.database.datasource.RoomAnomalyDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomCategoryInsightDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomDashboardDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomPayeeDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomSessionDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomTransactionDataSource
+import com.madtitan94.transactionsparser.core.database.datasource.RoomTransactionSearchDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomUploadLogDataSource
 import com.madtitan94.transactionsparser.core.database.migration.ALL_MIGRATIONS
 import com.madtitan94.transactionsparser.core.domain.datasource.BackupLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.AnomalyLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryInsightLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.DashboardLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.TransactionSearchLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -60,6 +64,8 @@ val coreDatabaseModule = module {
     single<TransactionLocalDataSource> { RoomTransactionDataSource(get(), get()) }
     single<DashboardLocalDataSource> { RoomDashboardDataSource(get(), get()) }
     single<CategoryInsightLocalDataSource> { RoomCategoryInsightDataSource(get(), get()) }
+    single<TransactionSearchLocalDataSource> { RoomTransactionSearchDataSource(get(), get()) }
+    single<AnomalyLocalDataSource> { RoomAnomalyDataSource(get(), get()) }
     single<UploadLogLocalDataSource> { RoomUploadLogDataSource(get(), get()) }
     single<BackupLocalDataSource> { RoomBackupDataSource(get(), get(), get(), get()) }
 }

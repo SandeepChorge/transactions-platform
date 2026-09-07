@@ -129,6 +129,31 @@ fun DashboardRange.previous(today: LocalDate): DateRange? = when (this) {
 }
 
 /**
+ * The window an anomaly callout measures this range's charges against.
+ *
+ * [months] whole months ending exactly where the viewed period begins — never overlapping it. The
+ * non-overlap is the whole point: a charge allowed into its own baseline raises the average it is
+ * being judged by, and one large enough to matter would hide itself completely.
+ *
+ * Null for All time, and that is the honest answer rather than a missing case. All time has no
+ * "before" — every charge the account holds is already inside the period being examined — so there
+ * is no habit left over to call anything unusual against, and the callout is dropped instead of
+ * being computed from a baseline that would have to include the charges themselves.
+ *
+ * The arithmetic is done on a [LocalDate] and pinned to UTC only at the end, exactly as [resolve]
+ * does, for the reason given at the top of this file.
+ */
+fun DashboardRange.anomalyBaseline(today: LocalDate, months: Long): DateRange? {
+    if (this == DashboardRange.AllTime) return null
+    val windowStart = resolve(today).fromMillis
+    val startDate = LocalDate.ofEpochDay(Math.floorDiv(windowStart, MILLIS_PER_DAY))
+    return DateRange(
+        fromMillis = startDate.minusMonths(months).asUtcMillis(),
+        toMillisExclusive = windowStart
+    )
+}
+
+/**
  * How many days the range covers, or null when it is unbounded.
  *
  * The trend chart uses this to decide whether it is drawing days or weeks, and the hero card uses it

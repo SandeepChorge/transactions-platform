@@ -62,4 +62,13 @@ class FakeDashboardPreferences(
     override suspend fun deleteCustomDashboard(id: String) {
         layout.value = layout.value.copy(custom = layout.value.custom.filterNot { it.id == id })
     }
+
+    /** Written to, not merely recorded, so a dismissal actually removes the callout under test. */
+    val dismissedAnomalies = MutableStateFlow<Set<Long>>(emptySet())
+
+    override fun observeDismissedAnomalies(): Flow<Set<Long>> = dismissedAnomalies
+
+    override suspend fun dismissAnomaly(transactionId: Long) {
+        dismissedAnomalies.value = dismissedAnomalies.value + transactionId
+    }
 }

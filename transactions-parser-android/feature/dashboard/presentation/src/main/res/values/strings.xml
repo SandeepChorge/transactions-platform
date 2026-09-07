@@ -53,6 +53,13 @@
         <item quantity="other">%1$d payees are still unnamed. Naming them takes about a minute and fixes every total below.</item>
     </plurals>
 
+    <string name="dash_search">Search transactions</string>
+
+    <!-- Anomaly callout · an unusually large charge for its category. -->
+    <string name="dash_anomaly_title">%1$s at %2$s</string>
+    <string name="dash_anomaly_body">%1$s× your usual %2$s charge of %3$s</string>
+    <string name="dash_anomaly_dismiss">Dismiss this callout</string>
+
     <!-- W5 · In / Out / Net tiles. -->
     <string name="dash_in">IN</string>
     <string name="dash_out">OUT</string>
