@@ -2,6 +2,8 @@ package com.madtitan94.transactionsparser.feature.sessions.presentation.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
@@ -51,7 +53,8 @@ sealed interface SessionsHistoryEvent {
 }
 
 class SessionsHistoryViewModel(
-    private val sessions: SessionLocalDataSource
+    private val sessions: SessionLocalDataSource,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SessionsHistoryState())
@@ -96,7 +99,18 @@ class SessionsHistoryViewModel(
             }
             SessionsHistoryAction.OnConfirmCancel -> {
                 val id = _state.value.cancelConfirmId ?: return
+                // Read before the update, while the row is still in the list: how far the user had
+                // got is the whole point of the event, and after the cancel it is gone.
+                val abandoned = _state.value.sessions.firstOrNull { it.id == id }
                 _state.update { it.copy(cancelConfirmId = null) }
+                abandoned?.let {
+                    analytics.track(
+                        AnalyticsEvent.MappingCancelled(
+                            mappedCount = it.mappedCount,
+                            unmappedCount = it.transactionCount - it.mappedCount
+                        )
+                    )
+                }
                 viewModelScope.launch { sessions.updateStatus(id, SessionStatus.CANCELLED) }
             }
             SessionsHistoryAction.OnDismissCancel -> {

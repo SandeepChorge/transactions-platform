@@ -2,6 +2,8 @@ package com.madtitan94.transactionsparser.feature.auth.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionStorage
 import com.madtitan94.transactionsparser.core.domain.model.UserSession
 import com.madtitan94.transactionsparser.core.domain.util.Result
@@ -23,7 +25,8 @@ sealed interface LoginAction {
 }
 
 class LoginViewModel(
-    private val sessionStorage: SessionStorage
+    private val sessionStorage: SessionStorage,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LoginState())
@@ -42,7 +45,8 @@ class LoginViewModel(
         when (result) {
             is Result.Success -> {
                 viewModelScope.launch {
-                    sessionStorage.save(result.data).onFailure {
+                    val saved = sessionStorage.save(result.data)
+                    saved.onFailure {
                         _state.update {
                             it.copy(
                                 isSigningIn = false,
@@ -50,6 +54,10 @@ class LoginViewModel(
                             )
                         }
                     }
+                    // Only on a successful save, and only after it. Google returning a credential
+                    // is not a login — the save is what publishes the session, and an event raised
+                    // ahead of it carries the previous identity, or on a first sign-in none at all.
+                    if (saved is Result.Success) analytics.track(AnalyticsEvent.LoggedIn)
                     // Successful save flips the app-level session flow; this screen is replaced.
                     _state.update { it.copy(isSigningIn = false) }
                 }

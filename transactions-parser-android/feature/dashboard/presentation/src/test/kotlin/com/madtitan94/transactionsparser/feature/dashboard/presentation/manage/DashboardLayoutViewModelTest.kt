@@ -8,12 +8,14 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
 import com.madtitan94.transactionsparser.feature.dashboard.domain.CustomDashboard
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardId
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardLayout
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardWidgetId
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.FakeDashboardPreferences
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.RecordingAnalyticsTracker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -28,6 +30,8 @@ import org.junit.jupiter.api.Test
 class DashboardLayoutViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
+
+    private val analytics = RecordingAnalyticsTracker()
 
     @BeforeEach
     fun setUp() = Dispatchers.setMain(testDispatcher)
@@ -48,7 +52,7 @@ class DashboardLayoutViewModelTest {
         val preferences = FakeDashboardPreferences(
             DashboardLayout(disabled = setOf(key(DashboardId.PAYEES)))
         )
-        val vm = DashboardLayoutViewModel(preferences)
+        val vm = DashboardLayoutViewModel(preferences, analytics)
 
         // The whole job of this screen is offering them back. A switch you cannot find is a setting
         // you cannot undo.
@@ -60,7 +64,7 @@ class DashboardLayoutViewModelTest {
     @Test
     fun `switching one off writes it and the count follows`() = runTest {
         val preferences = FakeDashboardPreferences()
-        val vm = DashboardLayoutViewModel(preferences)
+        val vm = DashboardLayoutViewModel(preferences, analytics)
 
         vm.onAction(
             DashboardLayoutAction.OnEnabledChanged(key(DashboardId.CATEGORIES), isEnabled = false)
@@ -73,7 +77,7 @@ class DashboardLayoutViewModelTest {
     @Test
     fun `a drag moves the row in state before the write comes back`() = runTest {
         val preferences = FakeDashboardPreferences()
-        val vm = DashboardLayoutViewModel(preferences)
+        val vm = DashboardLayoutViewModel(preferences, analytics)
 
         vm.onAction(DashboardLayoutAction.OnMoved(from = 0, to = 2))
 
@@ -94,7 +98,7 @@ class DashboardLayoutViewModelTest {
     @Test
     fun `a move outside the list is ignored rather than throwing`() = runTest {
         val preferences = FakeDashboardPreferences()
-        val vm = DashboardLayoutViewModel(preferences)
+        val vm = DashboardLayoutViewModel(preferences, analytics)
 
         vm.onAction(DashboardLayoutAction.OnMoved(from = 0, to = 9))
 
@@ -107,7 +111,7 @@ class DashboardLayoutViewModelTest {
     @Test
     fun `starring a dashboard persists it`() = runTest {
         val preferences = FakeDashboardPreferences()
-        val vm = DashboardLayoutViewModel(preferences)
+        val vm = DashboardLayoutViewModel(preferences, analytics)
 
         vm.onAction(DashboardLayoutAction.OnDefaultSelected(key(DashboardId.PAYEES)))
 
@@ -116,9 +120,33 @@ class DashboardLayoutViewModelTest {
     }
 
     @Test
+    fun `starring a built-in dashboard reports which one`() = runTest {
+        val vm = DashboardLayoutViewModel(FakeDashboardPreferences(), analytics)
+
+        vm.onAction(DashboardLayoutAction.OnDefaultSelected(key(DashboardId.PAYEES)))
+
+        assertThat(analytics.only<AnalyticsEvent.DefaultDashboardChanged>().map { it.dashboard })
+            .containsExactly("PAYEES")
+    }
+
+    @Test
+    fun `starring a user-built dashboard reports the kind, never the id`() = runTest {
+        // The id is `custom:<uuid>` and unique to one person. Sent as a dimension it answers
+        // nothing and turns an anonymous event into an identifying one.
+        val preferences = FakeDashboardPreferences(DashboardLayout(custom = listOf(weekends)))
+        val vm = DashboardLayoutViewModel(preferences, analytics)
+
+        vm.onAction(DashboardLayoutAction.OnDefaultSelected(DashboardKey.Custom("abc")))
+
+        val reported = analytics.only<AnalyticsEvent.DefaultDashboardChanged>().single().dashboard
+        assertThat(reported).isEqualTo("CUSTOM")
+        assertThat(reported.contains("abc")).isFalse()
+    }
+
+    @Test
     fun `only a dashboard the user built can be deleted`() = runTest {
         val preferences = FakeDashboardPreferences(DashboardLayout(custom = listOf(weekends)))
-        val vm = DashboardLayoutViewModel(preferences)
+        val vm = DashboardLayoutViewModel(preferences, analytics)
 
         val builtIn = vm.state.value.dashboards.single { it.key == key(DashboardId.PULSE) }
         val custom = vm.state.value.dashboards.single { it.key == DashboardKey.Custom("abc") }
@@ -135,7 +163,7 @@ class DashboardLayoutViewModelTest {
     @Test
     fun `deleting a custom dashboard removes it and closes the dialog`() = runTest {
         val preferences = FakeDashboardPreferences(DashboardLayout(custom = listOf(weekends)))
-        val vm = DashboardLayoutViewModel(preferences)
+        val vm = DashboardLayoutViewModel(preferences, analytics)
         val custom = vm.state.value.dashboards.single { it.key == DashboardKey.Custom("abc") }
 
         vm.onAction(DashboardLayoutAction.OnDeleteClick(custom))

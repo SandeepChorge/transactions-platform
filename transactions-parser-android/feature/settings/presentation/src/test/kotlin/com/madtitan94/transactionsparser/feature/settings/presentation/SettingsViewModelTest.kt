@@ -6,11 +6,13 @@ import assertk.assertions.contains
 import assertk.assertions.endsWith
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
+import assertk.assertions.isEmpty
 import assertk.assertions.isFalse
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import assertk.assertions.startsWith
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
 import com.madtitan94.transactionsparser.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.madtitan94.transactionsparser.core.domain.backup.BackupAccount
 import com.madtitan94.transactionsparser.core.domain.backup.BackupApp
@@ -60,6 +62,8 @@ import java.time.ZoneOffset
 class SettingsViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
+
+    private val analytics = RecordingAnalyticsTracker()
 
     @BeforeEach
     fun setUp() {
@@ -257,7 +261,8 @@ class SettingsViewModelTest {
                 sessionStorage = sessionStorage
             ),
             restoreBackup = RestoreBackupUseCase(backups = backups, transactions = transactions),
-            themeStorage = themeStorage
+            themeStorage = themeStorage,
+            analytics = analytics
         )
     }
 
@@ -294,6 +299,30 @@ class SettingsViewModelTest {
             assertThat(expectMostRecentItem().showLogoutConfirm).isFalse()
         }
         assertThat(sessionStorage.cleared).isTrue()
+    }
+
+    @Test
+    fun `logging out is reported while the account it belongs to still exists`() = runTest {
+        // Order, not just occurrence. Clearing the session first would leave the event with no
+        // identity to attach itself to, which makes "who leaves" — the only question it is for —
+        // permanently unanswerable.
+        val sessionStorage = FakeSessionStorage()
+        val viewModel = viewModel(sessionStorage = sessionStorage)
+
+        viewModel.onAction(SettingsAction.OnLogoutClick)
+        viewModel.onAction(SettingsAction.OnConfirmLogout)
+
+        assertThat(analytics.events.first()).isEqualTo(AnalyticsEvent.LoggedOut)
+    }
+
+    @Test
+    fun `dismissing logout confirm reports nothing`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onAction(SettingsAction.OnLogoutClick)
+        viewModel.onAction(SettingsAction.OnDismissLogoutConfirm)
+
+        assertThat(analytics.events).isEmpty()
     }
 
     @Test
@@ -341,6 +370,44 @@ class SettingsViewModelTest {
 
         assertThat(writer.destination).isEqualTo("content://docs/out.csv")
         assertThat(writer.content!!).contains("SWIGGY")
+    }
+
+    @Test
+    fun `a written export is reported with its row count and its format`() = runTest {
+        val viewModel = viewModel(rows = Result.Success(listOf(exportRow())))
+
+        viewModel.onAction(SettingsAction.OnExportDestinationChosen("content://docs/out.csv"))
+
+        val exported = analytics.only<AnalyticsEvent.DataExported>().single()
+        assertThat(exported.format).isEqualTo("csv")
+        assertThat(exported.rowCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `an export that never reaches disk is not reported as data leaving the app`() = runTest {
+        // Counting the attempt would report exports that failed at the picker or on a full disk as
+        // data the user successfully took out, which is the one thing this event must not overstate.
+        val failing = FakeDocumentWriter(result = Result.Error(DataError.Local.DISK_FULL))
+        val viewModel = viewModel(writer = failing)
+
+        viewModel.events.test {
+            viewModel.onAction(SettingsAction.OnExportDestinationChosen("content://docs/out.csv"))
+            awaitItem()
+        }
+
+        assertThat(analytics.only<AnalyticsEvent.DataExported>()).isEmpty()
+    }
+
+    @Test
+    fun `a failed read is not reported as an export either`() = runTest {
+        val viewModel = viewModel(rows = Result.Error(DataError.Local.UNKNOWN))
+
+        viewModel.events.test {
+            viewModel.onAction(SettingsAction.OnExportDestinationChosen("content://docs/out.csv"))
+            awaitItem()
+        }
+
+        assertThat(analytics.only<AnalyticsEvent.DataExported>()).isEmpty()
     }
 
     @Test
