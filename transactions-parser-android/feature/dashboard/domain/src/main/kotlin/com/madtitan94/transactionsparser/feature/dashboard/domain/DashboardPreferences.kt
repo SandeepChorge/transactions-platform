@@ -13,10 +13,10 @@ import kotlinx.coroutines.flow.Flow
  * one phone are two different sets of statements covering two different periods, and inheriting the
  * other one's range would silently show the wrong month.
  *
- * Only the range is writable here. Which dashboards are enabled and in what order is read but not
- * written — the screen that writes it is Phase 7's, and shipping a reader first means the chip row
- * already honours a preference file that does not exist yet, rather than having to be rewritten
- * when it does.
+ * The layout is exposed as the four stored facts in one [DashboardLayout] rather than as a resolved
+ * list of dashboards. Every screen here needs a different view of it — Home wants the enabled ones,
+ * the manage screen wants the disabled ones too, the builder wants only the custom ones — and
+ * deriving those from one read keeps them from disagreeing with each other.
  */
 interface DashboardPreferences {
 
@@ -25,14 +25,24 @@ interface DashboardPreferences {
 
     suspend fun setRange(range: DashboardRange)
 
-    /**
-     * The dashboards to show, in order, filtered to those this build knows about.
-     *
-     * Never empty: an account that has switched everything off still gets the default set back,
-     * because a Home screen with nothing on it is indistinguishable from a broken one.
-     */
-    fun observeEnabledDashboards(): Flow<List<DashboardId>>
+    /** Order, disabled set, starred dashboard and the user's own dashboards, for this account. */
+    fun observeLayout(): Flow<DashboardLayout>
 
-    /** Which dashboard the chip row opens on. */
-    fun observeDefaultDashboard(): Flow<DashboardId>
+    /**
+     * Writes the display order.
+     *
+     * The whole order at once rather than a move instruction, because a drag has already produced
+     * the finished list and re-deriving it from a from/to pair would be a second chance to get it
+     * wrong.
+     */
+    suspend fun setDashboardOrder(order: List<DashboardKey>)
+
+    suspend fun setDashboardEnabled(key: DashboardKey, enabled: Boolean)
+
+    suspend fun setDefaultDashboard(key: DashboardKey)
+
+    /** Creates or replaces a user-built dashboard, matched on [CustomDashboard.id]. */
+    suspend fun saveCustomDashboard(dashboard: CustomDashboard)
+
+    suspend fun deleteCustomDashboard(id: String)
 }

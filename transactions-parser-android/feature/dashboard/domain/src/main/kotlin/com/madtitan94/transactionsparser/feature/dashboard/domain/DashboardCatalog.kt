@@ -110,10 +110,99 @@ enum class DashboardId {
     PAYEES
 }
 
+/**
+ * How a dashboard is named in preferences, in the chip row, and in the manage screen.
+ *
+ * A plain [DashboardId] cannot do this job any more: a dashboard the user builds has no enum entry
+ * to be, and yet it is ordered, switched off and starred alongside the four that ship. Preferences
+ * store the [storageId] string rather than an ordinal, per `DashboardSpec` §3 — an ordinal would
+ * silently repoint every saved layout the day someone reorders the enum.
+ */
+sealed interface DashboardKey {
+
+    /** What preferences actually hold. Stable across versions; never a positional index. */
+    val storageId: String
+
+    data class BuiltIn(val id: DashboardId) : DashboardKey {
+        override val storageId: String get() = id.name
+    }
+
+    data class Custom(val id: String) : DashboardKey {
+        override val storageId: String get() = CUSTOM_PREFIX + id
+    }
+
+    companion object {
+        /** Namespaces user ids away from the enum names, so neither can ever be read as the other. */
+        const val CUSTOM_PREFIX = "custom:"
+
+        /**
+         * Reads a stored id back, or null if this build has never heard of it.
+         *
+         * Null rather than an exception: a downgrade leaves ids from a newer version behind, and a
+         * layout that quietly drops one entry is a far better outcome on launch than a crash.
+         */
+        fun parse(raw: String): DashboardKey? {
+            val trimmed = raw.trim()
+            if (trimmed.startsWith(CUSTOM_PREFIX)) {
+                return trimmed.removePrefix(CUSTOM_PREFIX).takeIf { it.isNotEmpty() }?.let(::Custom)
+            }
+            return runCatching { DashboardId.valueOf(trimmed) }.getOrNull()?.let(::BuiltIn)
+        }
+    }
+}
+
+/**
+ * One dashboard the renderer can draw: an identity and an ordered list of widgets.
+ *
+ * [name] is null for the four that ship, because their names are translatable copy and live in the
+ * presentation module's strings. A dashboard the user built carries the name they typed, which is
+ * not translatable and has nowhere else to be.
+ */
 data class DashboardDefinition(
-    val id: DashboardId,
-    val widgets: List<DashboardWidgetConfig>
+    val key: DashboardKey,
+    val widgets: List<DashboardWidgetConfig>,
+    val name: String? = null
 )
+
+/**
+ * A dashboard the user composed, as it is stored.
+ *
+ * Widget *ids* rather than configs: the builder is a checklist of widget types, so the options a
+ * config carries — which measure the hero counts, whether a ranked list shows money or share — are
+ * not things the user is asked about. [defaultConfigFor] supplies them, which keeps the stored form
+ * to a list of enum names that survives a config gaining a field later.
+ */
+data class CustomDashboard(
+    val id: String,
+    val name: String,
+    val widgets: List<DashboardWidgetId>
+) {
+    val key: DashboardKey get() = DashboardKey.Custom(id)
+
+    fun toDefinition(): DashboardDefinition = DashboardDefinition(
+        key = key,
+        widgets = widgets.map(::defaultConfigFor),
+        name = name
+    )
+}
+
+/**
+ * The options a widget takes when the user picked the widget but not its options.
+ *
+ * Net spend for the hero and amounts for the category ranking, because those are the versions the
+ * shipped dashboards lead with; all payees rather than only the unmapped ones, because a builder
+ * offering "top payees" and rendering an empty work queue would look broken on a well-mapped
+ * account.
+ */
+fun defaultConfigFor(id: DashboardWidgetId): DashboardWidgetConfig = when (id) {
+    DashboardWidgetId.INSIGHT_BANNER -> DashboardWidgetConfig.InsightBanner
+    DashboardWidgetId.HERO_KPI -> DashboardWidgetConfig.Hero(HeroMeasure.NET_SPEND)
+    DashboardWidgetId.TYPE_TILES -> DashboardWidgetConfig.TypeTiles
+    DashboardWidgetId.TREND_CHART -> DashboardWidgetConfig.TrendChart
+    DashboardWidgetId.CATEGORY_DONUT -> DashboardWidgetConfig.CategoryDonut
+    DashboardWidgetId.CATEGORY_RANKED_LIST -> DashboardWidgetConfig.CategoryRanked(RankedValueFormat.AMOUNT)
+    DashboardWidgetId.PAYEE_RANKED_LIST -> DashboardWidgetConfig.PayeeRanked(PayeeScope.ALL)
+}
 
 /**
  * The four v1 dashboards, in their default order.
@@ -125,7 +214,7 @@ data class DashboardDefinition(
  */
 val V1_DASHBOARDS: List<DashboardDefinition> = listOf(
     DashboardDefinition(
-        id = DashboardId.PULSE,
+        key = DashboardKey.BuiltIn(DashboardId.PULSE),
         widgets = listOf(
             DashboardWidgetConfig.Hero(HeroMeasure.NET_SPEND),
             DashboardWidgetConfig.InsightBanner,
@@ -134,7 +223,7 @@ val V1_DASHBOARDS: List<DashboardDefinition> = listOf(
         )
     ),
     DashboardDefinition(
-        id = DashboardId.CATEGORIES,
+        key = DashboardKey.BuiltIn(DashboardId.CATEGORIES),
         widgets = listOf(
             DashboardWidgetConfig.CategoryDonut,
             DashboardWidgetConfig.CategoryRanked(RankedValueFormat.PERCENT),
@@ -142,7 +231,7 @@ val V1_DASHBOARDS: List<DashboardDefinition> = listOf(
         )
     ),
     DashboardDefinition(
-        id = DashboardId.MAPPING_HEALTH,
+        key = DashboardKey.BuiltIn(DashboardId.MAPPING_HEALTH),
         widgets = listOf(
             DashboardWidgetConfig.Hero(HeroMeasure.MAPPED_SHARE),
             DashboardWidgetConfig.InsightBanner,
@@ -150,7 +239,7 @@ val V1_DASHBOARDS: List<DashboardDefinition> = listOf(
         )
     ),
     DashboardDefinition(
-        id = DashboardId.PAYEES,
+        key = DashboardKey.BuiltIn(DashboardId.PAYEES),
         widgets = listOf(
             DashboardWidgetConfig.PayeeRanked(PayeeScope.ALL),
             DashboardWidgetConfig.TypeTiles

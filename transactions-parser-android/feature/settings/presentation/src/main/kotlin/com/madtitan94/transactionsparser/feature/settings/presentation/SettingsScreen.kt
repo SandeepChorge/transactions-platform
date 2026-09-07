@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.DashboardCustomize
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
@@ -64,6 +66,8 @@ fun SettingsRoot(
     onOpenProfile: () -> Unit,
     onOpenRecentlyDeleted: () -> Unit,
     onOpenCategories: () -> Unit,
+    onOpenManageDashboards: () -> Unit,
+    onOpenDefaultDashboard: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -131,6 +135,8 @@ fun SettingsRoot(
         onOpenProfile = onOpenProfile,
         onOpenRecentlyDeleted = onOpenRecentlyDeleted,
         onOpenCategories = onOpenCategories,
+        onOpenManageDashboards = onOpenManageDashboards,
+        onOpenDefaultDashboard = onOpenDefaultDashboard,
         onAction = viewModel::onAction
     )
 }
@@ -151,6 +157,8 @@ private fun SettingsScreen(
     onOpenProfile: () -> Unit,
     onOpenRecentlyDeleted: () -> Unit,
     onOpenCategories: () -> Unit,
+    onOpenManageDashboards: () -> Unit,
+    onOpenDefaultDashboard: () -> Unit,
     onAction: (SettingsAction) -> Unit
 ) {
     Scaffold(
@@ -182,6 +190,26 @@ private fun SettingsScreen(
                 title = stringResource(R.string.settings_categories),
                 supporting = stringResource(R.string.settings_categories_supporting),
                 onClick = onOpenCategories
+            )
+            HorizontalDivider()
+
+            // Two rows rather than the one "Dashboard layout" row the plan named. They are
+            // different decisions: which dashboards exist and in what order is a set, while which
+            // one opens first is a single choice among them, and folding them together would put a
+            // star and a switch on the same row with no way to express "starred but switched off".
+            SettingsRow(
+                icon = Icons.Default.DashboardCustomize,
+                title = stringResource(R.string.settings_dashboards),
+                supporting = stringResource(R.string.settings_dashboards_supporting),
+                onClick = onOpenManageDashboards
+            )
+            HorizontalDivider()
+
+            SettingsRow(
+                icon = Icons.Default.Dashboard,
+                title = stringResource(R.string.settings_default_dashboard),
+                supporting = stringResource(R.string.settings_default_dashboard_supporting),
+                onClick = onOpenDefaultDashboard
             )
             HorizontalDivider()
 

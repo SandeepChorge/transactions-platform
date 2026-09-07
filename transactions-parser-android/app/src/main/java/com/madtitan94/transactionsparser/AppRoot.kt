@@ -27,6 +27,8 @@ import com.madtitan94.transactionsparser.feature.auth.presentation.LoginRoot
 import com.madtitan94.transactionsparser.feature.categories.presentation.navigation.CategoriesRoute
 import com.madtitan94.transactionsparser.feature.categories.presentation.navigation.categoriesGraph
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.DashboardRoute
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.DefaultDashboardRoute
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.ManageDashboardsRoute
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.dashboardGraph
 import com.madtitan94.transactionsparser.feature.profile.presentation.navigation.ProfileRoute
 import com.madtitan94.transactionsparser.feature.profile.presentation.navigation.profileGraph
@@ -131,6 +133,7 @@ private fun MainScaffold() {
             modifier = Modifier.padding(padding)
         ) {
             dashboardGraph(
+                navController = navController,
                 onOpenPayee = { normalizedPayee, rawPayee ->
                     navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
                 },
@@ -149,7 +152,9 @@ private fun MainScaffold() {
                 appVersion = BuildConfig.VERSION_NAME,
                 appVersionCode = BuildConfig.VERSION_CODE,
                 onOpenProfile = { navController.navigate(ProfileRoute) },
-                onOpenCategories = { navController.navigate(CategoriesRoute) }
+                onOpenCategories = { navController.navigate(CategoriesRoute) },
+                onOpenManageDashboards = { navController.navigate(ManageDashboardsRoute) },
+                onOpenDefaultDashboard = { navController.navigate(DefaultDashboardRoute) }
             )
         }
     }

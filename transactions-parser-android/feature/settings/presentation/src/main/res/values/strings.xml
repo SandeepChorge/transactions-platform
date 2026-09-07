@@ -58,4 +58,10 @@
     <string name="recently_deleted_restored">Restored</string>
     <string name="recently_deleted_empty_title">Nothing deleted</string>
     <string name="recently_deleted_empty_description">Anything you delete shows up here so you can bring it back.</string>
+    <!-- Dashboard settings. The screens themselves live in the dashboard feature. -->
+    <string name="settings_dashboards">Manage dashboards</string>
+    <string name="settings_dashboards_supporting">Turn them on and off, reorder, or build your own</string>
+    <string name="settings_default_dashboard">Default dashboard</string>
+    <string name="settings_default_dashboard_supporting">Opens when you launch the app</string>
+
 </resources>
