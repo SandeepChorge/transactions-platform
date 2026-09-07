@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="settings_title">Settings</string>
+    <!-- "You" rather than "Settings": the screen holds the account, the categories and the
+         data actions, which is more than settings, and the bottom bar labels it the same. -->
+    <string name="settings_title">You</string>
 
     <string name="settings_profile">Profile</string>
     <string name="settings_export">Export</string>
@@ -27,6 +29,8 @@
     <string name="settings_restore_done_action">Done</string>
     <string name="settings_recently_deleted">Recently deleted</string>
     <string name="settings_recently_deleted_supporting">Bring back something you removed</string>
+    <string name="settings_categories">Categories</string>
+    <string name="settings_categories_supporting">Rename, add and recover the categories payees are filed under</string>
     <string name="settings_theme">Theme</string>
     <!-- "Follow system" rather than "System": the row's supporting line has to read as an answer
          to "which theme?", and "System" on its own reads like a third colour scheme. -->

@@ -117,3 +117,39 @@ data class PayeeSummary(
     val unmappedPayeeCount: Int = 0,
     val unmappedTransactionCount: Int = 0
 )
+
+/**
+ * One row of the payee directory — everyone the account knows about, over all time.
+ *
+ * Unlike [PayeeTotal] this is not ranked spend for a period; it is the roster. Two things follow
+ * from that and are the reason it is a separate model rather than a reused one:
+ *
+ * - **A payee with no countable spend still has a row**, at zero. [PayeeTotal] is built by grouping
+ *   transactions, so a payee whose every transaction is excluded simply has nothing to group and
+ *   disappears — correct for a ranked chart, wrong for a directory the user came to in order to
+ *   *find* that payee and fix it.
+ * - **Unclaimed statement names are listed too**, as rows with no [payeeId]. A directory of only the
+ *   named payees would present a partial list as a complete one and would disagree with
+ *   [PayeeSummary.payeeCount] about what the account contains.
+ *
+ * [identifierCount] is what lets the screen say "also known as 2 other names" without a second
+ * query per row. It is zero, not one, for an unclaimed name: the point is not that the payee has no
+ * names but that no identifier has ever claimed this one.
+ */
+data class PayeeDirectoryEntry(
+    val payeeId: Long?,
+    /** The user's alias when mapped, the statement's own name when not. */
+    val label: String,
+    /** The statement's own name, kept even when [label] is an alias, so a row can be opened. */
+    val statementName: String,
+    /** One of the payee's normalised names — enough to open its history, merged siblings and all. */
+    val normalizedName: String,
+    /** Null exactly when [payeeId] is; an unclaimed name has no category to show. */
+    val categoryName: String?,
+    val identifierCount: Int,
+    val totalPaise: Long,
+    val transactionCount: Int
+) {
+    /** No payee behind the name yet — the rows the directory's Unmapped filter is for. */
+    val isUnmapped: Boolean get() = payeeId == null
+}

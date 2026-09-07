@@ -34,6 +34,7 @@ import com.madtitan94.transactionsparser.core.database.toDayTotal
 import com.madtitan94.transactionsparser.core.database.toPayee
 import com.madtitan94.transactionsparser.core.database.toPayeeIdentifier
 import com.madtitan94.transactionsparser.core.database.toPayeeSummary
+import com.madtitan94.transactionsparser.core.database.toPayeeDirectoryEntry
 import com.madtitan94.transactionsparser.core.database.toPayeeTotal
 import com.madtitan94.transactionsparser.core.database.toPayeeTotals
 import com.madtitan94.transactionsparser.core.database.toPeriodTotal
@@ -65,6 +66,7 @@ import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeDirectoryEntry
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
@@ -177,6 +179,10 @@ class RoomPayeeDataSource(
     override fun observeAll(): Flow<List<Payee>> =
         activeAccount.flowForOwner(dao::observeAll)
             .map { rows -> rows.map { it.toPayee() } }
+
+    override fun observeDirectory(): Flow<List<PayeeDirectoryEntry>> =
+        activeAccount.flowForOwner(dao::observeDirectory)
+            .map { rows -> rows.map { it.toPayeeDirectoryEntry() } }
 
     override fun observeLinkedIdentifiers(normalizedName: String): Flow<List<PayeeIdentifier>> =
         activeAccount.flowForOwner { ownerId -> identifiers.observeLinkedTo(ownerId, normalizedName) }

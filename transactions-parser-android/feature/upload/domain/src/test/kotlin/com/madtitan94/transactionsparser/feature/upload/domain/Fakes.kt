@@ -6,6 +6,7 @@ import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocal
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import androidx.paging.PagingData
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeDirectoryEntry
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
@@ -225,6 +226,9 @@ class FakePayeeDataSource(initial: Map<String, Payee> = emptyMap()) : PayeeLocal
 
     override fun observeAll(): Flow<List<Payee>> =
         MutableStateFlow(byIdentifier.values.distinctBy { it.id }.sortedBy { it.alias })
+
+    /** The import path never reads the directory; it exists to satisfy the contract. */
+    override fun observeDirectory(): Flow<List<PayeeDirectoryEntry>> = MutableStateFlow(emptyList())
 
     override fun observeLinkedIdentifiers(normalizedName: String): Flow<List<PayeeIdentifier>> {
         val payeeId = byIdentifier[normalizedName]?.id

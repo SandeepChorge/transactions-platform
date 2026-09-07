@@ -6,6 +6,7 @@ import androidx.navigation.compose.composable
 import com.madtitan94.transactionsparser.feature.sessions.presentation.detail.SessionDetailRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.history.SessionsHistoryRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDetailRoot
+import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDirectoryRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.uploadhistory.UploadHistoryRoot
 import kotlinx.serialization.Serializable
 
@@ -26,6 +27,10 @@ data class PayeeDetailRoute(val normalizedPayee: String, val rawPayee: String)
 @Serializable
 data object UploadHistoryRoute
 
+/** The Payees tab — the directory that [PayeeDetailRoute] is opened from. */
+@Serializable
+data object PayeeDirectoryRoute
+
 fun NavGraphBuilder.sessionsGraph(navController: NavController) {
     composable<SessionsHistoryRoute> {
         SessionsHistoryRoot(
@@ -36,6 +41,13 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
     composable<SessionDetailRoute> {
         SessionDetailRoot(
             onBack = { navController.navigateUp() },
+            onOpenPayee = { normalizedPayee, rawPayee ->
+                navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
+            }
+        )
+    }
+    composable<PayeeDirectoryRoute> {
+        PayeeDirectoryRoot(
             onOpenPayee = { normalizedPayee, rawPayee ->
                 navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
             }

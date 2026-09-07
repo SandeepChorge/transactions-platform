@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Person
@@ -62,6 +63,7 @@ fun SettingsRoot(
     appVersionCode: Int,
     onOpenProfile: () -> Unit,
     onOpenRecentlyDeleted: () -> Unit,
+    onOpenCategories: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -128,6 +130,7 @@ fun SettingsRoot(
         snackbarHostState = snackbarHostState,
         onOpenProfile = onOpenProfile,
         onOpenRecentlyDeleted = onOpenRecentlyDeleted,
+        onOpenCategories = onOpenCategories,
         onAction = viewModel::onAction
     )
 }
@@ -147,6 +150,7 @@ private fun SettingsScreen(
     snackbarHostState: SnackbarHostState,
     onOpenProfile: () -> Unit,
     onOpenRecentlyDeleted: () -> Unit,
+    onOpenCategories: () -> Unit,
     onAction: (SettingsAction) -> Unit
 ) {
     Scaffold(
@@ -170,6 +174,17 @@ private fun SettingsScreen(
             // The design ships two themes rather than one, so there has to be somewhere to choose
             // between them. Defaulting to the system setting is what makes both halves reachable
             // without anyone having to find this row first.
+            // Categories left the bottom bar when the design's five slots were spent elsewhere, so
+            // this is now the only way to reach it. It sits directly under Profile rather than
+            // among the data rows: it is setup, not maintenance.
+            SettingsRow(
+                icon = Icons.Default.Category,
+                title = stringResource(R.string.settings_categories),
+                supporting = stringResource(R.string.settings_categories_supporting),
+                onClick = onOpenCategories
+            )
+            HorizontalDivider()
+
             SettingsRow(
                 icon = Icons.Default.DarkMode,
                 title = stringResource(R.string.settings_theme),

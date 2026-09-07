@@ -4,6 +4,7 @@ import com.madtitan94.transactionsparser.core.database.dao.CategoryTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.DayTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.DuplicateCandidate
 import com.madtitan94.transactionsparser.core.database.dao.PayeeSummaryRow
+import com.madtitan94.transactionsparser.core.database.dao.PayeeDirectoryRow
 import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalsRow
 import com.madtitan94.transactionsparser.core.database.dao.PeriodTotalRow
@@ -22,6 +23,7 @@ import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
+import com.madtitan94.transactionsparser.core.domain.model.PayeeDirectoryEntry
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
@@ -209,6 +211,17 @@ fun PayeeTotalRow.toPayeeTotal() = PayeeTotal(
     label = alias ?: statementName,
     statementName = statementName,
     normalizedName = normalizedName,
+    totalPaise = totalPaise,
+    transactionCount = transactionCount
+)
+
+fun PayeeDirectoryRow.toPayeeDirectoryEntry() = PayeeDirectoryEntry(
+    payeeId = payeeId,
+    label = alias ?: statementName,
+    statementName = statementName,
+    normalizedName = normalizedName,
+    categoryName = categoryName,
+    identifierCount = identifierCount,
     totalPaise = totalPaise,
     transactionCount = transactionCount
 )
