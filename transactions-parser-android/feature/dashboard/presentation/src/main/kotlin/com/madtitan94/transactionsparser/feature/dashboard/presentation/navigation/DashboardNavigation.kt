@@ -81,13 +81,15 @@ data class CategoryInsightRoute(
 fun NavGraphBuilder.dashboardGraph(
     navController: NavController,
     onOpenPayee: (normalizedPayee: String, rawPayee: String) -> Unit,
-    onOpenCategories: () -> Unit
+    onOpenCategories: () -> Unit,
+    onOpenSearch: () -> Unit
 ) {
     composable<DashboardRoute> {
         DashboardRoot(
             onOpenPayee = onOpenPayee,
             onOpenCategories = onOpenCategories,
             onManageDashboards = { navController.navigate(ManageDashboardsRoute) },
+            onOpenSearch = onOpenSearch,
             onOpenCategoryInsight = { id, name ->
                 navController.navigate(
                     CategoryInsightRoute(id ?: CategoryInsightRoute.UNCATEGORISED, name)

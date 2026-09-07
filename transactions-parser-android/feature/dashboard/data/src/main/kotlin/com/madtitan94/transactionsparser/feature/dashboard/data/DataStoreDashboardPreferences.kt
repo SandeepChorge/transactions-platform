@@ -79,6 +79,7 @@ class DataStoreDashboardPreferences(
         const val DISABLED = "dashboard_disabled"
         const val DEFAULT = "dashboard_default"
         const val CUSTOM = "dashboard_custom"
+        const val DISMISSED_ANOMALIES = "dismissed_anomalies"
     }
 
     private fun ownerId(): Flow<String> = sessionStorage.observeSession()
@@ -203,6 +204,34 @@ class DataStoreDashboardPreferences(
         // The order and disabled lists are deliberately left alone. They are read through
         // DashboardKey.parse against the dashboards that exist, so a dangling id is already ignored,
         // and rewriting three keys to tidy up one deletion is three chances to corrupt a layout.
+    }
+
+    /**
+     * Row ids the user has waved off, as a delimited list.
+     *
+     * A delimited string rather than DataStore's own `stringSetPreferencesKey`, so that every value
+     * in this file goes through the same account-prefixed [scoped] read and there is exactly one way
+     * a key can be built. A set of ids is the one shape where the delimiter is safe without
+     * escaping: the members are digits.
+     *
+     * Values that do not parse are dropped rather than thrown on, like every other read here — a
+     * corrupted dismissal costs the user one callout reappearing, which is recoverable by dismissing
+     * it again.
+     */
+    override fun observeDismissedAnomalies(): Flow<Set<Long>> = scoped { prefs, key ->
+        prefs[key(Keys.DISMISSED_ANOMALIES)].orEmpty()
+            .split(ID_SEPARATOR)
+            .mapNotNull { it.toLongOrNull() }
+            .toSet()
+    }
+
+    override suspend fun dismissAnomaly(transactionId: Long) = editScoped { prefs, key ->
+        val current = prefs[key(Keys.DISMISSED_ANOMALIES)].orEmpty()
+            .split(ID_SEPARATOR)
+            .mapNotNull { it.toLongOrNull() }
+            .toMutableSet()
+        current.add(transactionId)
+        prefs[key(Keys.DISMISSED_ANOMALIES)] = current.joinToString(ID_SEPARATOR)
     }
 
     private fun String?.toKeys(): List<DashboardKey> =

@@ -9,8 +9,8 @@ import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val dashboardPresentationModule = module {
-    viewModel { DashboardViewModel(get(), get()) }
+    viewModel { DashboardViewModel(get(), get(), get()) }
     viewModelOf(::DashboardLayoutViewModel)
     viewModelOf(::DashboardBuilderViewModel)
-    viewModel { CategoryInsightViewModel(get(), get(), get()) }
+    viewModel { CategoryInsightViewModel(get(), get(), get(), get()) }
 }

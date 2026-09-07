@@ -56,11 +56,13 @@ import com.madtitan94.transactionsparser.feature.dashboard.presentation.CustomRa
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.R
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.RangeSheet
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.rangeLabel
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.AnomalyCallout
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.CardEmptyLine
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.CardEyebrow
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.CardHeader
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.DashboardCard
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.PayeeRankedWidget
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets.toCalloutUi
 import java.time.LocalDate
 import org.koin.androidx.compose.koinViewModel
 
@@ -121,6 +123,19 @@ fun CategoryInsightScreen(
         }
 
         InsightHero(state = state)
+
+        // Between the hero and the carousel, not above the header. The hero states what this
+        // category did over the period, and the callout is a caveat on that figure — read the other
+        // way round, an unusual charge appears before the user knows what they are looking at.
+        state.anomalies.forEach { anomaly ->
+            Spacer(Modifier.height(12.dp))
+            AnomalyCallout(
+                callout = anomaly.toCalloutUi(),
+                onDismiss = { id -> onAction(CategoryInsightAction.OnDismissAnomaly(id)) },
+                onClick = { onOpenPayee(anomaly.normalizedName, anomaly.statementName) },
+                modifier = Modifier.padding(horizontal = AppDimens.screenHorizontalPadding)
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
 

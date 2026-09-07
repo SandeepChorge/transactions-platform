@@ -36,6 +36,8 @@ import com.madtitan94.transactionsparser.core.database.toPayeeIdentifier
 import com.madtitan94.transactionsparser.core.database.toPayeeSummary
 import com.madtitan94.transactionsparser.core.database.toPayeeDirectoryEntry
 import com.madtitan94.transactionsparser.core.database.toCategoryShare
+import com.madtitan94.transactionsparser.core.database.toSearchResult
+import com.madtitan94.transactionsparser.core.database.toSpendAnomaly
 import com.madtitan94.transactionsparser.core.database.toPayeeTotal
 import com.madtitan94.transactionsparser.core.database.toPayeeTotals
 import com.madtitan94.transactionsparser.core.database.toPeriodTotal
@@ -57,11 +59,13 @@ import com.madtitan94.transactionsparser.core.domain.backup.RestorePayload
 import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.domain.datasource.BackupLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.AnomalyLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryInsightLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.DashboardLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.TransactionSearchLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
@@ -75,12 +79,17 @@ import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
 import com.madtitan94.transactionsparser.core.domain.model.CategoryShare
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
+import com.madtitan94.transactionsparser.core.domain.model.SEARCH_RESULT_LIMIT
+import com.madtitan94.transactionsparser.core.domain.model.SearchQuery
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyScope
+import com.madtitan94.transactionsparser.core.domain.model.SpendAnomaly
 import com.madtitan94.transactionsparser.core.domain.model.StatementSession
 import com.madtitan94.transactionsparser.core.domain.model.Transaction
 import com.madtitan94.transactionsparser.core.domain.model.TransactionExportRow
 import com.madtitan94.transactionsparser.core.domain.model.TransactionKey
+import com.madtitan94.transactionsparser.core.domain.model.TransactionSearchPage
 import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.util.DataError
@@ -88,7 +97,9 @@ import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
 import com.madtitan94.transactionsparser.core.domain.util.Result
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -499,6 +510,87 @@ class RoomCategoryInsightDataSource(
                 range.toMillisExclusive
             )
         }.map { it.toCategoryShare() }
+}
+
+/**
+ * The search, over the same [TransactionDao] everything else reads.
+ *
+ * The blank-query short circuit is here rather than in the ViewModel on purpose. A one-character
+ * query is not a narrower search, it is the whole account rendered as a result list, and the honest
+ * answer to it is nothing at all — returning it from the data source means every caller gets that
+ * answer rather than each one remembering to ask for it.
+ */
+class RoomTransactionSearchDataSource(
+    private val dao: TransactionDao,
+    private val activeAccount: ActiveAccountProvider
+) : TransactionSearchLocalDataSource {
+
+    override fun observeSearch(query: SearchQuery): Flow<TransactionSearchPage> {
+        if (query.isBlank) return flowOf(TransactionSearchPage.Empty)
+
+        val pattern = query.likePattern()
+        return activeAccount.flowForOwner { ownerId ->
+            combine(
+                dao.observeSearch(
+                    ownerId = ownerId,
+                    pattern = pattern,
+                    amountFromPaise = query.amountFromPaise,
+                    amountToPaise = query.amountToPaise,
+                    limit = SEARCH_RESULT_LIMIT
+                ),
+                dao.observeSearchCount(
+                    ownerId = ownerId,
+                    pattern = pattern,
+                    amountFromPaise = query.amountFromPaise,
+                    amountToPaise = query.amountToPaise
+                )
+            ) { rows, total ->
+                TransactionSearchPage(
+                    results = rows.map { it.toSearchResult() },
+                    totalCount = total
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Unusually large charges, judged against each category's own recent habit.
+ *
+ * Nothing here decides what "unusual" means — the thresholds arrive as arguments, from
+ * `AnomalyThresholds`. That is deliberate: these numbers are the part of the feature most likely to
+ * be wrong on first contact with real statements, and a threshold buried in a data source is one
+ * nobody tunes.
+ */
+class RoomAnomalyDataSource(
+    private val dao: TransactionDao,
+    private val activeAccount: ActiveAccountProvider
+) : AnomalyLocalDataSource {
+
+    override fun observeAnomalies(
+        range: DateRange,
+        baseline: DateRange,
+        scope: AnomalyScope,
+        multiplier: Double,
+        minSampleCount: Int,
+        minAmountPaise: Long,
+        limit: Int
+    ): Flow<List<SpendAnomaly>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeAnomalies(
+                ownerId = ownerId,
+                fromMillis = range.fromMillis,
+                toMillisExclusive = range.toMillisExclusive,
+                baselineFromMillis = baseline.fromMillis,
+                baselineToMillisExclusive = baseline.toMillisExclusive,
+                allCategories = scope is AnomalyScope.All,
+                categoryId = (scope as? AnomalyScope.OneCategory)?.categoryId,
+                multiplier = multiplier,
+                minSampleCount = minSampleCount,
+                minAmountPaise = minAmountPaise,
+                limit = limit
+            )
+        }.map { rows -> rows.map { it.toSpendAnomaly() } }
 }
 
 class RoomUploadLogDataSource(

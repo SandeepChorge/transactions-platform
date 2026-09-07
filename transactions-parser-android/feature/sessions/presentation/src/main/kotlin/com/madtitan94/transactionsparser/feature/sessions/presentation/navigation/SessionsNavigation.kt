@@ -7,6 +7,7 @@ import com.madtitan94.transactionsparser.feature.sessions.presentation.detail.Se
 import com.madtitan94.transactionsparser.feature.sessions.presentation.history.SessionsHistoryRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDetailRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDirectoryRoot
+import com.madtitan94.transactionsparser.feature.sessions.presentation.search.TransactionSearchRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.uploadhistory.UploadHistoryRoot
 import kotlinx.serialization.Serializable
 
@@ -30,6 +31,17 @@ data object UploadHistoryRoute
 /** The Payees tab — the directory that [PayeeDetailRoute] is opened from. */
 @Serializable
 data object PayeeDirectoryRoute
+
+/**
+ * Global search over every transaction the account holds.
+ *
+ * A destination of its own rather than a mode of an existing list. Search is reached from the
+ * dashboard, ranges across every statement, and holds a keyboard the whole time it is open — folding
+ * it into a tab would put a text field permanently above a screen that is mostly read, and pressing
+ * back would have to mean two different things depending on whether anything had been typed.
+ */
+@Serializable
+data object TransactionSearchRoute
 
 fun NavGraphBuilder.sessionsGraph(navController: NavController) {
     composable<SessionsHistoryRoute> {
@@ -58,5 +70,13 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
     }
     composable<UploadHistoryRoute> {
         UploadHistoryRoot(onBack = { navController.navigateUp() })
+    }
+    composable<TransactionSearchRoute> {
+        TransactionSearchRoot(
+            onBack = { navController.navigateUp() },
+            onOpenPayee = { normalizedPayee, rawPayee ->
+                navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
+            }
+        )
     }
 }

@@ -5,13 +5,18 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isNotNull
+import assertk.assertions.isNull
 import assertk.assertions.isTrue
+import com.madtitan94.transactionsparser.core.domain.datasource.AnomalyLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.DashboardLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyScope
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyThresholds
 import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
+import com.madtitan94.transactionsparser.core.domain.model.SpendAnomaly
 import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.feature.dashboard.domain.CustomDashboard
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardId
@@ -115,12 +120,63 @@ class DashboardViewModelTest {
         override suspend fun saveCustomDashboard(dashboard: CustomDashboard) =
             error("not written here")
         override suspend fun deleteCustomDashboard(id: String) = error("not written here")
+
+        val dismissed = MutableStateFlow<Set<Long>>(emptySet())
+        override fun observeDismissedAnomalies(): Flow<Set<Long>> = dismissed
+        override suspend fun dismissAnomaly(transactionId: Long) {
+            dismissed.value = dismissed.value + transactionId
+        }
     }
+
+    /**
+     * Records the two windows it was asked about, because choosing them is most of what the
+     * ViewModel does here: a baseline that quietly overlapped the period under examination would
+     * still produce callouts, just weaker ones nobody could tell were wrong.
+     */
+    private class FakeAnomalyDataSource(
+        anomalies: List<SpendAnomaly> = emptyList()
+    ) : AnomalyLocalDataSource {
+        var range: DateRange? = null
+        var baseline: DateRange? = null
+        var scope: AnomalyScope? = null
+        var limit: Int? = null
+        val found = MutableStateFlow(anomalies)
+
+        override fun observeAnomalies(
+            range: DateRange,
+            baseline: DateRange,
+            scope: AnomalyScope,
+            multiplier: Double,
+            minSampleCount: Int,
+            minAmountPaise: Long,
+            limit: Int
+        ): Flow<List<SpendAnomaly>> {
+            this.range = range
+            this.baseline = baseline
+            this.scope = scope
+            this.limit = limit
+            return found
+        }
+    }
+
+    private fun anomaly(id: Long, amountPaise: Long = 400_000L) = SpendAnomaly(
+        transactionId = id,
+        dateTimeUtcMillis = utc(2026, 5, 12),
+        label = "Payee $id",
+        statementName = "PAYEE $id",
+        normalizedName = "payee$id",
+        categoryId = 3L,
+        categoryName = "Groceries",
+        amountPaise = amountPaise,
+        baselineMeanPaise = 100_000L,
+        baselineSampleCount = 9
+    )
 
     private fun viewModel(
         dataSource: DashboardLocalDataSource = FakeDashboardDataSource(),
+        anomalies: AnomalyLocalDataSource = FakeAnomalyDataSource(),
         preferences: DashboardPreferences = FakeDashboardPreferences()
-    ) = DashboardViewModel(dataSource, preferences, today = { today })
+    ) = DashboardViewModel(dataSource, anomalies, preferences, today = { today })
 
     @Test
     fun `the screen opens on the starred dashboard`() = runTest {
@@ -299,5 +355,68 @@ class DashboardViewModelTest {
 
         assertThat(vm.state.value.isLoading).isFalse()
         assertThat(vm.state.value.data.debitPaise).isEqualTo(400_00L)
+    }
+
+    @Test
+    fun `the anomaly baseline ends where the viewed period begins and never overlaps it`() =
+        runTest {
+            val found = FakeAnomalyDataSource()
+            viewModel(
+                anomalies = found,
+                preferences = FakeDashboardPreferences(range = DashboardRange.ThisMonth)
+            )
+
+            // Three whole months before September, stopping on the 1st. Overlap here would let an
+            // unusual charge raise the average it is judged against and hide itself.
+            assertThat(found.baseline).isEqualTo(DateRange(utc(2026, 6, 1), utc(2026, 9, 1)))
+            assertThat(found.range).isEqualTo(DateRange(utc(2026, 9, 1), utc(2026, 10, 1)))
+            assertThat(found.baseline!!.toMillisExclusive).isEqualTo(found.range!!.fromMillis)
+        }
+
+    @Test
+    fun `the dashboard asks about every category, not one`() = runTest {
+        val found = FakeAnomalyDataSource()
+        viewModel(anomalies = found)
+
+        assertThat(found.scope).isEqualTo(AnomalyScope.All)
+    }
+
+    @Test
+    fun `all time reports no anomalies rather than inventing a baseline`() = runTest {
+        // Every charge the account holds is already inside the period, so there is no earlier habit
+        // to measure against. The data source is never asked at all.
+        val found = FakeAnomalyDataSource(listOf(anomaly(1L)))
+        val vm = viewModel(
+            anomalies = found,
+            preferences = FakeDashboardPreferences(range = DashboardRange.AllTime)
+        )
+
+        assertThat(vm.state.value.data.anomalies).isEqualTo(emptyList<SpendAnomaly>())
+        assertThat(found.range).isNull()
+    }
+
+    @Test
+    fun `dismissing a callout removes it and leaves the rest`() = runTest {
+        val found = FakeAnomalyDataSource(listOf(anomaly(1L), anomaly(2L)))
+        val preferences = FakeDashboardPreferences()
+        val vm = viewModel(anomalies = found, preferences = preferences)
+
+        assertThat(vm.state.value.data.anomalies.map { it.transactionId }).isEqualTo(listOf(1L, 2L))
+
+        vm.onAction(DashboardAction.OnDismissAnomaly(1L))
+
+        assertThat(vm.state.value.data.anomalies.map { it.transactionId }).isEqualTo(listOf(2L))
+        assertThat(preferences.dismissed.value).isEqualTo(setOf(1L))
+    }
+
+    @Test
+    fun `more are fetched than are shown, so a dismissal does not thin the banner`() = runTest {
+        // The SQL limit is applied before dismissals are, so fetching exactly what is displayed
+        // would leave a period with a fourth unusual charge showing only two callouts.
+        val found = FakeAnomalyDataSource((1L..6L).map { anomaly(it) })
+        val vm = viewModel(anomalies = found)
+
+        assertThat(found.limit!! > AnomalyThresholds.LIMIT).isTrue()
+        assertThat(vm.state.value.data.anomalies.size).isEqualTo(AnomalyThresholds.LIMIT)
     }
 }

@@ -2,17 +2,22 @@ package com.madtitan94.transactionsparser.feature.dashboard.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.datasource.AnomalyLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.DashboardLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyScope
+import com.madtitan94.transactionsparser.core.domain.model.AnomalyThresholds
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
+import com.madtitan94.transactionsparser.core.domain.model.SpendAnomaly
 import com.madtitan94.transactionsparser.core.domain.model.TypeTotals
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardDefinition
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardPreferences
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
+import com.madtitan94.transactionsparser.feature.dashboard.domain.anomalyBaseline
 import com.madtitan94.transactionsparser.feature.dashboard.domain.lengthInDays
 import com.madtitan94.transactionsparser.feature.dashboard.domain.previous
 import com.madtitan94.transactionsparser.feature.dashboard.domain.resolve
@@ -55,7 +60,9 @@ data class DashboardData(
     /** Spend in the equal-length period before this one, or null when there is no "before". */
     val previousDebitPaise: Long? = null,
     /** The same categories, one period earlier — what makes "mostly Groceries" sayable. */
-    val previousCategoryTotals: List<CategoryTotal> = emptyList()
+    val previousCategoryTotals: List<CategoryTotal> = emptyList(),
+    /** Charges out of character for their category, with the ones already waved off removed. */
+    val anomalies: List<SpendAnomaly> = emptyList()
 ) {
     /** Total spend in the range. Taken from the type split so it cannot drift from the tiles. */
     val debitPaise: Long get() = typeTotals.debitPaise
@@ -127,6 +134,7 @@ sealed interface DashboardAction {
     data object OnCustomRangeClick : DashboardAction
     data class OnCustomRangePicked(val fromMillis: Long, val toMillisInclusive: Long) : DashboardAction
     data object OnCustomRangeDismiss : DashboardAction
+    data class OnDismissAnomaly(val transactionId: Long) : DashboardAction
 }
 
 /**
@@ -144,6 +152,7 @@ sealed interface DashboardAction {
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModel(
     private val dashboards: DashboardLocalDataSource,
+    private val anomalies: AnomalyLocalDataSource,
     private val preferences: DashboardPreferences,
     /** Injected so a test can pin "today" instead of depending on the machine's calendar. */
     private val today: () -> LocalDate = LocalDate::now
@@ -211,11 +220,45 @@ class DashboardViewModel(
             ) { types, categories -> types.debitPaise as Long? to categories }
         }
 
-        return combine(current, comparison) { data, (previousDebit, previousCategories) ->
+        return combine(current, comparison, observeAnomalies(window, range, on)) { data, comparison, unusual ->
+            val (previousDebit, previousCategories) = comparison
             data.copy(
                 previousDebitPaise = previousDebit,
-                previousCategoryTotals = previousCategories
+                previousCategoryTotals = previousCategories,
+                anomalies = unusual
             )
+        }
+    }
+
+    /**
+     * Unusual charges in [window], with the ones the user has already waved off removed.
+     *
+     * Dismissals are applied here rather than in SQL because they are a preference and the charges
+     * are statement data: the query would have to bind a list that grows for the life of the account
+     * and re-prepare itself every time the user taps a close button. Filtering afterwards costs one
+     * pass over at most [AnomalyThresholds.FETCH_LIMIT] rows.
+     */
+    private fun observeAnomalies(
+        window: DateRange,
+        range: DashboardRange,
+        on: LocalDate
+    ): kotlinx.coroutines.flow.Flow<List<SpendAnomaly>> {
+        val baseline = range.anomalyBaseline(on, AnomalyThresholds.BASELINE_MONTHS)
+            ?: return flowOf(emptyList())
+
+        return combine(
+            anomalies.observeAnomalies(
+                range = window,
+                baseline = baseline,
+                scope = AnomalyScope.All,
+                multiplier = AnomalyThresholds.MULTIPLIER,
+                minSampleCount = AnomalyThresholds.MIN_SAMPLE_COUNT,
+                minAmountPaise = AnomalyThresholds.MIN_AMOUNT_PAISE,
+                limit = AnomalyThresholds.FETCH_LIMIT
+            ),
+            preferences.observeDismissedAnomalies()
+        ) { found, dismissed ->
+            found.filterNot { it.transactionId in dismissed }.take(AnomalyThresholds.LIMIT)
         }
     }
 
@@ -233,6 +276,9 @@ class DashboardViewModel(
             }
             DashboardAction.OnCustomRangeClick -> _state.update { it.copy(isPickingCustomRange = true) }
             DashboardAction.OnCustomRangeDismiss -> _state.update { it.copy(isPickingCustomRange = false) }
+            is DashboardAction.OnDismissAnomaly -> viewModelScope.launch {
+                preferences.dismissAnomaly(action.transactionId)
+            }
             is DashboardAction.OnCustomRangePicked -> {
                 _state.update { it.copy(isPickingCustomRange = false) }
                 viewModelScope.launch {

@@ -39,6 +39,7 @@ import com.madtitan94.transactionsparser.feature.sessions.presentation.navigatio
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.PayeeDirectoryRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.SessionDetailRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.SessionsHistoryRoute
+import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.TransactionSearchRoute
 import com.madtitan94.transactionsparser.feature.sessions.presentation.navigation.sessionsGraph
 import com.madtitan94.transactionsparser.feature.upload.presentation.navigation.UploadRoute
 import com.madtitan94.transactionsparser.feature.upload.presentation.navigation.uploadGraph
@@ -138,7 +139,8 @@ private fun MainScaffold() {
                 onOpenPayee = { normalizedPayee, rawPayee ->
                     navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
                 },
-                onOpenCategories = { navController.navigate(CategoriesRoute) }
+                onOpenCategories = { navController.navigate(CategoriesRoute) },
+                onOpenSearch = { navController.navigate(TransactionSearchRoute) }
             )
             sessionsGraph(navController)
             uploadGraph(

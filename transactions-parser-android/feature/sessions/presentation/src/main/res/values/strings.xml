@@ -102,4 +102,18 @@
         <item quantity="one">%1$d other name</item>
         <item quantity="other">%1$d other names</item>
     </plurals>
+
+    <string name="search_title">Search transactions</string>
+    <string name="search_back">Back</string>
+    <string name="search_clear">Clear search</string>
+    <string name="search_hint">Payee, amount, UTR or reference</string>
+    <string name="search_idle_title">Find any transaction</string>
+    <string name="search_idle_body">Type a payee name, an amount like 1250, a UTR or a statement reference. Two characters is enough to start.</string>
+    <string name="search_none_title">No matches</string>
+    <string name="search_none_body">Nothing in this account matches that. Amounts are matched to the rupee — type the paise to narrow it further.</string>
+    <string name="search_truncated">Showing the newest %1$d of %2$d matches — narrow the search to see the rest</string>
+    <plurals name="search_count">
+        <item quantity="one">%1$d match</item>
+        <item quantity="other">%1$d matches</item>
+    </plurals>
 </resources>
