@@ -31,6 +31,17 @@ object AppChartDimens {
     val donutSelectedLift = 4.dp
 
     /**
+     * Taken off the hole's diameter to bound whatever the caller puts in the middle of the donut.
+     *
+     * The centre is a `Box` centred over the `Canvas`, so nothing about the ring constrains it on
+     * its own: a caption wider than the hole lays itself out straight across the ring and over
+     * whatever sits beside the chart. A custom range reads "01 Jun 2026 – 30 Jun 2026", which is
+     * twice the width of the hole. The inset also stops a clamped line from touching the inner edge
+     * of the stroke.
+     */
+    val donutCenterInset = 10.dp
+
+    /**
      * Added to each side of the ring's hit band. The ring is 17dp thick and the minimum touch
      * target is 48dp, so a tap needs more room than the stroke gives it.
      */

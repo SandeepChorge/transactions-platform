@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -203,7 +204,19 @@ fun DonutChart(
                 }
             }
         }
-        centerContent?.invoke()
+        if (centerContent != null) {
+            // Bounded to the hole rather than left to the outer box. The centre slot is centred over
+            // the Canvas, so without this a caption longer than the hole is drawn straight across
+            // the ring and out over whatever sits beside the chart — which is exactly what a custom
+            // date range did. Clamping here means no caller can reintroduce it.
+            Box(
+                modifier = Modifier.widthIn(
+                    max = ((radius - strokeWidth / 2) * 2) - AppChartDimens.donutCenterInset
+                ),
+                contentAlignment = Alignment.Center,
+                content = { centerContent() }
+            )
+        }
     }
 }
 

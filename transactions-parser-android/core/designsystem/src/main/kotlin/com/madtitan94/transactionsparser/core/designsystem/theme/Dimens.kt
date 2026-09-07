@@ -56,6 +56,17 @@ object AppDimens {
      */
     val barSegmentGap = 2.dp
 
+    /**
+     * Least space between a row's label and the amount at the end of it.
+     *
+     * A row that lays those two out with `Arrangement.SpaceBetween` has no gap left the moment the
+     * label is long enough to fill the row, and an ellipsised name ends up touching the figure
+     * beside it — "Shailaja patil - Swam…₹42,000". This is spacing rather than slack: it has to be
+     * reserved before the label is measured, which is what `Arrangement.spacedBy` does and
+     * `SpaceBetween` cannot.
+     */
+    val labelToAmountGap = 12.dp
+
     /** The category swatch beside a ranked row's label. */
     val swatchSize = 10.dp
 
