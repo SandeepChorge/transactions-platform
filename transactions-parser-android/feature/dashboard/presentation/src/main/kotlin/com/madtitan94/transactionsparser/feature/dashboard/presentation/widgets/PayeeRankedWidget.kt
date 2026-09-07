@@ -105,9 +105,12 @@ private fun PayeeRow(payee: PayeeTotal, fraction: Float, onClick: (() -> Unit)?)
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(AppDimens.rowLabelToBarGap)
         ) {
+            // spacedBy, not SpaceBetween: statement names are long and uppercase, so without a gap
+            // reserved ahead of the label an ellipsised name runs straight into the amount —
+            // "SHAILAJA PATIL - SWAM…₹42,000".
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(AppDimens.labelToAmountGap),
                 verticalAlignment = Alignment.Bottom
             ) {
                 Text(
@@ -116,7 +119,7 @@ private fun PayeeRow(payee: PayeeTotal, fraction: Float, onClick: (() -> Unit)?)
                     color = AppTheme.colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = formatPaise(payee.totalPaise),

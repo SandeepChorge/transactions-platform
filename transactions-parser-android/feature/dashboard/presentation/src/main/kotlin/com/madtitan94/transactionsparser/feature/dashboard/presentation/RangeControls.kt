@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.madtitan94.transactionsparser.core.designsystem.theme.AppShapes
 import com.madtitan94.transactionsparser.core.designsystem.theme.AppTheme
@@ -32,6 +33,21 @@ import com.madtitan94.transactionsparser.core.designsystem.theme.AppTypography
 import com.madtitan94.transactionsparser.core.presentation.formatStatementDate
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardRange
 import java.time.ZoneOffset
+
+/**
+ * The short form of the range, for the one place too small to hold its full label: the caption in
+ * the donut's 75dp hole.
+ *
+ * Only a custom range differs. The five fixed periods already name themselves in two words, while a
+ * custom one expands to "01 Jun 2026 – 30 Jun 2026" — three times the width of the hole, which it
+ * used to lay straight across the ring and out over the legend. Shortening it loses nothing: the
+ * range chip at the top of the same screen carries the dates in full.
+ */
+@Composable
+fun rangeCaption(range: DashboardRange): String = when (range) {
+    is DashboardRange.Custom -> stringResource(R.string.range_custom)
+    else -> rangeLabel(range)
+}
 
 /** The chip's own label, and the one the hero card's eyebrow borrows. */
 @Composable
@@ -62,7 +78,12 @@ fun RangeChip(range: DashboardRange, onClick: () -> Unit, modifier: Modifier = M
         Text(
             text = rangeLabel(range),
             style = AppTypography.row,
-            color = AppTheme.colors.textPrimary
+            color = AppTheme.colors.textPrimary,
+            // Two lines is what a custom range's pair of dates needs once the header caps this
+            // chip's width; a third would push the chip taller than the title beside it.
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
         )
         Icon(
             imageVector = Icons.Default.ExpandMore,

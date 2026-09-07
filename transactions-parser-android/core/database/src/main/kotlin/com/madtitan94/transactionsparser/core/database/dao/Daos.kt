@@ -104,6 +104,91 @@ interface PayeeDao {
     fun observeAll(ownerId: String): Flow<List<PayeeEntity>>
 
     /**
+     * The whole payee directory, over all time: every named payee, plus every statement name
+     * nobody has claimed yet.
+     *
+     * Two halves unioned rather than one grouped query, because the two kinds are found by
+     * different routes and only one of them can be found at all when it has no spend:
+     *
+     * - **Named payees start from `payees`**, so a payee whose every transaction is excluded — or
+     *   who was created before their statement was imported — still appears, at zero. Grouping
+     *   transactions could not produce that row, because there is no row to group.
+     * - **Unclaimed names start from `transactions`**, where the name is the only identity there
+     *   is. A group with nothing countable in it should not exist at all, so the exclusions *and*
+     *   the debit filter belong in its `WHERE` rather than in its aggregates. That is also what
+     *   keeps this half agreeing with `observePayeeSummary.unmappedPayeeCount`, which filters the
+     *   same way: a name that has only ever sent the user money is not an unmapped payee with work
+     *   outstanding, and listing it at zero would pad the directory's to-do list with rows that can
+     *   never move.
+     *
+     * On the named half the exclusions are **conditional aggregation, not join conditions** — a
+     * payee whose spend is entirely excluded must read as zero rather than vanish, and `SUM` over
+     * no matching rows yields NULL, which will not bind to a non-null `Long`. Both halves count
+     * debits only, matching every other payee aggregate: a refund arriving from a shop is not spend
+     * at it.
+     *
+     * The named half joins transactions once — on the stamped `payeeId`, or on a name this payee
+     * owns when the stamp is missing — rather than joining `payee_identifiers` alongside them. A
+     * second join would fan every transaction out once per identifier and multiply the totals of
+     * exactly the merged payees this app exists to get right.
+     */
+    @Query(
+        """
+        SELECT p.id AS payeeId,
+               p.alias AS alias,
+               IFNULL((SELECT pi.rawName FROM payee_identifiers pi
+                        WHERE pi.ownerId = p.ownerId AND pi.payeeId = p.id
+                        ORDER BY pi.id LIMIT 1), p.alias) AS statementName,
+               IFNULL((SELECT pi.normalizedName FROM payee_identifiers pi
+                        WHERE pi.ownerId = p.ownerId AND pi.payeeId = p.id
+                        ORDER BY pi.id LIMIT 1), '') AS normalizedName,
+               c.name AS categoryName,
+               (SELECT COUNT(*) FROM payee_identifiers pi
+                 WHERE pi.ownerId = p.ownerId AND pi.payeeId = p.id) AS identifierCount,
+               IFNULL(SUM(CASE WHEN t.id IS NOT NULL AND t.isDeleted = 0 AND t.isExcluded = 0
+                                AND s.isDeleted = 0 AND s.status <> 'CANCELLED'
+                                AND t.type = 'DEBIT'
+                               THEN t.amountPaise ELSE 0 END), 0) AS totalPaise,
+               COUNT(CASE WHEN t.isDeleted = 0 AND t.isExcluded = 0
+                           AND s.isDeleted = 0 AND s.status <> 'CANCELLED'
+                           AND t.type = 'DEBIT'
+                          THEN t.id END) AS transactionCount
+        FROM payees p
+        JOIN categories c ON c.id = p.categoryId AND c.ownerId = p.ownerId
+        LEFT JOIN transactions t ON t.ownerId = p.ownerId
+             AND (t.payeeId = p.id
+                  OR (t.payeeId IS NULL AND t.normalizedPayee IN (
+                        SELECT pi.normalizedName FROM payee_identifiers pi
+                        WHERE pi.ownerId = p.ownerId AND pi.payeeId = p.id)))
+        LEFT JOIN sessions s ON s.id = t.sessionId AND s.ownerId = t.ownerId
+        WHERE p.ownerId = :ownerId AND p.isDeleted = 0
+        GROUP BY p.id
+
+        UNION ALL
+
+        SELECT NULL AS payeeId,
+               NULL AS alias,
+               MIN(t.rawPayee) AS statementName,
+               t.normalizedPayee AS normalizedName,
+               NULL AS categoryName,
+               0 AS identifierCount,
+               SUM(t.amountPaise) AS totalPaise,
+               COUNT(t.id) AS transactionCount
+        $COUNTABLE_ROWS_FROM
+        LEFT JOIN payee_identifiers i ON i.ownerId = t.ownerId
+             AND i.normalizedName = t.normalizedPayee
+        WHERE t.ownerId = :ownerId AND t.isDeleted = 0 AND t.isExcluded = 0
+          AND s.isDeleted = 0 AND s.status <> 'CANCELLED'
+          AND t.type = 'DEBIT'
+          AND IFNULL(t.payeeId, i.payeeId) IS NULL
+        GROUP BY t.normalizedPayee
+
+        ORDER BY totalPaise DESC, statementName COLLATE NOCASE ASC
+        """
+    )
+    fun observeDirectory(ownerId: String): Flow<List<PayeeDirectoryRow>>
+
+    /**
      * The payee already answering to this alias, if any.
      *
      * `COLLATE NOCASE` so "Swiggy" and "swiggy" are recognised as the same person — the prompt
@@ -280,6 +365,34 @@ data class PayeeTotalRow(
      * used to open a screen that then re-resolves the whole payee for itself.
      */
     val normalizedName: String,
+    val totalPaise: Long,
+    val transactionCount: Int
+)
+
+/**
+ * One row of the payee directory: a payee the user has named, or a statement name nobody has
+ * claimed yet.
+ *
+ * [alias] and [categoryName] are null for the second kind, which is what the screen reads to draw
+ * it as unnamed. Listing both kinds is deliberate — a directory of only the *named* payees would
+ * present a partial list as a complete one, the same failure the Mapping health dashboard exists to
+ * prevent, and it would disagree with `PayeeSummary.payeeCount` on what the account contains.
+ */
+data class PayeeDirectoryRow(
+    val payeeId: Long?,
+    val alias: String?,
+    /** The name a statement printed, and what an unnamed row has to be called. */
+    val statementName: String,
+    /** The key `PayeeDetailRoute` opens on; see [PayeeTotalRow.normalizedName]. */
+    val normalizedName: String,
+    val categoryName: String?,
+    /**
+     * How many statement names this payee answers to.
+     *
+     * Zero for an unclaimed name: it is not that the payee has no names, but that no identifier row
+     * has ever claimed it, which is exactly the work the Mapping health dashboard is pointing at.
+     */
+    val identifierCount: Int,
     val totalPaise: Long,
     val transactionCount: Int
 )

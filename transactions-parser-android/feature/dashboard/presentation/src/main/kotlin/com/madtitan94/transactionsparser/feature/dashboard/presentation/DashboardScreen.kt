@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -26,6 +27,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.charts.ChartSlice
@@ -139,6 +141,17 @@ fun DashboardScreen(
     }
 }
 
+/**
+ * How much of the header row the range chip may take before the title starts losing letters.
+ *
+ * Measured, not guessed: 164dp is what a custom range needs to print both dates in full over two
+ * lines, chevron and padding included. At 150dp it dropped the closing year — "30 May 20…" — and the
+ * dates are the half worth keeping, because the tab row directly below already spells the dashboard
+ * out in full while nothing else on screen carries the range. Every fixed range is far shorter and
+ * never reaches the cap, so nothing truncates unless a custom range is set on a narrow screen.
+ */
+private val RANGE_CHIP_MAX_WIDTH = 164.dp
+
 @Composable
 private fun DashboardHeader(
     title: String,
@@ -154,11 +167,28 @@ private fun DashboardHeader(
                 top = 24.dp,
                 bottom = 12.dp
             ),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        // spacedBy with a weighted title, not SpaceBetween: the weight fills the leftover so the
+        // chip still sits hard right, and the gap is reserved before the title is measured. Under
+        // SpaceBetween a 360dp phone rendered "Mapping health" touching a custom range's chip.
+        horizontalArrangement = Arrangement.spacedBy(AppDimens.labelToAmountGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = title, style = AppTypography.title, color = AppTheme.colors.textPrimary)
-        RangeChip(range = range, onClick = onRangeClick)
+        Text(
+            text = title,
+            style = AppTypography.title,
+            color = AppTheme.colors.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        // Capped, because the chip is unweighted and so is measured first: left uncapped, a custom
+        // range's "01 May 2026 – 30 May 2026" would claim the row on one line and leave the title a
+        // single letter. Inside the cap it wraps to two lines and keeps every date.
+        RangeChip(
+            range = range,
+            onClick = onRangeClick,
+            modifier = Modifier.widthIn(max = RANGE_CHIP_MAX_WIDTH)
+        )
     }
 }
 
@@ -258,6 +288,7 @@ private fun DashboardWidgetList(
     val uncategorised = stringResource(R.string.dash_uncategorised)
     val other = stringResource(R.string.dash_other)
     val label = rangeLabel(state.range)
+    val caption = rangeCaption(state.range)
 
     val slices: List<ChartSlice> = remember(data.categoryTotals, uncategorised, other) {
         buildCategorySlices(
@@ -333,7 +364,7 @@ private fun DashboardWidgetList(
                 DashboardWidgetConfig.CategoryDonut -> CategoryDonutWidget(
                     slices = slices,
                     totalPaise = data.debitPaise,
-                    rangeLabel = label
+                    rangeCaption = caption
                 )
 
                 is DashboardWidgetConfig.CategoryRanked -> CategoryRankedWidget(

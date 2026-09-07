@@ -9,6 +9,7 @@ import com.madtitan94.transactionsparser.core.domain.model.CategoryTotal
 import com.madtitan94.transactionsparser.core.domain.model.DateRange
 import com.madtitan94.transactionsparser.core.domain.model.DayTotal
 import com.madtitan94.transactionsparser.core.domain.model.Payee
+import com.madtitan94.transactionsparser.core.domain.model.PayeeDirectoryEntry
 import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
@@ -50,6 +51,13 @@ interface PayeeLocalDataSource {
 
     /** Every payee in the account, alias order — the pool alias typeahead suggests from. */
     fun observeAll(): Flow<List<Payee>>
+
+    /**
+     * The whole directory, over all time: every named payee plus every statement name nobody has
+     * claimed, ordered by spend. Unlike [observeAll] this carries totals, the category and the
+     * unclaimed names, which is what a directory has to show and a typeahead pool does not.
+     */
+    fun observeDirectory(): Flow<List<PayeeDirectoryEntry>>
 
     /**
      * The statement names owned by whoever owns [normalizedName], that name included. Empty for

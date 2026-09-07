@@ -3,6 +3,8 @@ package com.madtitan94.transactionsparser.feature.dashboard.presentation.widgets
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -12,6 +14,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.madtitan94.transactionsparser.core.designsystem.charts.ChartSlice
 import com.madtitan94.transactionsparser.core.designsystem.charts.StackedShareBar
 import com.madtitan94.transactionsparser.core.designsystem.charts.AppChartDimens
@@ -43,11 +46,7 @@ fun NetSpendHero(
         CardEyebrow(stringResource(R.string.dash_net_spend_label, rangeLabel))
 
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(
-                text = formatPaise(totalPaise),
-                style = AppTypography.hero,
-                color = AppTheme.colors.textPrimary
-            )
+            HeroNumber(formatPaise(totalPaise))
             when {
                 isEmpty -> Text(
                     text = stringResource(R.string.dash_hero_empty),
@@ -71,6 +70,33 @@ fun NetSpendHero(
             StackedShareBar(slices = slices, modifier = Modifier.fillMaxWidth())
         }
     }
+}
+
+/**
+ * The one big number on a hero card, shrunk to fit rather than wrapped.
+ *
+ * `DashboardSpec` §5 forbids abbreviating a hero number, so a total too wide for the card cannot
+ * become "₹2.1L" here the way a KPI tile's would. Left to wrap it breaks mid-number instead — a
+ * 360dp phone rendered ₹2,09,394.93 as "₹2,09,394.9" above a lone "3", which reads as two numbers
+ * and is worse than either alternative. Auto-sizing keeps every digit on one line and gives up type
+ * size, which is the one thing a hero can afford to lose.
+ *
+ * The floor is 24sp: below that the number stops out-weighing the sentence under it, and at 24sp a
+ * 360dp card still fits eighteen mono digits — more than a rupee total will ever have.
+ */
+@Composable
+private fun HeroNumber(text: String, modifier: Modifier = Modifier) {
+    BasicText(
+        text = text,
+        modifier = modifier.fillMaxWidth(),
+        style = AppTypography.hero.copy(color = AppTheme.colors.textPrimary),
+        maxLines = 1,
+        autoSize = TextAutoSize.StepBased(
+            minFontSize = 24.sp,
+            maxFontSize = AppTypography.hero.fontSize,
+            stepSize = 1.sp
+        )
+    )
 }
 
 /**
@@ -136,11 +162,7 @@ fun MappedShareHero(
         CardEyebrow(stringResource(R.string.dash_mapped_label, rangeLabel))
 
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(
-                text = "$mappedPercent%",
-                style = AppTypography.hero,
-                color = AppTheme.colors.textPrimary
-            )
+            HeroNumber("$mappedPercent%")
             Text(
                 text = stringResource(R.string.dash_mapped_of, formatPaise(totalPaise)),
                 style = AppTypography.body,
