@@ -7,6 +7,7 @@ import com.madtitan94.transactionsparser.core.database.dao.PayeeSummaryRow
 import com.madtitan94.transactionsparser.core.database.dao.PayeeDirectoryRow
 import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.PayeeTotalsRow
+import com.madtitan94.transactionsparser.core.database.dao.CategoryShareRow
 import com.madtitan94.transactionsparser.core.database.dao.PeriodTotalRow
 import com.madtitan94.transactionsparser.core.database.dao.SessionSummaryRow
 import com.madtitan94.transactionsparser.core.database.dao.TransactionExportRowEntity
@@ -26,6 +27,7 @@ import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeDirectoryEntry
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
+import com.madtitan94.transactionsparser.core.domain.model.CategoryShare
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
@@ -170,6 +172,13 @@ fun PeriodTotalRow.toPeriodTotal() = PeriodTotal(
     startMillis = startMillis,
     countedTotalPaise = countedTotalPaise ?: 0L,
     countedCount = countedCount
+)
+
+fun CategoryShareRow.toCategoryShare() = CategoryShare(
+    totalPaise = categoryPaise,
+    transactionCount = categoryCount,
+    payeeCount = categoryPayeeCount,
+    accountTotalPaise = accountPaise
 )
 
 fun DayTotalRow.toDayTotal() = DayTotal(

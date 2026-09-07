@@ -35,6 +35,7 @@ import com.madtitan94.transactionsparser.core.database.toPayee
 import com.madtitan94.transactionsparser.core.database.toPayeeIdentifier
 import com.madtitan94.transactionsparser.core.database.toPayeeSummary
 import com.madtitan94.transactionsparser.core.database.toPayeeDirectoryEntry
+import com.madtitan94.transactionsparser.core.database.toCategoryShare
 import com.madtitan94.transactionsparser.core.database.toPayeeTotal
 import com.madtitan94.transactionsparser.core.database.toPayeeTotals
 import com.madtitan94.transactionsparser.core.database.toPeriodTotal
@@ -56,6 +57,7 @@ import com.madtitan94.transactionsparser.core.domain.backup.RestorePayload
 import com.madtitan94.transactionsparser.core.domain.backup.RestoreReport
 import com.madtitan94.transactionsparser.core.domain.datasource.BackupLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
+import com.madtitan94.transactionsparser.core.domain.datasource.CategoryInsightLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.DashboardLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
@@ -71,6 +73,7 @@ import com.madtitan94.transactionsparser.core.domain.model.PayeeIdentifier
 import com.madtitan94.transactionsparser.core.domain.model.PayeeSummary
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotal
 import com.madtitan94.transactionsparser.core.domain.model.PayeeTotals
+import com.madtitan94.transactionsparser.core.domain.model.CategoryShare
 import com.madtitan94.transactionsparser.core.domain.model.PeriodTotal
 import com.madtitan94.transactionsparser.core.domain.model.SessionStatus
 import com.madtitan94.transactionsparser.core.domain.model.SessionSummary
@@ -438,6 +441,64 @@ class RoomDashboardDataSource(
         activeAccount.flowForOwner { ownerId ->
             dao.observePayeeSummary(ownerId, range.fromMillis, range.toMillisExclusive)
         }.map { it.toPayeeSummary() }
+}
+
+/**
+ * One category's own aggregates, read off the same [TransactionDao] the dashboards use.
+ *
+ * Scoped through [flowForOwner] like everything else in this file: the account is resolved here and
+ * nowhere above, so the insight screen cannot forget to scope itself and a chart handed out before
+ * a logout re-queries rather than keeping the previous account's totals on screen.
+ */
+class RoomCategoryInsightDataSource(
+    private val dao: TransactionDao,
+    private val activeAccount: ActiveAccountProvider
+) : CategoryInsightLocalDataSource {
+
+    override fun observeMonthTotals(categoryId: Long?, range: DateRange): Flow<List<PeriodTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeCategoryMonthTotals(
+                ownerId,
+                categoryId,
+                range.fromMillis,
+                range.toMillisExclusive
+            )
+        }.map { rows -> rows.map { it.toPeriodTotal() } }
+
+    override fun observeDayTotals(categoryId: Long?, range: DateRange): Flow<List<PeriodTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeCategoryDayTotals(
+                ownerId,
+                categoryId,
+                range.fromMillis,
+                range.toMillisExclusive
+            )
+        }.map { rows -> rows.map { it.toPeriodTotal() } }
+
+    override fun observeTopPayees(
+        categoryId: Long?,
+        range: DateRange,
+        limit: Int
+    ): Flow<List<PayeeTotal>> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeCategoryTopPayees(
+                ownerId,
+                categoryId,
+                range.fromMillis,
+                range.toMillisExclusive,
+                limit
+            )
+        }.map { rows -> rows.map { it.toPayeeTotal() } }
+
+    override fun observeShare(categoryId: Long?, range: DateRange): Flow<CategoryShare> =
+        activeAccount.flowForOwner { ownerId ->
+            dao.observeCategoryShare(
+                ownerId,
+                categoryId,
+                range.fromMillis,
+                range.toMillisExclusive
+            )
+        }.map { it.toCategoryShare() }
 }
 
 class RoomUploadLogDataSource(

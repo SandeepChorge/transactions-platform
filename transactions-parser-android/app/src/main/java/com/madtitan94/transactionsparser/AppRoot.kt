@@ -26,6 +26,7 @@ import com.madtitan94.transactionsparser.core.designsystem.components.LoadingInd
 import com.madtitan94.transactionsparser.feature.auth.presentation.LoginRoot
 import com.madtitan94.transactionsparser.feature.categories.presentation.navigation.CategoriesRoute
 import com.madtitan94.transactionsparser.feature.categories.presentation.navigation.categoriesGraph
+import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.CategoryInsightRoute
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.DashboardRoute
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.DefaultDashboardRoute
 import com.madtitan94.transactionsparser.feature.dashboard.presentation.navigation.ManageDashboardsRoute
@@ -145,7 +146,11 @@ private fun MainScaffold() {
                     navController.navigate(SessionDetailRoute(sessionId))
                 }
             )
-            categoriesGraph()
+            categoriesGraph(
+                onOpenInsight = { categoryId, categoryName ->
+                    navController.navigate(CategoryInsightRoute(categoryId, categoryName))
+                }
+            )
             profileGraph(navController)
             settingsGraph(
                 navController = navController,

@@ -8,8 +8,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object CategoriesRoute
 
-fun NavGraphBuilder.categoriesGraph() {
+/**
+ * [onOpenInsight] is a callback rather than direct navigation because the insight screen lives in
+ * `:feature:dashboard` — the same shape this module's neighbours use to reach destinations they do
+ * not own.
+ */
+fun NavGraphBuilder.categoriesGraph(
+    onOpenInsight: (categoryId: Long, categoryName: String) -> Unit
+) {
     composable<CategoriesRoute> {
-        CategoriesRoot()
+        CategoriesRoot(onOpenInsight = onOpenInsight)
     }
 }
