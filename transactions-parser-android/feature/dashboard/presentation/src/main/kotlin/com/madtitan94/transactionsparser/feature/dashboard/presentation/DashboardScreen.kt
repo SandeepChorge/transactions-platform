@@ -256,9 +256,10 @@ private fun DashboardWidgetList(
 ) {
     val data = state.data
     val uncategorised = stringResource(R.string.dash_uncategorised)
+    val other = stringResource(R.string.dash_other)
     val label = rangeLabel(state.range)
 
-    val slices: List<ChartSlice> = remember(data.categoryTotals, uncategorised) {
+    val slices: List<ChartSlice> = remember(data.categoryTotals, uncategorised, other) {
         buildCategorySlices(
             amounts = data.categoryTotals.map { total ->
                 CategoryAmount(
@@ -267,7 +268,8 @@ private fun DashboardWidgetList(
                     amountPaise = total.totalPaise
                 )
             },
-            uncategorisedLabel = uncategorised
+            uncategorisedLabel = uncategorised,
+            otherLabel = other
         )
     }
 
