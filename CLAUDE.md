@@ -4,6 +4,8 @@ Operational context for anyone — human or agent — picking up work here cold.
 
 This file covers **how to work here**. It deliberately does not describe *what* is being built or *what is left* — that lives in the tracking issues below, which are the single source of truth.
 
+For *what the app is and how it hangs together* — the product idea, the life of a transaction, the screens, the module layout — read [`docs/APP_OVERVIEW.md`](docs/APP_OVERVIEW.md). It is written for someone picking the project up cold and is the fastest way to stop being lost.
+
 ---
 
 ## Where the work is tracked

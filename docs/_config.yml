@@ -1,0 +1,17 @@
+# GitHub Pages configuration.
+#
+# Exists for one reason: Google Play requires the privacy policy at a public URL that is not
+# behind a login. Serving `docs/` from this repository gives us that for free, at
+# https://sandeepchorge.github.io/transactions-platform/privacy-policy — one file, publicly
+# diffable, with no separate hosting to keep alive or pay for.
+#
+# Enable it once, under Settings -> Pages -> Source: "Deploy from a branch", branch `main`,
+# folder `/docs`.
+title: Statement Sense
+description: Turn your UPI statement PDFs into categorised spending — parsed entirely on your phone.
+theme: jekyll-theme-cayman
+
+# The rest of docs/ is developer documentation, not part of the published site.
+exclude:
+  - APP_OVERVIEW.md
+  - ci.md
