@@ -41,6 +41,13 @@
     <string name="settings_syncing">Syncing</string>
     <string name="settings_coming_soon">Coming soon</string>
     <string name="settings_logout">Log out</string>
+    <string name="settings_delete_account">Delete account</string>
+    <string name="settings_delete_account_supporting">Sign out and remove all app data on this device</string>
+    <string name="settings_delete_account_confirm_title">Delete account and local data?</string>
+    <string name="settings_delete_account_confirm_message">This permanently deletes this device’s transactions, statements, mappings, categories, profile, preferences, and caches for every account used here. You will be signed out and returned to login. This cannot be undone.\n\nYour Google account, original PDFs, exports, external backups, and previously uploaded analytics and crash reports are not deleted.</string>
+    <string name="settings_delete_account_confirm_action">Delete account</string>
+    <string name="settings_deleting_account">Deleting account and local data…</string>
+    <string name="settings_delete_account_failed">Deletion could not finish. Some local data may already have been removed. Please try again.</string>
     <string name="settings_cancel">Cancel</string>
     <!-- The build number is shown because it is the only thing that distinguishes builds:
          version names carry no channel suffix, so a Firebase build, an internal-track build

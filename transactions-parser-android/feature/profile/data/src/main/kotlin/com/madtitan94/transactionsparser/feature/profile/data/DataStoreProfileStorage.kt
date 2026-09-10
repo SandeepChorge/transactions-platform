@@ -1,9 +1,12 @@
 package com.madtitan94.transactionsparser.feature.profile.data
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.madtitan94.transactionsparser.core.domain.datasource.LocalDataCleaner
 import com.madtitan94.transactionsparser.core.domain.util.DataError
 import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
 import com.madtitan94.transactionsparser.core.domain.util.Result
@@ -15,7 +18,18 @@ import kotlinx.coroutines.flow.map
 
 private val Context.profileDataStore by preferencesDataStore(name = "user_profile_store")
 
-class DataStoreProfileStorage(private val context: Context) : ProfileStorage {
+class DataStoreProfileStorage(
+    context: Context,
+    private val dataStore: DataStore<Preferences> = context.profileDataStore
+) : ProfileStorage, LocalDataCleaner {
+
+    override suspend fun clearLocalData(): EmptyResult<DataError.Local> = try {
+        dataStore.edit { it.clear() }
+        Result.Success(Unit)
+    } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        Result.Error(DataError.Local.UNKNOWN)
+    }
 
     private object Keys {
         val NAME = stringPreferencesKey("name")
@@ -24,7 +38,7 @@ class DataStoreProfileStorage(private val context: Context) : ProfileStorage {
     }
 
     override fun observeProfile(): Flow<UserProfile?> {
-        return context.profileDataStore.data.map { prefs ->
+        return dataStore.data.map { prefs ->
             val name = prefs[Keys.NAME] ?: return@map null
             UserProfile(
                 name = name,
@@ -38,7 +52,7 @@ class DataStoreProfileStorage(private val context: Context) : ProfileStorage {
 
     override suspend fun save(profile: UserProfile): EmptyResult<DataError.Local> {
         return try {
-            context.profileDataStore.edit { prefs ->
+            dataStore.edit { prefs ->
                 prefs[Keys.NAME] = profile.name
                 prefs[Keys.MOBILE] = profile.mobile
                 profile.gender?.let { prefs[Keys.GENDER] = it.name }

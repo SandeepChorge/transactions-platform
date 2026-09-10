@@ -17,6 +17,7 @@ import com.madtitan94.transactionsparser.core.domain.export.TransactionCsv
 import com.madtitan94.transactionsparser.core.domain.util.Result
 import com.madtitan94.transactionsparser.core.presentation.UiText
 import com.madtitan94.transactionsparser.core.presentation.toUiText
+import com.madtitan94.transactionsparser.feature.settings.domain.DeleteAccountService
 import com.madtitan94.transactionsparser.feature.settings.domain.ThemePreference
 import com.madtitan94.transactionsparser.feature.settings.domain.ThemeStorage
 import kotlinx.coroutines.channels.Channel
@@ -32,6 +33,8 @@ data class SettingsState(
     val name: String = "",
     val photoUrl: String? = null,
     val showLogoutConfirm: Boolean = false,
+    val showDeleteAccountConfirm: Boolean = false,
+    val isDeletingAccount: Boolean = false,
     val isExporting: Boolean = false,
     val isBackingUp: Boolean = false,
     val restore: RestoreStage = RestoreStage.Idle,
@@ -71,6 +74,9 @@ sealed interface SettingsAction {
     data object OnLogoutClick : SettingsAction
     data object OnConfirmLogout : SettingsAction
     data object OnDismissLogoutConfirm : SettingsAction
+    data object OnDeleteAccountClick : SettingsAction
+    data object OnConfirmDeleteAccount : SettingsAction
+    data object OnDismissDeleteAccountConfirm : SettingsAction
     data object OnExportClick : SettingsAction
     /** The picker returned a destination. */
     data class OnExportDestinationChosen(val destination: String) : SettingsAction
@@ -107,6 +113,7 @@ class SettingsViewModel(
     private val createBackup: CreateBackupUseCase,
     private val readBackup: ReadBackupUseCase,
     private val restoreBackup: RestoreBackupUseCase,
+    private val deleteAccount: DeleteAccountService,
     private val themeStorage: ThemeStorage,
     private val analytics: AnalyticsTracker
 ) : ViewModel() {
@@ -147,6 +154,7 @@ class SettingsViewModel(
     }
 
     fun onAction(action: SettingsAction) {
+        if (_state.value.isDeletingAccount) return
         when (action) {
             SettingsAction.OnLogoutClick -> _state.update { it.copy(showLogoutConfirm = true) }
             SettingsAction.OnDismissLogoutConfirm -> _state.update { it.copy(showLogoutConfirm = false) }
@@ -157,6 +165,27 @@ class SettingsViewModel(
                 // makes "who signs out" unanswerable, the one question the event exists for.
                 analytics.track(AnalyticsEvent.LoggedOut)
                 viewModelScope.launch { sessionStorage.clear() }
+            }
+            SettingsAction.OnDeleteAccountClick -> {
+                if (_state.value.isExporting || _state.value.isBackingUp || _state.value.restore != RestoreStage.Idle) return
+                _state.update { it.copy(showDeleteAccountConfirm = true) }
+            }
+            SettingsAction.OnDismissDeleteAccountConfirm -> {
+                _state.update { it.copy(showDeleteAccountConfirm = false) }
+            }
+            SettingsAction.OnConfirmDeleteAccount -> {
+                if (!_state.value.showDeleteAccountConfirm) return
+                if (_state.value.isExporting || _state.value.isBackingUp || _state.value.restore != RestoreStage.Idle) return
+                _state.update { it.copy(showDeleteAccountConfirm = false, isDeletingAccount = true, showThemePicker = false) }
+                viewModelScope.launch {
+                    when (deleteAccount.deleteAccount()) {
+                        is Result.Success -> Unit // AppRoot now displays login. Keep actions blocked until disposal.
+                        is Result.Error -> {
+                            _state.update { it.copy(isDeletingAccount = false) }
+                            _events.send(SettingsEvent.ShowMessage(UiText.StringResource(R.string.settings_delete_account_failed)))
+                        }
+                    }
+                }
             }
             SettingsAction.OnExportClick -> startExport()
             is SettingsAction.OnExportDestinationChosen -> export(action.destination)

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsParams
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
+import com.madtitan94.transactionsparser.core.domain.datasource.LocalDataWork
 import com.madtitan94.transactionsparser.core.domain.datasource.UploadLogLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.model.UploadLog
 import com.madtitan94.transactionsparser.core.domain.parsing.ParseError
@@ -14,12 +15,14 @@ import com.madtitan94.transactionsparser.core.presentation.toUiText
 import com.madtitan94.transactionsparser.feature.upload.domain.ImportResult
 import com.madtitan94.transactionsparser.feature.upload.domain.ImportStatementUseCase
 import com.madtitan94.transactionsparser.feature.upload.domain.StatementFileDataSource
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class ImportSuccessUi(
     val sessionId: Long,
@@ -57,7 +60,8 @@ class UploadViewModel(
     private val importStatement: ImportStatementUseCase,
     private val fileDataSource: StatementFileDataSource,
     private val uploadLogs: UploadLogLocalDataSource,
-    private val analytics: AnalyticsTracker
+    private val analytics: AnalyticsTracker,
+    private val localDataWork: LocalDataWork
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(UploadState())
@@ -82,7 +86,7 @@ class UploadViewModel(
     }
 
     private fun onFilePicked(uriString: String) {
-        viewModelScope.launch {
+        localDataWork.launchIn(viewModelScope) {
             when (val metadata = fileDataSource.metadata(uriString)) {
                 is Result.Error -> {
                     _state.update { it.copy(error = metadata.error.toUiText()) }
@@ -131,7 +135,7 @@ class UploadViewModel(
         val uri = current.pickedUri ?: return
         val fileName = current.pickedFileName ?: return
 
-        viewModelScope.launch {
+        localDataWork.launchIn(viewModelScope) {
             _state.update { it.copy(isImporting = true, error = null) }
 
             val tempPath = when (val copy = fileDataSource.copyToCache(uri)) {
@@ -147,7 +151,7 @@ class UploadViewModel(
                         )
                     )
                     _state.update { it.copy(isImporting = false, error = copy.error.toUiText()) }
-                    return@launch
+                    return@launchIn
                 }
                 is Result.Success -> copy.data
             }
@@ -156,7 +160,7 @@ class UploadViewModel(
                 importStatement(tempFilePath = tempPath, fileName = fileName)
             } finally {
                 // The statement copy never outlives parsing — privacy guarantee.
-                fileDataSource.deleteTempFile(tempPath)
+                withContext(NonCancellable) { fileDataSource.deleteTempFile(tempPath) }
             }
 
             // Both outcomes are reported, and the file name is not part of either: on a phone it
@@ -210,7 +214,7 @@ class UploadViewModel(
                     )
                 }
             }
-        }
+        }.invokeOnCompletion { _state.update { it.copy(isImporting = false) } }
     }
 
     companion object {

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DashboardCustomize
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
@@ -49,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
 import com.madtitan94.transactionsparser.core.designsystem.components.ListRow
@@ -290,6 +292,23 @@ private fun SettingsScreen(
             )
             HorizontalDivider()
 
+            SettingsRow(
+                icon = Icons.Default.DeleteForever,
+                title = stringResource(R.string.settings_delete_account),
+                supporting = stringResource(R.string.settings_delete_account_supporting),
+                onClick = if (state.isDeletingAccount || state.isExporting || state.isBackingUp || state.restore != RestoreStage.Idle) {
+                    null
+                } else {
+                    { onAction(SettingsAction.OnDeleteAccountClick) }
+                },
+                trailing = if (state.isDeletingAccount) {
+                    { CircularProgressIndicator(Modifier.size(20.dp)) }
+                } else {
+                    null
+                }
+            )
+            HorizontalDivider()
+
             Text(
                 text = stringResource(R.string.settings_version, appVersion, appVersionCode),
                 style = MaterialTheme.typography.bodySmall,
@@ -309,6 +328,27 @@ private fun SettingsScreen(
                 dismissLabel = stringResource(R.string.settings_cancel),
                 onConfirm = { onAction(SettingsAction.OnConfirmLogout) },
                 onDismiss = { onAction(SettingsAction.OnDismissLogoutConfirm) }
+            )
+        }
+
+        if (state.isDeletingAccount) {
+            AlertDialog(
+                onDismissRequest = {},
+                properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+                title = { Text(stringResource(R.string.settings_deleting_account)) },
+                text = { CircularProgressIndicator() },
+                confirmButton = {}
+            )
+        }
+
+        if (state.showDeleteAccountConfirm) {
+            AppAlertDialog(
+                title = stringResource(R.string.settings_delete_account_confirm_title),
+                message = stringResource(R.string.settings_delete_account_confirm_message),
+                confirmLabel = stringResource(R.string.settings_delete_account_confirm_action),
+                dismissLabel = stringResource(R.string.settings_cancel),
+                onConfirm = { onAction(SettingsAction.OnConfirmDeleteAccount) },
+                onDismiss = { onAction(SettingsAction.OnDismissDeleteAccountConfirm) }
             )
         }
 

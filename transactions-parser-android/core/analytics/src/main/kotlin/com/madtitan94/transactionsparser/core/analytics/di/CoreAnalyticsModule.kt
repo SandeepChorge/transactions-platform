@@ -6,6 +6,7 @@ import com.madtitan94.transactionsparser.core.analytics.AnalyticsSessionTracker
 import com.madtitan94.transactionsparser.core.analytics.AndroidDefaultAnalyticsParameterProvider
 import com.madtitan94.transactionsparser.core.analytics.FirebaseAnalyticsTracker
 import com.madtitan94.transactionsparser.core.analytics.FirebaseCrashReporter
+import com.madtitan94.transactionsparser.core.analytics.FirebaseLocalDataCleaner
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsReadiness
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
 import com.madtitan94.transactionsparser.core.domain.analytics.CrashReporter
@@ -50,6 +51,10 @@ data class AnalyticsConfiguration(
  * `:app` has: the version name, the salt, and the build type.
  */
 fun coreAnalyticsModule(configuration: AnalyticsConfiguration): Module = module {
+    single {
+        FirebaseLocalDataCleaner(FirebaseAnalytics.getInstance(androidContext()), FirebaseCrashlytics.getInstance())
+    }
+
 
     // Analytics outlives every screen, so its collectors belong to the process rather than to a
     // ViewModel. SupervisorJob so a failure in one collector cannot silently take down the other.
