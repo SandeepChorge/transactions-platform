@@ -6,7 +6,7 @@ title: Privacy Policy — Statement Sense
 # Privacy Policy — Statement Sense
 
 **Effective date:** 8 September 2026
-**Last updated:** 8 September 2026
+**Last updated:** 10 September 2026
 **Application:** Statement Sense (Android)
 **Package name:** `com.madtitan94.transactionsparser`
 **Developer:** Sandeep Chorge
@@ -271,6 +271,13 @@ services listed above, acting as our data processors.
 
 ## 10. Your choices and your rights
 
+- **Delete account and local data:** open **You → Settings → Delete account**. This signs you out
+  and clears the local database, profile, preferences and caches for every account used on this
+  device. It does not erase original PDFs, exported files, external backups, data on other devices,
+  your Google account or reports already uploaded to Firebase. See [Delete account and data](delete-account)
+  for the full scope and Android storage controls you can use if you cannot open the app.
+  Local deletion must be performed on your device; support cannot erase that storage remotely.
+
 - **Stop all local storage:** uninstall the app. Android deletes the app's private directory, which
   is where every transaction, payee, category and preference lives. There is no copy elsewhere for
   us to hold on to.
@@ -281,10 +288,10 @@ services listed above, acting as our data processors.
 - **Analytics:** this version has no in-app analytics toggle, because nothing collected identifies
   you. Uninstalling the app stops all collection. A toggle in Settings is planned, and the app is
   already built to accommodate one.
-- **Requests about analytics data:** because the identifiers we hold are irreversible hashes, we
-  generally cannot locate "your" records in the analytics data on request — which is the point of
-  hashing them. If you have a specific concern, write to us at the contact address below and we will
-  do what we can, including deleting the relevant data set.
+- **Analytics and crash data:** the in-app reset does not delete reports already sent to Firebase.
+  Those reports remain subject to the retention periods described in section 9. The support email
+  is available for questions about these steps; it does not trigger deletion of local data or an
+  automatic deletion of uploaded reports.
 
 If you are in a jurisdiction that grants you rights of access, correction, erasure, portability or
 objection — such as the EU/EEA and UK under the GDPR, or India under the Digital Personal Data

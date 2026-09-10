@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delete account and data — Statement Sense</title>
+<meta name="description" content="Delete your Statement Sense account and local data from your device, with clear steps and information about what is removed or retained.">
+<style>
+  :root {
+    --ink: #1a2b2a;
+    --paper: #f7f5f0;
+    --line: #d8d2c4;
+    --accent: #2f5d50;
+    --accent-soft: #e4ede9;
+    --muted: #5c655f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Georgia", "Times New Roman", serif;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 64px 24px 96px;
+  }
+  .kicker {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  h1 {
+    font-size: 34px;
+    line-height: 1.2;
+    margin: 0 0 28px;
+    font-weight: 600;
+    max-width: 18ch;
+  }
+  p {
+    font-size: 17px;
+    max-width: 62ch;
+    color: var(--ink);
+  }
+  .lede {
+    font-size: 19px;
+    color: var(--muted);
+    max-width: 58ch;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 28px 28px 8px;
+    margin: 40px 0;
+  }
+  .card h2 {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0 0 20px;
+  }
+  ol {
+    padding-left: 20px;
+    margin: 0 0 20px;
+  }
+  ol li {
+    font-size: 17px;
+    margin-bottom: 14px;
+    padding-left: 4px;
+  }
+  .divider {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 48px 0;
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 40px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+  }
+  .data-table th, .data-table td {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .data-table th {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .note {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    font-size: 16px;
+    margin: 32px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .note p { margin: 0; }
+  footer {
+    margin-top: 56px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  a { color: var(--accent); overflow-wrap: anywhere; }
+  h2 {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 19px;
+    line-height: 1.4;
+    margin-top: 36px;
+  }
+  .card h2 { margin-top: 0; font-size: 17px; }
+  .metadata { font-size: 14px; color: var(--muted); }
+  .quick-links { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 24px 0; }
+  .quick-links a { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; }
+  a:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+  .data-table caption { text-align: left; margin-bottom: 12px; color: var(--muted); }
+  .data-table th, .data-table td { vertical-align: top; }
+  .data-table th[scope="row"] { font-size: 15px; color: var(--ink); font-weight: 600; width: 35%; }
+  .retention { padding-left: 20px; }
+  .retention li { margin-bottom: 16px; font-size: 16px; }
+  section { scroll-margin-top: 24px; }
+  footer p { font-size: 14px; }
+  @media (max-width: 480px) {
+    .wrap { padding: 32px 18px 56px; }
+    h1 { font-size: 30px; }
+    .card { padding: 20px 18px 4px; margin: 28px 0; }
+    .data-table th, .data-table td { padding: 12px 8px; font-size: 14px; }
+    .data-table th[scope="row"] { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="kicker">Statement Sense · Transactions Parser</p>
+  <h1>Delete your account and data</h1>
+  <p class="lede">Use Delete account in the app to sign out and erase the app’s local data on your device. We do not keep a central account or financial-data database and cannot perform this deletion remotely.</p>
+  <p class="metadata">Developer: Sandeep Chorge<br>Android app: Statement Sense / Transactions Parser</p>
+
+  <nav class="quick-links" aria-label="Deletion options">
+    <a href="#in-app">Delete in the app</a>
+    <a href="#android">If you cannot use the app</a>
+    <a href="#retention">Data and retention</a>
+  </nav>
+
+  <aside class="note">
+    <p><strong>Deletion is permanent.</strong> The in-app action removes local data for <strong>every account used on this device</strong>, not just the account currently signed in. It does not delete your Google account.</p>
+  </aside>
+
+  <section class="card" id="in-app" aria-labelledby="in-app-heading">
+    <h2 id="in-app-heading">Delete from within the app</h2>
+    <ol>
+      <li>Open <strong>Statement Sense</strong> and select the <strong>You</strong> tab in the bottom navigation bar. This opens <strong>Settings</strong>.</li>
+      <li>Scroll to the bottom of Settings and tap <strong>Delete account</strong>, below <strong>Log out</strong>.</li>
+      <li>Read the <strong>“Delete account and local data?”</strong> confirmation, then tap <strong>Delete account</strong>. Tap <strong>Cancel</strong> if you do not want to proceed.</li>
+      <li>Wait for deletion to finish. The app stops active imports, clears local records, profile details, preferences and caches, and clears its Google sign-in state.</li>
+      <li>After successful deletion, you are signed out and returned to the <strong>Google login screen</strong>. Signing in again starts with an empty local account unless you restore a backup.</li>
+    </ol>
+    <p><strong>If deletion fails:</strong> some data may already have been removed. Use <strong>Delete account</strong> again to retry, or contact support below.</p>
+    <p><strong>If the option is unavailable:</strong> finish or cancel any export, backup or restore in progress. If the option is missing, update the app or use the Android storage controls described below.</p>
+    <p><strong>Log out</strong> only ends your session and preserves local records. Use <strong>Delete account</strong> for the complete local reset.</p>
+  </section>
+
+  <section class="card" id="android" aria-labelledby="android-heading">
+    <h2 id="android-heading">If you cannot use the app</h2>
+    <p>If you cannot open the app, use your phone’s <strong>Settings → Apps → Statement Sense → Storage &amp; cache → Clear storage</strong> (sometimes called <strong>Clear data</strong>), or uninstall the app. Android removes the app’s private local data; button names vary by device. <strong>Clear cache</strong> alone does not remove your account or database.</p>
+    <p>Deletion must be performed on your device. Sending an email does not delete the app’s local account or data, and support cannot access or erase that storage remotely.</p>
+    <p>If you already uninstalled the app, Android has removed its private local data; you do not need to reinstall it solely to delete that local copy. Manage Android backups and exported files separately, as an older backup may restore data when the app is installed again.</p>
+  </section>
+
+  <hr class="divider">
+
+  <section id="retention" aria-labelledby="retention-heading">
+    <h2 id="retention-heading">What gets deleted and what may remain</h2>
+    <table class="data-table">
+      <caption>Scope of the in-app Delete account action</caption>
+      <thead><tr><th scope="col">Data</th><th scope="col">What happens</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Transactions and statement history</th><td>All parsed transactions, sessions and upload logs are permanently removed from the device’s app database, including recently deleted records.</td></tr>
+        <tr><th scope="row">Payees and categories</th><td>Payee names, aliases, mappings, identifiers and categories are permanently removed for every local account.</td></tr>
+        <tr><th scope="row">Profile and preferences</th><td>Locally stored name, mobile number, gender, Google sign-in details, dashboard choices and appearance settings are cleared.</td></tr>
+        <tr><th scope="row">App caches and local diagnostics</th><td>App-owned cached files are removed. Local analytics data and crash-report identity are reset, and deletion of unsent crash reports is requested through Firebase.</td></tr>
+        <tr><th scope="row">Original PDFs and exported files</th><td>Original statements, exported CSVs and JSON backups remain where you saved them. Delete these separately using the relevant Files or cloud-storage app.</td></tr>
+        <tr><th scope="row">Android backups and other devices</th><td>System backups and copies on other devices are not erased by this action. Manage them through your Android/Google backup settings and each device.</td></tr>
+        <tr><th scope="row">Previously uploaded analytics and crash reports</th><td>These are not deleted by the local reset. They remain subject to the Google/Firebase retention periods described below.</td></tr>
+        <tr><th scope="row">Your Google account</th><td>Your Google account and its data remain active. To remove the app’s Google authorization separately, visit <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google account connections</a> and remove Statement Sense or Transactions Parser.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Deletion timing and retention</h2>
+    <ul class="retention">
+      <li><strong>Local app data:</strong> removed when the in-app deletion completes, with no recovery or retention period in the app. This includes items in Recently deleted.</li>
+      <li><strong>Firebase Analytics:</strong> our <a href="https://sandeepchorge.github.io/transactions-platform/privacy-policy" target="_blank" rel="noopener noreferrer">privacy policy</a> states a retention period of <strong>2 months</strong> for user-level event data, with aggregate reporting retained longer. This is a retention policy, not a promise that the in-app action deletes previously uploaded records.</li>
+      <li><strong>Firebase Crashlytics:</strong> Google retains crash traces and associated identifiers for <strong>90 days before starting removal</strong> from live and backup systems. See <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer">Firebase’s privacy and retention information</a>.</li>
+      <li><strong>Exports and external backups:</strong> retained according to your own storage and backup settings until removed separately. We cannot set or enforce their retention period.</li>
+    </ul>
+  </section>
+
+  <aside class="note">
+    <p>Statement parsing happens on your device. The app uses Google sign-in, Firebase Analytics and Crashlytics, and Android may back up app data. Deleting local data does not automatically delete copies held by those services.</p>
+  </aside>
+
+  <footer>
+    <p>Help with these steps: <a href="mailto:statementsensesupport@gmail.com">statementsensesupport@gmail.com</a></p>
+    <p><a href="https://sandeepchorge.github.io/transactions-platform/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy policy</a></p>
+    <p>Statement Sense / Transactions Parser · Sandeep Chorge</p>
+    <p>Last updated: <time datetime="2026-09-10">10 September 2026</time></p>
+  </footer>
+</main>
+</body>
+</html>
