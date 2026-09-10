@@ -25,3 +25,6 @@ gradle.properties
 
 # JVM heap dumps from build/test OOMs
 *.hprof
+
+# Generated Copilot diff state belongs to the local IDE session.
+/.idea/copilotDiffState.xml

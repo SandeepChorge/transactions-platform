@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.madtitan94.transactionsparser" />
-                  <option name="mobileSdkAppId" value="1:368689223649:android:0bdade4b46e8ce4282a4a0" />
-                  <option name="projectId" value="transactionparser-502216" />
-                  <option name="projectNumber" value="368689223649" />
+                  <option name="appId" value="PLACEHOLDER" />
+                  <option name="mobileSdkAppId" value="" />
+                  <option name="projectId" value="" />
+                  <option name="projectNumber" value="" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
