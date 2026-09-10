@@ -42,6 +42,7 @@ import com.madtitan94.transactionsparser.core.domain.model.UserSession
 import com.madtitan94.transactionsparser.core.domain.util.DataError
 import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
 import com.madtitan94.transactionsparser.core.domain.util.Result
+import com.madtitan94.transactionsparser.feature.settings.domain.DeleteAccountService
 import com.madtitan94.transactionsparser.feature.settings.domain.ThemePreference
 import com.madtitan94.transactionsparser.feature.settings.domain.ThemeStorage
 import kotlinx.coroutines.Dispatchers
@@ -154,6 +155,17 @@ class SettingsViewModelTest {
         }
     }
 
+    private class FakeDeleteAccountService(
+        private val result: EmptyResult<DataError.Local> = Result.Success(Unit)
+    ) : DeleteAccountService {
+        var called = false
+
+        override suspend fun deleteAccount(): EmptyResult<DataError.Local> {
+            called = true
+            return result
+        }
+    }
+
     /**
      * One transaction and the payee it belongs to — enough to tell a written backup apart from an
      * empty one. The exhaustive round-trip fixtures live with the codec's own tests in core:domain;
@@ -239,6 +251,7 @@ class SettingsViewModelTest {
         backups: BackupLocalDataSource = FakeBackupDataSource(),
         backupWriter: DocumentWriter = writer,
         reader: DocumentReader = FakeDocumentReader(),
+        deleteAccount: DeleteAccountService = FakeDeleteAccountService(),
         themeStorage: ThemeStorage = FakeThemeStorage()
     ): SettingsViewModel {
         val transactions = FakeTransactionDataSource(rows)
@@ -261,6 +274,7 @@ class SettingsViewModelTest {
                 sessionStorage = sessionStorage
             ),
             restoreBackup = RestoreBackupUseCase(backups = backups, transactions = transactions),
+            deleteAccount = deleteAccount,
             themeStorage = themeStorage,
             analytics = analytics
         )
@@ -340,6 +354,95 @@ class SettingsViewModelTest {
             assertThat(awaitItem().showLogoutConfirm).isFalse()
         }
         assertThat(sessionStorage.cleared).isFalse()
+    }
+
+    @Test
+    fun `delete account click opens confirm dialog`() = runTest {
+        val service = FakeDeleteAccountService()
+        val viewModel = viewModel(deleteAccount = service)
+
+        viewModel.onAction(SettingsAction.OnDeleteAccountClick)
+
+        assertThat(viewModel.state.value.showDeleteAccountConfirm).isTrue()
+        assertThat(service.called).isFalse()
+    }
+
+    @Test
+    fun `confirming delete account calls delete service and closes the dialog`() = runTest {
+        val service = FakeDeleteAccountService()
+        val viewModel = viewModel(deleteAccount = service)
+
+        viewModel.onAction(SettingsAction.OnDeleteAccountClick)
+        viewModel.onAction(SettingsAction.OnConfirmDeleteAccount)
+
+        assertThat(service.called).isTrue()
+        assertThat(viewModel.state.value.showDeleteAccountConfirm).isFalse()
+        assertThat(viewModel.state.value.isDeletingAccount).isTrue()
+    }
+
+    @Test
+    fun `a failed delete account reports an error and clears busy state`() = runTest {
+        val service = FakeDeleteAccountService(Result.Error(DataError.Local.UNKNOWN))
+        val viewModel = viewModel(deleteAccount = service)
+
+        viewModel.events.test {
+            viewModel.onAction(SettingsAction.OnDeleteAccountClick)
+            viewModel.onAction(SettingsAction.OnConfirmDeleteAccount)
+
+            assertThat(awaitItem()).isInstanceOf(SettingsEvent.ShowMessage::class)
+        }
+        assertThat(viewModel.state.value.isDeletingAccount).isFalse()
+    }
+
+    @Test
+    fun `dismissing delete confirmation preserves the account`() = runTest {
+        val service = FakeDeleteAccountService()
+        val viewModel = viewModel(deleteAccount = service)
+        viewModel.onAction(SettingsAction.OnDeleteAccountClick)
+        viewModel.onAction(SettingsAction.OnDismissDeleteAccountConfirm)
+        viewModel.onAction(SettingsAction.OnConfirmDeleteAccount)
+        assertThat(service.called).isFalse()
+        assertThat(viewModel.state.value.showDeleteAccountConfirm).isFalse()
+    }
+
+    @Test
+    fun `deletion blocks repeat deletion and conflicting settings actions`() = runTest {
+        var calls = 0
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val finish = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val service = object : DeleteAccountService {
+            override suspend fun deleteAccount(): EmptyResult<DataError.Local> {
+                calls++
+                started.complete(Unit)
+                finish.await()
+                return Result.Success(Unit)
+            }
+        }
+        val viewModel = viewModel(deleteAccount = service)
+        viewModel.onAction(SettingsAction.OnDeleteAccountClick)
+        viewModel.onAction(SettingsAction.OnConfirmDeleteAccount)
+        started.await()
+        viewModel.onAction(SettingsAction.OnConfirmDeleteAccount)
+        viewModel.onAction(SettingsAction.OnLogoutClick)
+        viewModel.onAction(SettingsAction.OnRestoreClick)
+        viewModel.onAction(SettingsAction.OnExportClick)
+        viewModel.onAction(SettingsAction.OnThemeClick)
+        assertThat(calls).isEqualTo(1)
+        assertThat(viewModel.state.value.isExporting).isFalse()
+        assertThat(viewModel.state.value.showLogoutConfirm).isFalse()
+        assertThat(viewModel.state.value.showThemePicker).isFalse()
+        finish.complete(Unit)
+    }
+
+    @Test
+    fun `deletion cannot start while an export is pending`() = runTest {
+        val service = FakeDeleteAccountService()
+        val viewModel = viewModel(deleteAccount = service)
+        viewModel.onAction(SettingsAction.OnExportClick)
+        viewModel.onAction(SettingsAction.OnDeleteAccountClick)
+        viewModel.onAction(SettingsAction.OnConfirmDeleteAccount)
+        assertThat(service.called).isFalse()
+        assertThat(viewModel.state.value.showDeleteAccountConfirm).isFalse()
     }
 
     // --- export ---

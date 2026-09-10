@@ -6,5 +6,6 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val profileDataModule = module {
-    single<ProfileStorage> { DataStoreProfileStorage(androidContext()) }
+    single { DataStoreProfileStorage(androidContext()) }
+    single<ProfileStorage> { get<DataStoreProfileStorage>() }
 }

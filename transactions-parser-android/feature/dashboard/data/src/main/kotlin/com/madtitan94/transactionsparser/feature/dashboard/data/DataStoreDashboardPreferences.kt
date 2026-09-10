@@ -1,12 +1,17 @@
 package com.madtitan94.transactionsparser.feature.dashboard.data
 
 import android.content.Context
-import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.madtitan94.transactionsparser.core.domain.datasource.LocalDataCleaner
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionStorage
+import com.madtitan94.transactionsparser.core.domain.util.DataError
+import com.madtitan94.transactionsparser.core.domain.util.EmptyResult
+import com.madtitan94.transactionsparser.core.domain.util.Result
 import com.madtitan94.transactionsparser.feature.dashboard.domain.CustomDashboard
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardKey
 import com.madtitan94.transactionsparser.feature.dashboard.domain.DashboardLayout
@@ -67,9 +72,18 @@ private data class StoredCustomDashboard(
  * outcome on launch than a crash.
  */
 class DataStoreDashboardPreferences(
-    private val context: Context,
-    private val sessionStorage: SessionStorage
-) : DashboardPreferences {
+    context: Context,
+    private val sessionStorage: SessionStorage,
+    private val dataStore: DataStore<Preferences> = context.dashboardDataStore
+) : DashboardPreferences, LocalDataCleaner {
+
+    override suspend fun clearLocalData(): EmptyResult<DataError.Local> = try {
+        dataStore.edit { it.clear() }
+        Result.Success(Unit)
+    } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        Result.Error(DataError.Local.UNKNOWN)
+    }
 
     private object Keys {
         const val RANGE = "range"
@@ -87,7 +101,7 @@ class DataStoreDashboardPreferences(
         .distinctUntilChanged()
 
     private fun <T> scoped(read: (Preferences, (String) -> Preferences.Key<String>) -> T): Flow<T> =
-        combine(ownerId(), context.dashboardDataStore.data) { owner, prefs ->
+        combine(ownerId(), dataStore.data) { owner, prefs ->
             read(prefs) { name -> stringPreferencesKey("$owner$OWNER_SEPARATOR$name") }
         }.distinctUntilChanged()
 
@@ -99,7 +113,7 @@ class DataStoreDashboardPreferences(
      */
     private suspend fun editScoped(block: (MutablePreferences, (String) -> Preferences.Key<String>) -> Unit) {
         val owner = ownerId().first()
-        context.dashboardDataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             block(prefs) { name -> stringPreferencesKey("$owner$OWNER_SEPARATOR$name") }
         }
     }

@@ -8,6 +8,7 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    implementation(libs.androidx.credentials)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.core)
     implementation(platform(libs.koin.bom))

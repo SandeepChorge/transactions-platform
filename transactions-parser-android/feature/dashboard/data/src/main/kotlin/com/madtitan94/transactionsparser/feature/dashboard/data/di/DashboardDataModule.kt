@@ -6,5 +6,6 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val dashboardDataModule = module {
-    single<DashboardPreferences> { DataStoreDashboardPreferences(androidContext(), get()) }
+    single { DataStoreDashboardPreferences(androidContext(), get()) }
+    single<DashboardPreferences> { get<DataStoreDashboardPreferences>() }
 }

@@ -2,16 +2,26 @@ package com.madtitan94.transactionsparser
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.analytics.FirebaseLocalDataCleaner
 import com.madtitan94.transactionsparser.core.database.account.LegacyDataClaimer
+import com.madtitan94.transactionsparser.core.database.datasource.RoomLocalDataCleaner
 import com.madtitan94.transactionsparser.core.domain.backup.CreateBackupUseCase
 import com.madtitan94.transactionsparser.core.domain.backup.ReadBackupUseCase
 import com.madtitan94.transactionsparser.core.domain.backup.RestoreBackupUseCase
 import com.madtitan94.transactionsparser.core.domain.datasource.DocumentReader
 import com.madtitan94.transactionsparser.core.domain.datasource.DocumentWriter
+import com.madtitan94.transactionsparser.core.domain.datasource.LocalDataWork
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionStorage
 import com.madtitan94.transactionsparser.core.domain.model.AppVersion
 import com.madtitan94.transactionsparser.core.presentation.AndroidDocumentReader
 import com.madtitan94.transactionsparser.core.presentation.AndroidDocumentWriter
+import com.madtitan94.transactionsparser.feature.auth.data.GoogleCredentialStateCleaner
+import com.madtitan94.transactionsparser.feature.dashboard.data.DataStoreDashboardPreferences
+import com.madtitan94.transactionsparser.feature.profile.data.DataStoreProfileStorage
+import com.madtitan94.transactionsparser.feature.settings.data.CacheLocalDataCleaner
+import com.madtitan94.transactionsparser.feature.settings.data.DataStoreThemeStorage
+import com.madtitan94.transactionsparser.feature.settings.data.LocalDeleteAccountService
+import com.madtitan94.transactionsparser.feature.settings.domain.DeleteAccountService
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -57,6 +67,25 @@ class MainViewModel(
 }
 
 val appModule = module {
+    single { LocalDataWork() }
+    // Cross-feature cleanup is assembled only here. Keep the credential reset first and the
+    // session last (inside the service), so login appears only after all local stores are cleared.
+    single<DeleteAccountService> {
+        LocalDeleteAccountService(
+            cleaners = listOf(
+                get<GoogleCredentialStateCleaner>(),
+                get<LocalDataWork>(),
+                get<RoomLocalDataCleaner>(),
+                get<DataStoreProfileStorage>(),
+                get<DataStoreDashboardPreferences>(),
+                get<DataStoreThemeStorage>(),
+                get<CacheLocalDataCleaner>(),
+                get<FirebaseLocalDataCleaner>()
+            ),
+            sessionStorage = get()
+        )
+    }
+
     viewModelOf(::MainViewModel)
     // Bound here rather than in core:presentation so that module stays free of a DI framework;
     // :app is already where the cross-cutting singletons are assembled.

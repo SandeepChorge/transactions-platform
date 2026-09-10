@@ -10,6 +10,7 @@ import com.madtitan94.transactionsparser.core.database.datasource.RoomCategoryDa
 import com.madtitan94.transactionsparser.core.database.datasource.RoomAnomalyDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomCategoryInsightDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomDashboardDataSource
+import com.madtitan94.transactionsparser.core.database.datasource.RoomLocalDataCleaner
 import com.madtitan94.transactionsparser.core.database.datasource.RoomPayeeDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomSessionDataSource
 import com.madtitan94.transactionsparser.core.database.datasource.RoomTransactionDataSource
@@ -44,6 +45,7 @@ fun buildDatabase(context: Context, name: String = DATABASE_NAME): TransactionsD
         .build()
 
 val coreDatabaseModule = module {
+    single { RoomLocalDataCleaner(get()) }
     single { buildDatabase(androidContext()) }
 
     single { get<TransactionsDatabase>().categoryDao() }
