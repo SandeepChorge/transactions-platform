@@ -8,8 +8,17 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
@@ -27,6 +36,35 @@ data class AliasSuggestionUi(val payeeId: Long, val alias: String, val categoryI
  * answer cannot land on a different payee if the list changes while the dialog is open.
  */
 data class MergePrompt(val alias: String, val targetPayeeId: Long)
+
+/** Shared by both mapping forms; clearing is an ordinary explicit empty-name edit. */
+@Composable
+fun PayeeNameField(value: String, onValueChange: (String) -> Unit, enabled: Boolean = true) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(R.string.session_alias_label)) },
+        singleLine = true,
+        enabled = enabled,
+        trailingIcon = {
+            if (value.isNotEmpty()) {
+                IconButton(
+                    enabled = enabled,
+                    onClick = {
+                        onValueChange("")
+                        focusRequester.requestFocus()
+                        keyboard?.show()
+                    }
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.payee_name_clear))
+                }
+            }
+        },
+        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
+    )
+}
 
 /**
  * Existing payees matching what has been typed so far. Renders nothing when there is no match,

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="payee_name_clear">Clear payee name</string>
     <string name="sessions_title">Statements</string>
     <string name="sessions_upload_history">Upload history</string>
     <string name="tab_pending">Pending</string>

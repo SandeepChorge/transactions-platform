@@ -95,6 +95,7 @@ data class PayeeDetailState(
 }
 
 sealed interface PayeeDetailAction {
+    data object OnLeaveMapping : PayeeDetailAction
     data class OnAliasChange(val alias: String) : PayeeDetailAction
     data class OnCategorySelect(val categoryId: Long) : PayeeDetailAction
     data object OnSaveMapping : PayeeDetailAction
@@ -245,7 +246,8 @@ class PayeeDetailViewModel(
         countedCount = header.totals.countedCount,
         transactionCount = header.totals.transactionCount,
         duplicateCount = header.totals.duplicateCount,
-        aliasInput = header.edit.alias ?: header.payee?.alias.orEmpty(),
+        // Null means untouched; an explicit empty edit must stay empty during this visit.
+        aliasInput = header.edit.alias ?: header.payee?.alias ?: rawPayee,
         selectedCategoryId = header.edit.categoryId ?: header.payee?.categoryId,
         categories = header.categories,
         dayTotals = header.days.associateBy { it.startMillis },
@@ -263,6 +265,10 @@ class PayeeDetailViewModel(
 
     fun onAction(action: PayeeDetailAction) {
         when (action) {
+            PayeeDetailAction.OnLeaveMapping -> {
+                edits.value = PayeeEdit()
+                _state.update { it.copy(linkTargetId = null, mergePrompt = null, aliasSuggestions = emptyList()) }
+            }
             // Typing after picking a suggestion means the pick no longer stands.
             is PayeeDetailAction.OnAliasChange -> {
                 edits.update { it.copy(alias = action.alias) }

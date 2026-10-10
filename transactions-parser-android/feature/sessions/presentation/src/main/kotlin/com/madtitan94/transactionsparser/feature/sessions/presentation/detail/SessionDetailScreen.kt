@@ -60,6 +60,7 @@ import com.madtitan94.transactionsparser.feature.sessions.domain.DuplicateSelect
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
 import com.madtitan94.transactionsparser.feature.sessions.presentation.components.AliasSuggestions
 import com.madtitan94.transactionsparser.feature.sessions.presentation.components.MergePromptDialog
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.PayeeNameField
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -377,12 +378,10 @@ private fun PayeeGroupCard(
                 HorizontalDivider()
                 Spacer(Modifier.height(12.dp))
 
-                OutlinedTextField(
+                PayeeNameField(
                     value = group.aliasInput,
                     onValueChange = { onAction(SessionDetailAction.OnAliasChange(group.key, it)) },
-                    label = { Text(stringResource(R.string.session_alias_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    enabled = !group.isSaving
                 )
 
                 if (group.suggestions.isNotEmpty()) {

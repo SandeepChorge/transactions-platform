@@ -28,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -60,6 +59,7 @@ import com.madtitan94.transactionsparser.core.presentation.formatStatementMonth
 import com.madtitan94.transactionsparser.feature.sessions.presentation.R
 import com.madtitan94.transactionsparser.feature.sessions.presentation.components.AliasSuggestions
 import com.madtitan94.transactionsparser.feature.sessions.presentation.components.MergePromptDialog
+import com.madtitan94.transactionsparser.feature.sessions.presentation.components.PayeeNameField
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -381,12 +381,10 @@ private fun MappingEditor(
                 text = stringResource(R.string.payee_unmapped_title),
                 style = MaterialTheme.typography.titleSmall
             )
-            OutlinedTextField(
+            PayeeNameField(
                 value = state.aliasInput,
                 onValueChange = { onAction(PayeeDetailAction.OnAliasChange(it)) },
-                label = { Text(stringResource(R.string.session_alias_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                enabled = !state.isSaving
             )
             AliasSuggestions(
                 suggestions = state.aliasSuggestions,
