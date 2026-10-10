@@ -99,6 +99,7 @@ data class SessionDetailState(
 )
 
 sealed interface SessionDetailAction {
+    data object OnLeaveMapping : SessionDetailAction
     data class OnAliasChange(val key: String, val alias: String) : SessionDetailAction
     data class OnCategorySelect(val key: String, val categoryId: Long) : SessionDetailAction
     data class OnSaveClick(val key: String) : SessionDetailAction
@@ -227,6 +228,18 @@ class SessionDetailViewModel(
 
     fun onAction(action: SessionDetailAction) {
         when (action) {
+            SessionDetailAction.OnLeaveMapping -> {
+                edits.value = emptyMap()
+                _state.update {
+                    it.copy(
+                        mergePrompt = null,
+                        mergePromptKey = null,
+                        newCategoryForKey = null,
+                        newCategoryName = "",
+                        newCategoryError = null
+                    )
+                }
+            }
             // Typing after picking a suggestion means the pick no longer stands.
             is SessionDetailAction.OnAliasChange -> updateEdit(action.key) {
                 it.copy(alias = action.alias, linkTargetId = null)
@@ -273,7 +286,11 @@ class SessionDetailViewModel(
     /** First edit for a suggested payee starts from its saved alias/category. */
     private fun editSeededFromSuggestion(key: String): PayeeEdit {
         val group = _state.value.groups.find { it.key == key } ?: return PayeeEdit()
-        return PayeeEdit(alias = group.aliasInput.ifBlank { null }, categoryId = group.selectedCategoryId)
+        return PayeeEdit(
+            // A category-only edit must not turn the default parsed name into a typed query.
+            alias = group.aliasInput.takeIf { group.status != MappingStatus.UNMAPPED },
+            categoryId = group.selectedCategoryId
+        )
     }
 
     /**
@@ -472,7 +489,8 @@ class SessionDetailViewModel(
             totalLabel = formatPaise(totalPaise),
             transactionCount = transactionCount,
             timesLabel = times,
-            aliasInput = edit?.alias ?: knownPayee?.alias.orEmpty(),
+            // Null means untouched; an explicit empty edit must stay empty during this visit.
+            aliasInput = edit?.alias ?: knownPayee?.alias ?: rawPayee,
             selectedCategoryId = edit?.categoryId ?: knownPayee?.categoryId,
             status = status,
             isSaving = normalizedPayee in saving,

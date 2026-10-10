@@ -3,6 +3,17 @@ package com.madtitan94.transactionsparser.feature.sessions.presentation.navigati
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.FloatingWindow
+import com.madtitan94.transactionsparser.feature.sessions.presentation.detail.SessionDetailAction
+import com.madtitan94.transactionsparser.feature.sessions.presentation.detail.SessionDetailViewModel
+import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDetailAction
+import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDetailViewModel
+import org.koin.androidx.compose.koinViewModel
 import com.madtitan94.transactionsparser.feature.sessions.presentation.detail.SessionDetailRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.history.SessionsHistoryRoot
 import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDetailRoot
@@ -50,8 +61,13 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
             onOpenUploadHistory = { navController.navigate(UploadHistoryRoute) }
         )
     }
-    composable<SessionDetailRoute> {
+    composable<SessionDetailRoute> { entry ->
+        val viewModel: SessionDetailViewModel = koinViewModel()
+        OnMappingDestinationLeft(navController, entry) {
+            viewModel.onAction(SessionDetailAction.OnLeaveMapping)
+        }
         SessionDetailRoot(
+            viewModel = viewModel,
             onBack = { navController.navigateUp() },
             onOpenPayee = { normalizedPayee, rawPayee ->
                 navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
@@ -65,8 +81,12 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
             }
         )
     }
-    composable<PayeeDetailRoute> {
-        PayeeDetailRoot(onBack = { navController.navigateUp() })
+    composable<PayeeDetailRoute> { entry ->
+        val viewModel: PayeeDetailViewModel = koinViewModel()
+        OnMappingDestinationLeft(navController, entry) {
+            viewModel.onAction(PayeeDetailAction.OnLeaveMapping)
+        }
+        PayeeDetailRoot(onBack = { navController.navigateUp() }, viewModel = viewModel)
     }
     composable<UploadHistoryRoute> {
         UploadHistoryRoot(onBack = { navController.navigateUp() })
@@ -78,5 +98,31 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
                 navController.navigate(PayeeDetailRoute(normalizedPayee, rawPayee))
             }
         )
+    }
+}
+
+/**
+ * A mapping draft belongs to one visit, even when Navigation retains the destination's ViewModel.
+ * Observe destination changes rather than lifecycle stops: backgrounding, rotation and dialogs
+ * are not departures from the mapping screen.
+ */
+@Composable
+internal fun OnMappingDestinationLeft(
+    navController: NavController,
+    entry: NavBackStackEntry,
+    onLeave: () -> Unit
+) {
+    val currentOnLeave by rememberUpdatedState(onLeave)
+    DisposableEffect(navController, entry) {
+        var wasCurrent = navController.currentBackStackEntry?.id == entry.id
+        val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
+            if (destination !is FloatingWindow) {
+                val isCurrent = controller.currentBackStackEntry?.id == entry.id
+                if (wasCurrent && !isCurrent) currentOnLeave()
+                wasCurrent = isCurrent
+            }
+        }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose { navController.removeOnDestinationChangedListener(listener) }
     }
 }
