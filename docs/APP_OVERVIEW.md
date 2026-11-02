@@ -158,16 +158,18 @@ that most often trip someone reading the code cold.
 
 ## 7. Instrumentation
 
-Firebase Analytics and Crashlytics, added on `feat/analytics-and-crashlytics`. Contracts sit in
-`core:domain`; only `core:analytics` and `:app` see Firebase.
+Firebase Analytics, Crashlytics, and Remote Config. Contracts sit in `core:domain`; only
+`core:analytics`, `core:catalog`, and `:app` see Firebase. Remote Config serves a public
+default-category catalog. Statement rows are still not uploaded.
 
 Nine parameters ride every event — app name and version, device, manufacturer, model, OS version and
 release, plus **salted SHA-256 hashes** of the account id and email. Signed out, those two keys are
 *absent* rather than empty, because an empty string is a real bucket in Firebase and would merge
 every signed-out user into one phantom account.
 
-Eight events: `app_started`, `statement_imported`, `mapping_completed`, `mapping_cancelled`,
-`default_dashboard_changed`, `data_exported`, `logged_in`, `logged_out`. Events are a sealed type, so
+Nine events: `app_started`, `statement_imported`, `mapping_completed`, `mapping_cancelled`,
+`default_dashboard_changed`, `data_exported`, `logged_in`, `logged_out`,
+`suggested_category_adopted`. Events are a sealed type, so
 a typo in a name is a compile error rather than a permanent hole in the data, and each one is
 validated against Firebase's documented limits *before* the SDK sees it — Firebase discards malformed
 events silently, and a dashboard that is quietly wrong is worse than one that is visibly broken.

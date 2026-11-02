@@ -8,6 +8,9 @@ import assertk.assertions.isFalse
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import com.madtitan94.transactionsparser.core.domain.analytics.NoOpAnalyticsTracker
+import com.madtitan94.transactionsparser.core.domain.catalog.AdoptSuggestedCategory
+import com.madtitan94.transactionsparser.core.domain.catalog.CategoryCatalog
+import com.madtitan94.transactionsparser.core.domain.catalog.SuggestedCategorySource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
@@ -33,6 +36,7 @@ import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.Pay
 import com.madtitan94.transactionsparser.feature.sessions.presentation.payee.PayeeDetailViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -56,11 +60,12 @@ class MappingDraftTest(private val detail: Boolean) {
     private class Form(detail: Boolean, val payees: FakePayees, categories: FakeCategories) {
         private val session = if (!detail) SessionDetailViewModel(
             SavedStateHandle(mapOf("sessionId" to 1L)), FakeSessions(), FakeTransactions(),
-            payees, categories, NoOpAnalyticsTracker
+            payees, categories, EmptyCatalog, AdoptSuggestedCategory(categories), NoOpAnalyticsTracker
         ) else null
         private val payee = if (detail) PayeeDetailViewModel(
             SavedStateHandle(mapOf("normalizedPayee" to KEY, "rawPayee" to RAW)),
-            FakeTransactions(), payees, categories
+            FakeTransactions(), payees, categories, EmptyCatalog, AdoptSuggestedCategory(categories),
+            NoOpAnalyticsTracker
         ) else null
         val alias get() = session?.state?.value?.groups?.single()?.aliasInput ?: payee!!.state.value.aliasInput
         val category get() = if (session != null) session.state.value.groups.single().selectedCategoryId else payee!!.state.value.selectedCategoryId
@@ -158,6 +163,10 @@ class MappingDraftTest(private val detail: Boolean) {
             return Result.Success(1L)
         }
         override suspend fun linkToPayee(rawName: String, normalizedName: String, targetPayeeId: Long) = Result.Success(Unit)
+    }
+
+    private object EmptyCatalog : SuggestedCategorySource {
+        override fun observe(): Flow<CategoryCatalog> = flowOf(CategoryCatalog(version = 1, categories = emptyList()))
     }
 
     private class FakeCategories : CategoryLocalDataSource {

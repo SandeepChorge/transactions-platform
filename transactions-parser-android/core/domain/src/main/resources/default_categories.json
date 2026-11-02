@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "categories": [
+    { "key": "food", "names": { "en": "Food" }, "sortOrder": 0 },
+    { "key": "groceries", "names": { "en": "Groceries" }, "sortOrder": 1 },
+    { "key": "rent", "names": { "en": "Rent" }, "sortOrder": 2 },
+    { "key": "bills", "names": { "en": "Bills & Utilities" }, "sortOrder": 3 },
+    { "key": "fuel", "names": { "en": "Fuel" }, "sortOrder": 4 },
+    { "key": "transport", "names": { "en": "Transport" }, "sortOrder": 5 },
+    { "key": "shopping", "names": { "en": "Shopping" }, "sortOrder": 6 },
+    { "key": "health", "names": { "en": "Health" }, "sortOrder": 7 },
+    { "key": "education", "names": { "en": "Education" }, "sortOrder": 8 },
+    { "key": "entertainment", "names": { "en": "Entertainment" }, "sortOrder": 9 },
+    { "key": "emi", "names": { "en": "EMI/Loans" }, "sortOrder": 10 },
+    { "key": "travel", "names": { "en": "Travel" }, "sortOrder": 11 }
+  ]
+}

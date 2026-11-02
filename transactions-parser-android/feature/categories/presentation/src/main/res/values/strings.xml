@@ -2,7 +2,7 @@
 <resources>
     <string name="categories_title">Categories</string>
     <string name="categories_empty_title">No categories yet</string>
-    <string name="categories_empty_description">Create categories like Food, Groceries or Bills, then map statement payees to them.</string>
+    <string name="categories_empty_description">Add a suggestion, or create your own. Payees are filed under these when you map a statement.</string>
     <string name="category_add">Add category</string>
     <string name="category_edit">Edit category</string>
     <string name="category_delete">Delete</string>

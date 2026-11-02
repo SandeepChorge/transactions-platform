@@ -53,6 +53,24 @@ class AnalyticsEventTest {
         AnalyticsEvent.MappingCancelled(mappedCount = 12, unmappedCount = 399),
         AnalyticsEvent.DefaultDashboardChanged(dashboard = "PULSE"),
         AnalyticsEvent.DataExported(format = AnalyticsParams.FORMAT_CSV, rowCount = 1143),
+        AnalyticsEvent.SuggestedCategoryAdopted(
+            categoryKey = "food",
+            screen = AnalyticsParams.SCREEN_CATEGORIES,
+            addedAll = false,
+            catalogVersion = 1
+        ),
+        AnalyticsEvent.SuggestedCategoryAdopted(
+            categoryKey = "groceries",
+            screen = AnalyticsParams.SCREEN_MAPPING,
+            addedAll = false,
+            catalogVersion = 1
+        ),
+        AnalyticsEvent.SuggestedCategoryAdopted(
+            categoryKey = "rent",
+            screen = AnalyticsParams.SCREEN_PAYEE_DETAIL,
+            addedAll = true,
+            catalogVersion = 2
+        ),
         AnalyticsEvent.LoggedIn,
         AnalyticsEvent.LoggedOut
     )
@@ -91,6 +109,14 @@ class AnalyticsEventTest {
         assertThat(AnalyticsEvent.DataExported("csv", 1).name).isEqualTo("data_exported")
         assertThat(AnalyticsEvent.StatementImported("PHONEPE", 1, true).name)
             .isEqualTo("statement_imported")
+        assertThat(
+            AnalyticsEvent.SuggestedCategoryAdopted(
+                categoryKey = "food",
+                screen = AnalyticsParams.SCREEN_CATEGORIES,
+                addedAll = false,
+                catalogVersion = 1
+            ).name
+        ).isEqualTo("suggested_category_adopted")
     }
 
     @Test
@@ -115,7 +141,14 @@ class AnalyticsEventTest {
             "PHONEPE", "GOOGLE_PAY", AnalyticsParams.SOURCE_UNKNOWN,
             "UNRECOGNIZED_FORMAT", "NOT_A_PDF",
             "PULSE", AnalyticsParams.DASHBOARD_CUSTOM,
-            AnalyticsParams.FORMAT_CSV, AnalyticsParams.FORMAT_BACKUP
+            AnalyticsParams.FORMAT_CSV, AnalyticsParams.FORMAT_BACKUP,
+            // Catalog identifiers and the three screens that can adopt one. A display name or a
+            // typed category does not belong in this set — the parser rejects anything that is
+            // not a short lowercase key before it can be tracked.
+            "food", "groceries", "rent",
+            AnalyticsParams.SCREEN_CATEGORIES,
+            AnalyticsParams.SCREEN_MAPPING,
+            AnalyticsParams.SCREEN_PAYEE_DETAIL
         )
 
         val strings = allEvents

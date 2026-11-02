@@ -138,6 +138,7 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 
 dependencies {
     implementation(project(":core:analytics"))
+    implementation(project(":core:catalog"))
     implementation(project(":core:domain"))
     implementation(project(":core:presentation"))
     implementation(project(":core:designsystem"))

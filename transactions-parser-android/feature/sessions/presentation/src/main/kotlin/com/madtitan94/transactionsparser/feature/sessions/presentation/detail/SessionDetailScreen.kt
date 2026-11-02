@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.components.AppButton
 import com.madtitan94.transactionsparser.core.designsystem.components.EmptyState
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
+import com.madtitan94.transactionsparser.core.designsystem.components.SuggestedCategoryChips
 import com.madtitan94.transactionsparser.core.domain.model.Category
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
 import com.madtitan94.transactionsparser.feature.sessions.domain.DuplicateSelection
@@ -160,6 +161,8 @@ fun SessionDetailScreen(
                     PayeeGroupCard(
                         group = group,
                         categories = state.categories,
+                        suggestions = state.suggestions.map { it.name },
+                        showSuggestions = state.showSuggestions,
                         readOnly = state.isReadOnly,
                         onOpen = { onOpenPayee(group.key, group.rawPayee) },
                         onAction = onAction
@@ -268,6 +271,8 @@ private fun DuplicatesBanner(count: Int, isEverything: Boolean) {
 private fun PayeeGroupCard(
     group: PayeeGroupUi,
     categories: List<Category>,
+    suggestions: List<String>,
+    showSuggestions: Boolean,
     readOnly: Boolean,
     onOpen: () -> Unit,
     onAction: (SessionDetailAction) -> Unit
@@ -397,9 +402,12 @@ private fun PayeeGroupCard(
                 Spacer(Modifier.height(8.dp))
                 CategoryDropdown(
                     categories = categories,
+                    suggestions = if (showSuggestions) suggestions else emptyList(),
                     selectedCategoryId = group.selectedCategoryId,
                     onSelect = { onAction(SessionDetailAction.OnCategorySelect(group.key, it)) },
-                    onAddNew = { onAction(SessionDetailAction.OnAddCategoryClick(group.key)) }
+                    onAddNew = { onAction(SessionDetailAction.OnAddCategoryClick(group.key)) },
+                    onAdopt = { onAction(SessionDetailAction.OnAdoptSuggestion(group.key, it)) },
+                    onAdoptAll = { onAction(SessionDetailAction.OnAdoptAllSuggestions) }
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -424,48 +432,61 @@ private fun PayeeGroupCard(
 @Composable
 private fun CategoryDropdown(
     categories: List<Category>,
+    suggestions: List<String>,
     selectedCategoryId: Long?,
     onSelect: (Long) -> Unit,
-    onAddNew: () -> Unit
+    onAddNew: () -> Unit,
+    onAdopt: (String) -> Unit,
+    onAdoptAll: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedName = categories.find { it.id == selectedCategoryId }?.name
         ?: stringResource(R.string.session_category_placeholder)
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(stringResource(R.string.session_category_label)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-        )
-        ExposedDropdownMenu(
+    Column {
+        ExposedDropdownMenuBox(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onExpandedChange = { expanded = it }
         ) {
-            categories.forEach { category ->
+            OutlinedTextField(
+                value = selectedName,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(R.string.session_category_label)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = { Text(category.name) },
+                        onClick = {
+                            onSelect(category.id)
+                            expanded = false
+                        }
+                    )
+                }
                 DropdownMenuItem(
-                    text = { Text(category.name) },
+                    text = { Text(stringResource(R.string.session_new_category)) },
+                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
                     onClick = {
-                        onSelect(category.id)
                         expanded = false
+                        onAddNew()
                     }
                 )
             }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.session_new_category)) },
-                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
-                onClick = {
-                    expanded = false
-                    onAddNew()
-                }
+        }
+        if (suggestions.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            SuggestedCategoryChips(
+                labels = suggestions,
+                onAdopt = onAdopt,
+                onAdoptAll = onAdoptAll
             )
         }
     }
