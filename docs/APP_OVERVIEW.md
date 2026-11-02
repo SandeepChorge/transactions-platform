@@ -7,7 +7,7 @@ already exist and are better at their own jobs:
 | Read this for | Go here |
 |---|---|
 | **How to work here** — which emulator, which GitHub account, how to build, the domain rules that bite | [`CLAUDE.md`](../CLAUDE.md) |
-| **The V1 build in detail** — the parsing pipeline, setup, the file index | [`transactions-parser-android/README.md`](../transactions-parser-android/README.md) *(accurate about V1, frozen there — it still says "18 modules, ~69 Kotlin files"; there are now 25 and ~216)* |
+| **Architecture rules, data model, parsing, conventions, closed-PR map** | [`transactions-parser-android/README.md`](../transactions-parser-android/README.md) |
 | **What is left to do** | Issues [#9](https://github.com/SandeepChorge/transactions-platform/issues/9) (release pipeline) and [#16](https://github.com/SandeepChorge/transactions-platform/issues/16) (dashboards & insights). Those are the single source of truth for scope; this file is not |
 
 Last written against `main` at `634bf98` plus the analytics branch. Treat every number in it as a
