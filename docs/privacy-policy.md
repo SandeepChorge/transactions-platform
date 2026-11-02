@@ -151,10 +151,12 @@ parameters are **omitted entirely** rather than sent empty.
 | `data_exported` | An export or backup is successfully written | Which format |
 | `logged_in` | Sign-in succeeds | Nothing |
 | `logged_out` | You sign out | Nothing |
+| `suggested_category_adopted` | You accept a suggested category, including each category inside an "Add all" | The catalog identifier (for example `food`), which screen (`categories`, `mapping`, or `payee_detail`), whether it was "Add all", and the catalog version |
 
 **What these events deliberately do not contain:** no payee names, no aliases, no category names, no
 amounts, no dates from your statements, no reference numbers, no file names, no free-text field of
-any kind. The event definitions are a closed, fixed set in the source code — they cannot carry
+any kind. `suggested_category_adopted` carries the catalog's identifier for a suggestion, not the
+label on screen and not a name you typed. The event definitions are a closed, fixed set in the source code — they cannot carry
 arbitrary text — and this is enforced by an automated test that fails the build if a free-text field
 is ever added to one.
 
@@ -185,23 +187,37 @@ of your database, your statements, or your screen.
 - Your statement PDFs, or any part of their text
 - Any transaction, payee name, alias, amount, date, or reference number
 - Your precise location, contacts, photos, microphone, camera, call log, or SMS. The app requests
-  **one Android permission in total: `INTERNET`**, and it needs that only for sign-in and for the
-  analytics and crash reporting described above. Statement parsing itself works with no network at
-  all.
+  **one Android permission in total: `INTERNET`**, and it needs that for sign-in, for the
+  analytics and crash reporting described above, and to download the public category catalog in
+  §4.6. Statement parsing itself works with no network at all.
 - Advertising identifiers. There is no advertising SDK in the app.
+
+### 4.6 Default category suggestions
+
+When an account has no categories, the app can show a short list of suggestions (Food, Groceries,
+and so on). That list is a public catalog. The app downloads it from **Firebase Remote Config**, so
+the list can be edited without an app update. The same list is bundled in the app, and that bundled
+copy is what you see if the download has not succeeded, including on a first launch with no network.
+
+The download does not include your categories, the names you typed, your payees, or your
+transactions. Firebase receives the same kind of app-instance information it already receives for
+Analytics. A suggestion becomes one of your categories only when you tap it, and from then on it
+lives only on your device, with the rest of your data.
 
 ---
 
 ## 5. Every way data leaves your device — the complete list
 
-There are exactly three, and you can verify all three in the public source code.
+There are exactly four, and you can verify all four in the public source code.
 
 1. **Sign-in.** A conversation between your device and Google. We are a recipient of the result, not
    a party to your credentials.
 2. **Analytics events**, to Google Analytics for Firebase, as itemised in §4.3.
 3. **Crash reports**, to Firebase Crashlytics, as described in §4.4.
+4. **The default-category catalog**, fetched from Firebase Remote Config, as described in §4.6.
+   This is a download of a public list. Nothing from your statements is uploaded with it.
 
-There is no fourth. There is no upload of statements, no sync, no cloud database, and no
+There is no fifth. There is no upload of statements, no sync, no cloud database, and no
 Statement Sense backend to send anything to.
 
 ---
@@ -247,6 +263,7 @@ data stays on your device, and this is the one system-level exception to that.
 | Google Sign-In / Credential Manager | Authentication | [policies.google.com/privacy](https://policies.google.com/privacy) |
 | Google Analytics for Firebase | Anonymous usage measurement | [firebase.google.com/support/privacy](https://firebase.google.com/support/privacy) |
 | Firebase Crashlytics | Crash reporting | [firebase.google.com/support/privacy](https://firebase.google.com/support/privacy) |
+| Firebase Remote Config | The public default-category catalog in §4.6 | [firebase.google.com/support/privacy](https://firebase.google.com/support/privacy) |
 | Google Play | Distribution | [play.google.com/about/play-terms](https://play.google.com/intl/en_us/about/play-terms/) |
 
 We do not use any advertising network, attribution SDK, social login other than Google, or
@@ -309,8 +326,9 @@ performance of the service you asked for.
 
 - Your data lives in the app's private storage, which Android isolates from other applications.
 - Identifiers sent for analytics are one-way salted hashes, not the values themselves.
-- The app has no server, no login of its own, and no API key that grants access to your data —
-  because there is nothing remote to grant access to. This removes an entire category of breach.
+- The app has no server of its own, and no API key that grants access to your financial data.
+  That data is not stored anywhere we operate. The Firebase products in §8 are the only remote
+  services, and they do not receive your statements.
 - The application is open source, so these claims can be checked rather than taken on trust.
 
 No system is perfectly secure. Files you export yourself, and backups Android makes, are protected
@@ -398,4 +416,4 @@ The app is open source. Every claim above corresponds to code that can be read:
 | That events carry no free text | The test that enumerates every event subclass and asserts it |
 | That the temporary PDF is deleted | The `finally` block in the upload use case |
 | That only `INTERNET` is requested | `app/src/main/AndroidManifest.xml` |
-| That there is no server | The absence of any HTTP client in the dependency list |
+| That there is no server of our own | No general HTTP client in the dependency list. The only network clients are the Firebase SDKs (Analytics, Crashlytics, Remote Config). `services/` and `transactions-parser-web/` are empty |
