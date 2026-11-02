@@ -1,8 +1,17 @@
-# Transactions Parser
+# Statement Sense (Android)
 
 Android app that turns PhonePe / Google Pay transaction statement PDFs into categorized expenses — parsed **entirely on-device**, because statements contain bank data and nothing may leave the phone.
 
-> **Reading this as an AI assistant picking up the project?** This README is the authoritative context. Sections 4–6 (architecture, conventions, data model) are *rules*, not descriptions — follow them when generating code so new work matches what exists. Section 11 lists open work.
+Display name: **Statement Sense**. `applicationId` stays `com.madtitan94.transactionsparser` (immutable once published).
+
+> **Where to read what**
+>
+> | Need | Go here |
+> |---|---|
+> | Product story & how the pieces hang together | [`docs/APP_OVERVIEW.md`](../docs/APP_OVERVIEW.md) |
+> | How to work here (emulator, GitHub account, domain traps, schema ritual) | [`CLAUDE.md`](../CLAUDE.md) |
+> | What is left to do | Issues [#9](https://github.com/SandeepChorge/transactions-platform/issues/9) (release pipeline) and [#16](https://github.com/SandeepChorge/transactions-platform/issues/16) (dashboards & insights) |
+> | Architecture rules, data model, parsing, conventions | **This README** |
 
 ---
 
@@ -10,7 +19,7 @@ Android app that turns PhonePe / Google Pay transaction statement PDFs into cate
 
 Manually entering daily expenses is tedious, so people stop doing it. Instead: upload a statement PDF once a month, and the app extracts every transaction, groups it by payee, and learns your naming.
 
-**The game changer:** payee mappings persist. The first upload asks you to map `AWDHOOT SNACKS CENTRE` → alias "Morning tea stall" → category "Food". Every future upload recognizes that payee automatically and needs one confirmation tap. Only new payees require work, so effort drops to near-zero after month one.
+**The game changer:** payee mappings persist. The first upload asks you to map `AWDHOOT SNACKS CENTRE` → alias "Morning tea stall" → category "Food". Every future upload recognizes that payee automatically. Only new payees require work, so effort drops to near-zero after month one.
 
 **Example of the payee summary the app produces:**
 
@@ -20,27 +29,36 @@ Manually entering daily expenses is tedious, so people stop doing it. Instead: u
 
 ## 2. Current status
 
-**V1 is feature-complete and code-complete.** 18 Gradle modules, ~69 Kotlin files, 5 test suites. Not yet run against a real PDF on a device — see §11.
+**25 Gradle modules · ~227 Kotlin files · Room schema v4 · 57 test files.**
 
-| Spec requirement | Status |
+V1 (import → map → sessions) shipped first. Everything below that was added through closed PRs #2–#40 — see the summary table at the end of this file, or the issues for remaining work.
+
+| Area | Status |
 |---|---|
 | Google login | ✅ Credential Manager + Sign in with Google |
-| Profile: name (required), mobile (optional, validated), email (read-only), gender (optional) | ✅ |
-| PDF upload, 80 MB limit | ✅ SAF picker + size/extension checks |
-| Reject password-protected PDFs | ✅ Detected by PdfBox → specific error dialog |
-| Parse PhonePe + Google Pay statements | ✅ On-device regex parsers |
-| Reject wrong documents with clear error | ✅ Content-based routing → `UNRECOGNIZED_FORMAT` |
-| Temp storage, immediate deletion, tell the user | ✅ Deleted in a `finally` block; dialog confirms |
-| Sessions: Pending / Completed / Cancelled tabs | ✅ |
-| Payee grouping (amounts, total, count, typical times) | ✅ `PayeeGrouper`, unit-tested |
-| Alias + category mapping, save per payee | ✅ |
-| Resume partially mapped sessions | ✅ Stays Pending until fully mapped |
-| Auto-map known payees, one-tap confirm | ✅ "N payees recognized — Confirm all" |
-| Categories: edit always, delete only when unlinked | ✅ UI + ViewModel + DB `RESTRICT` |
-| Upload history (success and failure) | ✅ |
-| Local scalable DB | ✅ Room, 5 tables |
+| Profile | ✅ name required; mobile / gender optional; email read-only |
+| PDF upload (≤80 MB), password rejection, wrong-doc rejection | ✅ |
+| PhonePe + Google Pay parsers | ✅ on-device; PhonePe keeps imperfect rows rather than dropping them (#24) |
+| Temp PDF deleted before success is shown | ✅ |
+| Sessions: Pending / Completed / Cancelled | ✅ |
+| Payee mapping, auto-map, confirm-all, resume | ✅ |
+| Duplicate detection (`isDuplicate` / `isExcluded`) | ✅ (#4) |
+| Multi-account isolation + soft delete | ✅ (#3); soft delete UI wired for categories only |
+| Payee detail (paged cross-session history) | ✅ (#5) |
+| Settings / CSV export / Recently deleted / sticky day headers | ✅ (#6) |
+| Payee merge + `payee_identifiers` | ✅ (#7) |
+| JSON backup / restore | ✅ (#17) |
+| Design theme (light/dark, artboard-sourced) | ✅ (#25–#26) |
+| Home as dashboard catalog (Pulse / Categories / Mapping health / Payees + custom) | ✅ (#29–#34) |
+| Bottom bar: Home · Statements · ⊕ · Payees · You | ✅ (#33) |
+| Category insight carousel | ✅ (#35) |
+| Global search + anomaly callouts | ✅ (#36) |
+| Firebase Analytics + Crashlytics | ✅ (#37) |
+| R8 on release; CI versioning / signing / Firebase + Play internal upload | ✅ (#10–#14, #19–#22); Play upload still hardening under #9 |
+| Privacy policy / store listing / delete-account docs | ✅ (#38–#39) |
+| Prefill parsed payee name on map | ✅ (#40) |
 
-**Deferred to V2 (hooks already in place):** bank statements, password-protected PDFs, cloud sync, AI-assisted parsing fallback.
+**Still open (tracked on issues, not here):** budgets, recurring detection, shareable report, home-screen widget, app lock (#16); remaining Play / distribution polish (#9). **Deferred hooks still unused:** other bank parsers, password-prompted PDFs, cloud sync, AI-assisted parsing fallback.
 
 ---
 
@@ -48,21 +66,29 @@ Manually entering daily expenses is tedious, so people stop doing it. Instead: u
 
 **Prerequisites:** Android Studio with SDK 37, JDK 21 (Gradle toolchain), a device/emulator with Google Play services.
 
-**Google Sign-In** — GCP project `transactionparser-502216` exists and the web client ID is already in `gradle.properties`:
+**Emulator:** use `emulator-5556` only — see `CLAUDE.md`. Never drive `emulator-5554`.
+
+**Google Sign-In** — GCP project `transactionparser-502216` exists; put the web client ID in (gitignored) `gradle.properties`:
 
 ```properties
 GOOGLE_WEB_CLIENT_ID=368689223649-....apps.googleusercontent.com
 ```
 
+Copy from `gradle.properties.example`. CI builds its properties from that example, so a setting that exists only in your local file does not exist in CI.
+
 Still verify in [GCP Credentials](https://console.cloud.google.com/apis/credentials?project=transactionparser-502216):
-1. An **Android** OAuth client exists — package `com.madtitan94.transactionsparser` + debug SHA-1 from `./gradlew signingReport`. It's never referenced in code, but sign-in fails without it.
+1. An **Android** OAuth client exists — package `com.madtitan94.transactionsparser` + debug SHA-1 from `./gradlew signingReport`.
 2. Your Google account is listed under consent-screen **Test users**.
 
-Release builds later need the release keystore's SHA-1 as a second Android client. Use the **Web** client ID in `setServerClientId` — passing the Android one is the most common sign-in failure.
+Use the **Web** client ID in `setServerClientId` — passing the Android one is the most common sign-in failure.
 
-`gradle.properties` holding the client ID must stay gitignored.
+**Build / test** (from this directory, not the repo root):
 
-**Build:** `./gradlew assembleDebug` · **Test:** `./gradlew test`
+```bash
+./gradlew assembleDebug
+./gradlew test verifyRoomMigrations
+ANDROID_SERIAL=emulator-5556 ./gradlew :app:installDebug
+```
 
 ---
 
@@ -71,28 +97,25 @@ Release builds later need the release keystore's SHA-1 as a second Android clien
 Clean Architecture with **feature-layered modularization** — split by feature first, then by layer. `presentation → domain ← data`; domain depends on nothing. **Features never depend on each other**; anything shared moves to `core`. MVI in the presentation layer.
 
 ```
-:app                              auth gate, bottom bar, NavHost, startKoin
+:app                              auth gate, bottom bar, NavHost, startKoin, BuildConfig
 :build-logic                      Gradle convention plugins
 
-:core:domain          (pure JVM)  Result<T,E>, DataError, domain models,
-                                  parser contracts, datasource interfaces
+:core:domain          (pure JVM)  Result<T,E>, models, datasource interfaces,
+                                  DuplicateDetector, backup/export/analytics contracts
 :core:presentation                UiText, ObserveAsEvents, error→UiText, ₹/date formatters
-:core:designsystem                theme + shared composables
-:core:database                    Room: entities, DAOs, datasource impls, mappers
+:core:designsystem                theme + shared composables + chart primitives
+:core:database                    Room: entities, DAOs, migrations, datasource impls
 :core:parsing         (pure JVM)  PhonePe/GPay parsers + registry
 :core:pdf                         PdfBox-Android text extractor
+:core:analytics                   Firebase Analytics / Crashlytics adapters
 
-:feature:auth:data                DataStore session storage
-:feature:auth:presentation        login screen, GoogleCredentialHelper
-:feature:profile:domain (JVM)     UserProfile, Gender, ProfileValidator
-:feature:profile:data             DataStore profile storage
-:feature:profile:presentation     profile view/edit
-:feature:upload:domain  (JVM)     ImportStatementUseCase ← the import pipeline
-:feature:upload:data              SAF file access, cache copy, delete
-:feature:upload:presentation      upload screen, validation, dialogs
-:feature:sessions:domain (JVM)    PayeeGrouper
-:feature:sessions:presentation    history tabs, mapping screen, upload history
-:feature:categories:presentation  category CRUD
+:feature:auth:{data,presentation}
+:feature:profile:{domain,data,presentation}
+:feature:upload:{domain,data,presentation}     ImportStatementUseCase
+:feature:sessions:{domain,presentation}        history, mapping, payee directory/detail, search
+:feature:categories:presentation
+:feature:dashboard:{domain,data,presentation}  Home catalog, manage/builder, category insight
+:feature:settings:{domain,data,presentation}   You tab, theme, CSV, backup, recently deleted
 ```
 
 **Dependency rules**
@@ -160,46 +183,56 @@ Error types: `DataError.Local` (DB), `ParseError` (parsing/PDF), `AuthError`, `P
 | Feature nav graph | `<feature>Graph()` on `NavGraphBuilder` | `sessionsGraph(navController)` |
 | Koin module | `<feature><Layer>Module` | `uploadDataModule` |
 
-**DI (Koin):** one module per feature layer, assembled *only* in `:app` (`TransactionsParserApp.kt`, 13 modules). Prefer `viewModelOf(::X)` / `singleOf(::X) { bind<Y>() }`.
+**DI (Koin):** one module per feature layer, assembled *only* in `:app` (`TransactionsParserApp.kt`). Prefer `viewModelOf(::X)` / `singleOf(::X) { bind<Y>() }`. `:app` is the only module with `BuildConfig`, so build-time values (analytics salt, OAuth client id) are injected from there.
 
 **Navigation:** type-safe `@Serializable` routes; intra-feature navigation via the passed `NavController`; cross-feature via lambda callbacks — never import another feature's route.
 
-**Domain purity:** `:core:domain`, `:core:parsing`, `:feature:*:domain` are pure Kotlin. No Android imports. This is what makes parsing and grouping testable without an emulator — don't break it.
+**Domain purity:** `:core:domain`, `:core:parsing`, `:feature:*:domain` are pure Kotlin. No Android imports. This is what makes parsing, grouping, duplicate detection and the backup codec testable without an emulator — don't break it.
 
 **Money and time:** amounts are **paise (`Long`)**, never floats or Doubles. Statement date-times are stored as wall-clock **as-if-UTC** epoch millis so they render identically in any timezone — always read back with `ZoneOffset.UTC` (helpers in `core/presentation/Formatters.kt`).
+
+**Account scoping:** every method in `RoomDataSources` resolves `ownerId` through `ActiveAccountProvider` internally. ViewModels and use cases neither pass it nor filter on it.
+
+**Payee-scoped queries:** use the `SAME_PAYEE_NAMES` predicate in `dao/Daos.kt`, never a bare `normalizedPayee = :x`. Matching on `transactions.payeeId` alone drops rows imported before that payee was mapped.
 
 ---
 
 ## 6. Data model
 
-Room DB `transactions_parser.db` v1, five tables. The Google session and user profile live in **DataStore** (`session_store`, `user_profile_store`), not SQLite.
+Room DB `transactions_parser.db` **v4**, six tables. Schema history is exported and committed under `core/database/schemas/` (`1.json`–`4.json`). The Google session, user profile, theme and dashboard preferences live in **DataStore**, not SQLite.
 
 ```
-categories
-    ↑ RESTRICT (can't delete a category that has payees)
-payees  (unique normalizedName ← the auto-map key)
-    ↑ SET_NULL
-transactions ──CASCADE──→ sessions
+categories  (ownerId-scoped; soft delete wired)
+    ↑ RESTRICT
+payees  (alias + categoryId; no statement name)
+    ↑ RESTRICT
+payee_identifiers  (raw/normalized statement names → payeeId)
+                     unique (ownerId, normalizedName)
 
-upload_logs (standalone audit trail, no FK)
+sessions  ←CASCADE─ transactions
+                      isDuplicate / duplicateOfTransactionId / isExcluded
+                      payeeId? SET_NULL  (NULL = unmapped)
+
+upload_logs  (standalone audit trail, no FK)
 ```
 
-**`categories`** — `id` PK, `name` (unique index). Deletable only when unlinked.
+Every table carries `ownerId`. Soft-delete columns (`isDeleted` / `deletedAtMillis`) exist on the main tables; **only `CategoryDao` writes them today**. Cancelling a session flips status and leaves `isDeleted = 0`, so cancelled sessions are not in Recently deleted.
 
-**`payees`** — the persistent mapping that makes re-uploads fast.
-`id` PK · `rawName` (as printed) · `normalizedName` (**unique**, = trim + collapse whitespace + uppercase — the dedup/auto-map key) · `alias` (user's own name) · `categoryId` FK `RESTRICT`.
+**`categories`** — `id` PK · `ownerId` · `name` (unique per owner). Deletable only when unlinked.
 
-**`sessions`** — one row per uploaded statement.
-`id` PK · `fileName` · `source` (`PHONEPE`/`GOOGLE_PAY`) · `uploadedAtMillis` · `periodStartMillis?` · `periodEndMillis?` · `status` (`PENDING`/`COMPLETED`/`CANCELLED`). Starts PENDING; auto-flips to COMPLETED when zero transactions remain unmapped.
+**`payees`** — the user's name for someone + their category. No statement name lives here anymore (#7).
 
-**`transactions`** — every extracted line.
-`id` PK · `sessionId` FK CASCADE (indexed) · `dateTimeUtcMillis` · `rawPayee` · `normalizedPayee` (indexed) · `amountPaise` · `type` (`DEBIT`/`CREDIT`) · `transactionRef?` (PhonePe `T…` / GPay UPI id) · `utr?` (PhonePe only) · `payeeId?` FK SET_NULL (indexed) — **NULL means unmapped**, and this single field drives mapping progress and session completion.
+**`payee_identifiers`** — one statement spelling per row. Auto-map key is `(ownerId, normalizedName)`. Merging re-points identifiers; it does not rewrite history.
 
-**`upload_logs`** — `id` PK · `fileName` · `uploadedAtMillis` · `success` · `source?` · `failureReason?` (`ParseError` name) · `sessionId?`. No FK, so failed uploads — which never create a session — are still logged.
+**`sessions`** — one row per uploaded statement. `status`: `PENDING` / `COMPLETED` / `CANCELLED`. Starts PENDING; auto-flips to COMPLETED when zero countable transactions remain unmapped.
 
-**Session summaries** come from one aggregate query, so tabs need no N+1 lookups; `COUNT(t.payeeId)` skips NULLs, giving mapped-vs-total in a single pass.
+**`transactions`** — amounts in paise. `payeeId?` NULL means unmapped. `isDuplicate` is a system fact set at import; `isExcluded` starts equal to it and is then owned by the user. **Aggregates filter on `isExcluded`, never on `isDuplicate`.**
 
-**Notes:** enums stored as **strings**, not ordinals (reordering can't corrupt data). No type converters — primitives only, which keeps future cloud serialization trivial. `exportSchema = false` today; turn it on and adopt `AutoMigration` before the first schema change ships.
+**`upload_logs`** — success and every failure reason, including failed uploads that never created a session.
+
+**Changing the schema** needs all four: bump version → write `Migration` into `ALL_MIGRATIONS` → `MigrationTest` that proves data survives → `./gradlew verifyRoomMigrations`. Never add `fallbackToDestructiveMigration()`. Detail in `CLAUDE.md`.
+
+**Notes:** enums stored as **strings**, not ordinals. No type converters — primitives only. Session summaries and dashboard numbers come from aggregate queries, not N+1 loads.
 
 ---
 
@@ -214,16 +247,18 @@ SAF pick → validate (≤80 MB, .pdf) → copy to app cache
       · GPay:    "google pay"/"transaction statement" + "UPI Transaction ID"
       · no match → UNRECOGNIZED_FORMAT (wrong-document rejection)
   → parser.parse(text) → ParsedStatement
-  → persist as PENDING session, auto-mapping known payees by normalizedName
+  → DuplicateDetector flags repeats against everything the account already holds
+      (issuer ref → UTR → weaker composite; never by date overlap)
+  → persist as PENDING session, auto-mapping known payees by normalized identifier
   → delete temp file (finally block — never outlives parsing) → tell the user
   → log to upload_logs (success and every failure reason)
 ```
 
-Orchestrated by `ImportStatementUseCase` (pure JVM, fully unit-tested with fakes).
+Orchestrated by `ImportStatementUseCase` (pure JVM, unit-tested with fakes).
 
-**Pattern-matching strategy.** Text is **chunked per transaction** using row-date anchors — PhonePe is month-first (`Jul 03, 2026`), GPay is day-first (`09 Jun, 2026`), which also stops header/period lines from matching. Within each chunk, independent regexes extract payee (anchor `Paid to`/`Received from` up to stop-tokens: `DEBIT`, `₹`, newline, `UPI Transaction ID`, `Paid by`), amount (`₹1,234.56` → paise), time (`h:mm AM/PM`), transaction ref, UTR, and DEBIT/CREDIT. Being chunk-scoped and order-independent makes it tolerant of PdfBox extraction quirks.
+**Pattern-matching strategy.** Text is **chunked per transaction** using row-date anchors — PhonePe is month-first (`Jul 03, 2026`), GPay is day-first (`09 Jun, 2026`). Within each chunk, independent regexes extract payee, amount (→ paise), time, transaction ref, UTR, and DEBIT/CREDIT. PhonePe keeps rows it cannot fully classify rather than dropping them (#24).
 
-**Adding a new source (V2 bank statements):** implement `StatementParser` (`source`, `canParse`, `parse`) in `:core:parsing`, register it in `coreParsingModule`. One class plus one line — no feature code changes.
+**Adding a new source:** implement `StatementParser` (`source`, `canParse`, `parse`) in `:core:parsing`, register it in `coreParsingModule`. One class plus one line — no feature code changes.
 
 **Why no AI/cloud parsing:** bank-data privacy was a hard requirement. The `StatementParser` interface keeps an opt-in AI fallback possible later without touching feature code.
 
@@ -231,72 +266,71 @@ Orchestrated by `ImportStatementUseCase` (pure JVM, fully unit-tested with fakes
 
 ## 8. Key flows
 
-**Import** — see §7. Session lands in **Pending**.
+**Import** — see §7. Session lands in **Pending**. Duplicates are flagged and start excluded; the user can re-include a false positive without erasing the detection fact.
 
-**Mapping** (`SessionDetailViewModel`) — transactions are grouped by `normalizedPayee` via `PayeeGrouper`, which computes distinct amounts, total, count, and the top-3 most frequent hours. Unmapped groups sort first, then by spend. Each group gets an alias field + category dropdown (with inline "New category…") and a Save button. Saving upserts a `Payee` and assigns `payeeId` to every matching transaction in the session.
+**Mapping** (`SessionDetailViewModel`) — transactions are grouped by `normalizedPayee` via `PayeeGrouper` (distinct amounts, total, count, top-3 hours). Unmapped groups sort first. Alias field is prefilled with the parsed statement name (#40); category stays empty for new payees. Saving upserts a payee + identifier and assigns matching rows in the session.
 
-**Auto-map** — on import, each distinct payee is looked up by `normalizedName`; hits are assigned immediately. The detail screen shows "N payees recognized — Confirm all" for one-tap bulk confirmation. Known payees also pre-fill alias/category so a single Save confirms them individually.
+**Auto-map** — on import, each distinct payee is looked up by normalized identifier; hits are assigned immediately. Detail screen offers "N payees recognized — Confirm all".
 
-**Completion** — after any assignment, unmapped count is re-checked; at zero the session flips to COMPLETED and becomes read-only. Partial mapping simply stays Pending and is resumable anytime.
+**Completion** — at zero unmapped countable rows the session flips to COMPLETED and becomes read-only. Partial mapping stays Pending and is resumable.
+
+**Payee directory / detail** — everyone the account knows; detail is paged cross-session history with exclusion toggles and merge of identifiers (#5, #7).
+
+**Home / dashboards** — one rendering engine over a widget catalog; four built-ins plus user-built dashboards; shared date range; Mapping health sits early so partial totals are not mistaken for complete ones (#31–#34). Category tap opens the insight carousel (#35). Search and anomaly callouts live off Home (#36).
+
+**You (Settings)** — profile, categories, theme, manage/default dashboard, CSV export, backup/restore, recently deleted, logout, delete account.
 
 ---
 
 ## 9. Tech stack
 
-Kotlin 2.2.10 · AGP 9.1.1 · Gradle 9.3.1 · compileSdk 37 / targetSdk 36 / **minSdk 26** · Compose BOM 2026.02.01 + Material 3 · Room 2.7.1 + KSP 2.3.9 · Koin 4.1.0 · Navigation Compose 2.9.0 · DataStore 1.1.4 · Credential Manager 1.5.0 + googleid 1.1.1 · PdfBox-Android 2.0.27.0 · JUnit5 + AssertK + Turbine + coroutines-test.
+Kotlin 2.2.10 · AGP 9.1.1 · compileSdk 37 / targetSdk 36 / **minSdk 26** · Compose BOM 2026.02.01 + Material 3 · Room 2.7.1 + KSP 2.3.9 · Koin 4.1.0 · Navigation Compose 2.9.0 · Paging 3.3.6 · DataStore 1.1.4 · Credential Manager 1.5.0 + googleid 1.1.1 · Firebase BOM 34.1.0 (Analytics + Crashlytics) · PdfBox-Android 2.0.27.0 · JUnit5 + AssertK + Turbine + coroutines-test.
 
 **Decisions worth knowing:**
-- **minSdk 24 → 26** so `java.time` works without core-library desugaring. Revert by adding desugaring to the convention plugins if 24 is required.
+- **minSdk 26** so `java.time` works without desugaring.
 - **compileSdk 37** forced by androidx.core 1.19.0 and lifecycle 2.11.0.
-- Parsing split into a pure-JVM module (`:core:parsing`) separate from the Android PdfBox module (`:core:pdf`) specifically so parser logic is testable and portable.
-- No backend exists. The only network call in the app is Google Sign-In.
+- Parsing is a pure-JVM module (`:core:parsing`) separate from PdfBox (`:core:pdf`) so parser logic is testable without a device.
+- No backend exists. Network use is Google Sign-In plus Firebase SDK traffic (analytics/crashlytics). Statement PDFs never leave the device.
+- Release builds run R8 + resource shrinking (#22).
 
 ---
 
 ## 10. Tests
 
-`./gradlew test` — JUnit5, AssertK, Turbine, fakes over mocks.
+```bash
+./gradlew test verifyRoomMigrations
+ANDROID_SERIAL=emulator-5556 ./gradlew :core:database:connectedDebugAndroidTest
+```
 
-| Suite | Covers |
-|---|---|
-| `:core:parsing` — PhonePe/GPay parser tests + registry | field extraction, amounts, times, periods, cross-parser rejection, junk-document rejection |
-| `:feature:sessions:domain` — `PayeeGrouperTest` | grouping, distinct amounts, typical times, sort order, known-payee suggestions (includes the spec's abc-shop example) |
-| `:feature:upload:domain` — `ImportStatementUseCaseTest` | success path, auto-mapping, unrecognized document, password-protected, storage failure, upload logging |
-| `:feature:categories:presentation` — `CategoriesViewModelTest` | add, validation, delete blocking, delete confirmation |
+Unit tests are JUnit 5 + AssertK + Turbine, fakes over mocks. Instrumented tests are JUnit 4 and **must use camelCase method names** (backtick names fail dexing below DEX 040).
 
-Parser fixtures in `SampleStatements.kt` replicate the two real sample statements (PhonePe Jul-2026: 5 rows/₹154; GPay Jun-2026: MSEDCL ₹2,580 + Blinkit ₹205). The regex logic was additionally verified by executing an equivalent implementation against these fixtures — all fields matched.
+Notable suites: `:core:parsing` (PhonePe/GPay + registry), `:core:domain` (duplicate detector, backup codec), `:feature:upload:domain` (import + duplicates), `:feature:sessions:domain` (`PayeeGrouper`), `:feature:dashboard:domain` (`DashboardLayout`), ViewModel tests across features, Room `MigrationTest` / `DatabaseWiringTest` / backup restore on device.
+
+Parser fixtures in `SampleStatements.kt` approximate real PdfBox output (PhonePe / GPay samples).
 
 ---
 
 ## 11. Known gaps and next steps
 
-**Must do before trusting it**
-1. **Run a real statement PDF through it.** Fixtures approximate PdfBox output; if actual extraction order differs, tune the fixtures/regexes in `:core:parsing`. Parsers are deliberately chunk-based to minimize this risk.
-2. **Verify Google Sign-In end to end** (see §3) — needs Play services and a test-user account.
+Tracked on the issues — do not treat this section as the backlog:
 
-**Known hole: no duplicate-import detection.** `transactionRef`/`utr` are stored but unused. Re-uploading the same statement creates a second session with duplicate transactions and double-counted payee groups. Recommended fix: before creating a session, check incoming `transactionRef`s against the DB; on significant overlap ask "This statement looks already imported on <date>. Import anyway?" Plus a non-unique index on `transactionRef` for lookup speed. (A unique index + `OnConflictStrategy.IGNORE` is simpler but silently drops rows and misses null refs.)
+- **[#9](https://github.com/SandeepChorge/transactions-platform/issues/9)** — versioning, signing, Firebase App Distribution and Play internal upload are largely in; remaining phases are polish / verification of Play runs.
+- **[#16](https://github.com/SandeepChorge/transactions-platform/issues/16)** — dashboard Phase 6–8-ish shipped (#29–#36); still open: budgets, recurring detection, shareable report, widgets, app lock.
 
-**Other polish:** R8/ProGuard rules + release signing config; per-payee merge/rename tooling; Room `AutoMigration` policy; analytics/spend dashboards (the data model already supports them); CSV/xlsx export.
+**Hooks still unused:** other bank parsers · password prompt for protected PDFs · cloud sync behind the existing datasource interfaces · AI fallback on `StatementParser`.
 
-**V2 roadmap with existing hooks:** bank statement parsers (§7) · password-protected PDFs (extractor already distinguishes `PASSWORD_PROTECTED`; add a prompt and `PDDocument.load(file, password)`) · cloud sync (persistence is behind `:core:domain` interfaces with Room as single source of truth — add remote datasources + a WorkManager sync job, offline-first, without touching ViewModels; add a `:core:data` module with Ktor `HttpClientFactory` + `safeCall` helpers when a backend exists) · KMP (`:core:domain` and `:core:parsing` are already Android-free and could be shared with iOS or a JVM backend).
+**Cancelled sessions** are not recoverable from Recently deleted (soft delete is categories-only).
 
 ---
 
-## 12. Repository / monorepo plan
+## 12. Monorepo
 
-This project will move under a `transactions-platform` monorepo alongside a web client and backend services:
+This Android tree already lives under `transactions-platform/` alongside scaffolding for web, API and a shared OpenAPI contract. Rules that matter:
 
-```
-transactions-platform/
-├── transactions-parser-android/   ← this project, self-contained Gradle build
-├── transactions-parser-web/
-├── services/transactions-api/
-├── shared/api-contract/           ← OpenAPI spec both clients generate from
-├── docs/
-└── .github/workflows/
-```
-
-Rules that matter: keep the Gradle wrapper, `settings.gradle.kts`, and `build-logic/` inside the Android folder (no Gradle build at repo root); **path-filtered CI** per project or every change triggers a full Android build; **independent tag-prefixed versioning** (`android/v1.2.0`, `api/v0.4.1`) since app-store and backend cadences differ; derive `versionCode` from `GITHUB_RUN_NUMBER` rather than hand-maintaining it; Conventional Commits scoped by project (`feat(android): …`).
+- Gradle wrapper / `settings.gradle.kts` / `build-logic/` stay **inside** this folder — no Gradle build at repo root.
+- Path-filtered CI (see `docs/ci.md`).
+- Conventional Commits scoped by project: `feat(android): …`.
+- Secrets never committed; `gradle.properties.example` is the CI source of truth for build settings.
 
 ---
 
@@ -304,16 +338,57 @@ Rules that matter: keep the Gradle wrapper, `settings.gradle.kts`, and `build-lo
 
 | Path | What |
 |---|---|
-| `core/parsing/…/PhonePeStatementParser.kt`, `GooglePayStatementParser.kt` | the pattern matchers |
+| `core/parsing/…/PhonePeStatementParser.kt`, `GooglePayStatementParser.kt` | pattern matchers |
 | `core/parsing/…/ParserSupport.kt` | chunking, amount/time parsing, UTC helpers |
 | `core/pdf/…/PdfBoxStatementTextExtractor.kt` | PDF text extraction + password detection |
+| `core/domain/…/duplicate/DuplicateDetector.kt` | import-time duplicate identity |
+| `core/domain/…/backup/` | JSON backup / restore use cases |
+| `core/database/…/entity/Entities.kt`, `dao/Daos.kt`, `migration/Migrations.kt` | schema |
+| `core/database/…/RoomDataSources.kt` | account-scoped datasource impls |
+| `core/designsystem/` | theme + chart primitives |
+| `core/analytics/` | Firebase adapters |
 | `feature/upload/domain/…/ImportStatementUseCase.kt` | import pipeline + auto-mapping |
-| `feature/upload/presentation/…/UploadViewModel.kt` | validation, temp-file lifecycle, dialogs |
 | `feature/sessions/domain/…/PayeeGrouper.kt` | payee summaries |
-| `feature/sessions/presentation/…/detail/SessionDetailViewModel.kt` | mapping, confirm-all, auto-complete |
-| `core/database/…/entity/Entities.kt`, `dao/Daos.kt` | schema |
-| `core/domain/…/util/Result.kt` | error system |
+| `feature/sessions/presentation/…/detail/SessionDetailViewModel.kt` | mapping UI |
+| `feature/dashboard/domain/…/DashboardLayout.kt`, `DashboardCatalog.kt` | which dashboards, order, default |
+| `feature/dashboard/presentation/` | Home, manage/builder, category insight |
+| `feature/settings/presentation/` | You tab |
 | `app/…/TransactionsParserApp.kt` | Koin assembly |
 | `app/…/AppRoot.kt` | auth gate + bottom nav + NavHost |
 | `build-logic/src/main/kotlin/` | build conventions |
-| `SESSION_SUMMARY.md` | narrative log of the build session |
+
+---
+
+## 14. Closed PRs that shaped this tree
+
+All closed PRs on the repo to date were **merged** (none closed without merge). Short map:
+
+| PR | What it did |
+|---|---|
+| [#2](https://github.com/SandeepChorge/transactions-platform/pull/2) | Room `exportSchema` + `verifyRoomMigrations` + logout confirm |
+| [#3](https://github.com/SandeepChorge/transactions-platform/pull/3) | Schema v2: per-account `ownerId` + soft-delete columns |
+| [#4](https://github.com/SandeepChorge/transactions-platform/pull/4) | Schema v3: duplicate detection + `isExcluded` |
+| [#5](https://github.com/SandeepChorge/transactions-platform/pull/5) | Payee detail with paged cross-session history |
+| [#6](https://github.com/SandeepChorge/transactions-platform/pull/6) | Settings, CSV export, recently deleted, sticky headers |
+| [#7](https://github.com/SandeepChorge/transactions-platform/pull/7) | Schema v4: `payee_identifiers` + merge |
+| [#8](https://github.com/SandeepChorge/transactions-platform/pull/8) | Agent tooling / token-hygiene chore |
+| [#10](https://github.com/SandeepChorge/transactions-platform/pull/10) | CI versioning, release signing, build visibility |
+| [#11](https://github.com/SandeepChorge/transactions-platform/pull/11)–[#14](https://github.com/SandeepChorge/transactions-platform/pull/14) | Release-job gating, gradle.properties parity, Firebase App Distribution + pin |
+| [#17](https://github.com/SandeepChorge/transactions-platform/pull/17) | Lossless JSON backup / account-reassigning restore |
+| [#18](https://github.com/SandeepChorge/transactions-platform/pull/18) | Synthetic schema-1 fixture driven through every migration |
+| [#19](https://github.com/SandeepChorge/transactions-platform/pull/19)–[#21](https://github.com/SandeepChorge/transactions-platform/pull/21) | Play internal AAB upload + gem/path/pin fixes |
+| [#22](https://github.com/SandeepChorge/transactions-platform/pull/22) | R8 + resource shrinking on release |
+| [#24](https://github.com/SandeepChorge/transactions-platform/pull/24) | PhonePe parser keeps rows it used to drop |
+| [#25](https://github.com/SandeepChorge/transactions-platform/pull/25)–[#26](https://github.com/SandeepChorge/transactions-platform/pull/26) | Design artboards → Compose theme |
+| [#27](https://github.com/SandeepChorge/transactions-platform/pull/27) | CI actually runs `verifyRoomMigrations` |
+| [#28](https://github.com/SandeepChorge/transactions-platform/pull/28) | Commit dashboard design artboards |
+| [#29](https://github.com/SandeepChorge/transactions-platform/pull/29)–[#34](https://github.com/SandeepChorge/transactions-platform/pull/34) | Chart primitives → aggregates → Home catalog → shell/Payees tab → manage/custom dashboards |
+| [#32](https://github.com/SandeepChorge/transactions-platform/pull/32) | Fix "Other"/uncategorised chart slice |
+| [#35](https://github.com/SandeepChorge/transactions-platform/pull/35) | Category insight carousel |
+| [#36](https://github.com/SandeepChorge/transactions-platform/pull/36) | Global search + anomaly callouts |
+| [#37](https://github.com/SandeepChorge/transactions-platform/pull/37) | Analytics, Crashlytics, Statement Sense rename + icon |
+| [#38](https://github.com/SandeepChorge/transactions-platform/pull/38) | Privacy policy, Play listing assets, APP_OVERVIEW |
+| [#39](https://github.com/SandeepChorge/transactions-platform/pull/39) | Delete-account flow + docs page |
+| [#40](https://github.com/SandeepChorge/transactions-platform/pull/40) | Prefill parsed payee name + clear action on mapping |
+
+Issue #1 (V2 improvements, phases 0–5) is closed; #9 and #16 remain the live backlogs.

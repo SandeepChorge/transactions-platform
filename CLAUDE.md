@@ -17,7 +17,7 @@ Three issues, each the single source of truth for its own scope. None of them de
 |---|---|---|
 | [#1 — V2 Improvements](https://github.com/SandeepChorge/transactions-platform/issues/1) | The 8 original app requirements, Phase 0 → Phase 5 | **Closed 2026-08-31.** History, not a work list |
 | [#9 — Versioning, Signing & Distribution](https://github.com/SandeepChorge/transactions-platform/issues/9) | The release pipeline, Phase 1 → Phase 8 | Open — Phase 6 nearly done, Phase 7–8 not started |
-| [#16 — Dashboard & Insights (V3)](https://github.com/SandeepChorge/transactions-platform/issues/16) | Dashboard, search, budgets, widgets, Phase 6 → Phase 12 | Open — **Phase 6 done (#29–#31, #33), Phase 7 done (#34)**. Next up is Phase 8, the category insight carousel |
+| [#16 — Dashboard & Insights (V3)](https://github.com/SandeepChorge/transactions-platform/issues/16) | Dashboard, search, budgets, widgets, Phase 6 → Phase 12 | Open — **Phases 6–9 done** (#29–#36: core, settings/builder, category insight, search + anomalies). Next up is Phase 10, budgets & alerts |
 
 **Read #9 and #16 before starting anything.** #1 is worth reading for context on why the
 app is shaped the way it is, but every box in it is ticked and shipped.
