@@ -7,7 +7,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.madtitan94.transactionsparser.core.domain.model.UserSession
 import com.madtitan94.transactionsparser.core.domain.util.Error
@@ -25,14 +25,17 @@ enum class AuthError : Error {
 
 /**
  * Wraps Credential Manager "Sign in with Google". Must be called with an Activity context.
+ *
+ * This is the button flow, [GetSignInWithGoogleOption], not One Tap. One Tap
+ * ([com.google.android.libraries.identity.googleid.GetGoogleIdOption]) returns
+ * [androidx.credentials.exceptions.NoCredentialException] when the account has never authorized
+ * this app, which is what an emulator does even after the Google account is on the device.
+ * The button has to open the account chooser.
  */
 class GoogleCredentialHelper(private val webClientId: String) {
 
     suspend fun requestSignIn(activityContext: Context): Result<UserSession, AuthError> {
-        val option = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(webClientId)
-            .build()
+        val option = GetSignInWithGoogleOption.Builder(webClientId).build()
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(option)
             .build()
