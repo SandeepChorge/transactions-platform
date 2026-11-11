@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="suggested_categories_add_all">Add all</string>
+    <plurals name="suggested_categories_add_selected">
+        <item quantity="one">Add selected (%1$d)</item>
+        <item quantity="other">Add selected (%1$d)</item>
+    </plurals>
+</resources>

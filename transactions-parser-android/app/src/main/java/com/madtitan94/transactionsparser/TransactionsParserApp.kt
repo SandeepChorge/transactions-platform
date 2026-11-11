@@ -3,6 +3,7 @@ package com.madtitan94.transactionsparser
 import android.app.Application
 import com.madtitan94.transactionsparser.core.analytics.di.AnalyticsConfiguration
 import com.madtitan94.transactionsparser.core.analytics.di.coreAnalyticsModule
+import com.madtitan94.transactionsparser.core.catalog.di.coreCatalogModule
 import com.madtitan94.transactionsparser.core.database.di.coreDatabaseModule
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
@@ -33,6 +34,7 @@ class TransactionsParserApp : Application() {
             modules(
                 // core
                 coreAnalyticsModule(analyticsConfiguration()),
+                coreCatalogModule,
                 coreDatabaseModule,
                 coreParsingModule,
                 corePdfModule,

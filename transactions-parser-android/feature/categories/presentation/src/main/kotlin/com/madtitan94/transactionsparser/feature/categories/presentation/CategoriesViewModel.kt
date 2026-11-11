@@ -2,6 +2,12 @@ package com.madtitan94.transactionsparser.feature.categories.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsParams
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
+import com.madtitan94.transactionsparser.core.domain.catalog.AdoptSuggestedCategory
+import com.madtitan94.transactionsparser.core.domain.catalog.SuggestedCategory
+import com.madtitan94.transactionsparser.core.domain.catalog.SuggestedCategorySource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.util.Result
 import com.madtitan94.transactionsparser.core.domain.util.onFailure
@@ -32,8 +38,14 @@ sealed interface CategoryDialog {
 data class CategoriesState(
     val isLoading: Boolean = true,
     val categories: List<CategoryUi> = emptyList(),
+    val suggestions: List<SuggestedCategory> = emptyList(),
+    val selectedSuggestionNames: Set<String> = emptySet(),
+    val catalogVersion: Int = 0,
     val dialog: CategoryDialog? = null
-)
+) {
+    /** Suggestions are a stand-in for an empty list, not a second list beside the user's own. */
+    val showSuggestions: Boolean get() = categories.isEmpty() && suggestions.isNotEmpty()
+}
 
 sealed interface CategoriesAction {
     data object OnAddClick : CategoriesAction
@@ -42,6 +54,8 @@ sealed interface CategoriesAction {
     data class OnDialogNameChange(val name: String) : CategoriesAction
     data object OnDialogConfirm : CategoriesAction
     data object OnDialogDismiss : CategoriesAction
+    data class OnToggleSuggestion(val name: String) : CategoriesAction
+    data object OnConfirmSuggestions : CategoriesAction
 }
 
 sealed interface CategoriesEvent {
@@ -49,7 +63,10 @@ sealed interface CategoriesEvent {
 }
 
 class CategoriesViewModel(
-    private val categories: CategoryLocalDataSource
+    private val categories: CategoryLocalDataSource,
+    private val catalog: SuggestedCategorySource,
+    private val adopt: AdoptSuggestedCategory,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CategoriesState())
@@ -58,15 +75,35 @@ class CategoriesViewModel(
     private val _events = Channel<CategoriesEvent>()
     val events = _events.receiveAsFlow()
 
+    /** Set for the duration of an adopt so a second tap cannot track the same chip twice. */
+    private var adopting = false
+
     init {
         viewModelScope.launch {
             combine(
                 categories.observeAll(),
-                categories.observeLinkedPayeeCounts()
-            ) { all, counts ->
-                all.map { CategoryUi(id = it.id, name = it.name, linkedPayeeCount = counts[it.id] ?: 0) }
-            }.collect { list ->
-                _state.update { it.copy(isLoading = false, categories = list) }
+                categories.observeLinkedPayeeCounts(),
+                catalog.observe()
+            ) { all, counts, suggestions ->
+                Triple(all, counts, suggestions)
+            }.collect { (all, counts, suggestions) ->
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        categories = all.map { category ->
+                            CategoryUi(
+                                id = category.id,
+                                name = category.name,
+                                linkedPayeeCount = counts[category.id] ?: 0
+                            )
+                        },
+                        suggestions = suggestions.categories,
+                        catalogVersion = suggestions.version,
+                        selectedSuggestionNames = it.selectedSuggestionNames.intersect(
+                            suggestions.categories.map { suggestion -> suggestion.name }.toSet()
+                        )
+                    )
+                }
             }
         }
     }
@@ -106,12 +143,74 @@ class CategoriesViewModel(
             }
             CategoriesAction.OnDialogConfirm -> confirmDialog()
             CategoriesAction.OnDialogDismiss -> _state.update { it.copy(dialog = null) }
+            is CategoriesAction.OnToggleSuggestion -> toggleSuggestion(action.name)
+            CategoriesAction.OnConfirmSuggestions -> confirmSuggestions()
+        }
+    }
+
+    private fun toggleSuggestion(name: String) {
+        if (_state.value.categories.isNotEmpty()) return
+        if (_state.value.suggestions.none { it.name == name }) return
+        _state.update { current ->
+            val selected = current.selectedSuggestionNames
+            current.copy(
+                selectedSuggestionNames = if (name in selected) selected - name else selected + name
+            )
+        }
+    }
+
+    private fun confirmSuggestions() {
+        if (adopting || _state.value.categories.isNotEmpty()) return
+        val current = _state.value
+        val snapshot = if (current.selectedSuggestionNames.isEmpty()) {
+            current.suggestions
+        } else {
+            current.suggestions.filter { it.name in current.selectedSuggestionNames }
+        }
+        if (snapshot.isEmpty()) return
+        val addedAll = snapshot.size == current.suggestions.size
+        val selectedCount = snapshot.size
+        adopting = true
+        viewModelScope.launch {
+            try {
+                for (suggestion in snapshot) {
+                    if (!adoptAndTrack(suggestion, addedAll, selectedCount)) return@launch
+                }
+            } finally {
+                adopting = false
+            }
+        }
+    }
+
+    /** False when the write failed. The caller stops a bulk adopt there. */
+    private suspend fun adoptAndTrack(
+        suggestion: SuggestedCategory,
+        addedAll: Boolean,
+        selectedCount: Int
+    ): Boolean {
+        return when (val result = adopt.adopt(suggestion.name)) {
+            is Result.Error -> {
+                _events.send(CategoriesEvent.ShowMessage(result.error.toUiText()))
+                false
+            }
+            is Result.Success -> {
+                analytics.track(
+                    AnalyticsEvent.SuggestedCategoryAdopted(
+                        categoryKey = suggestion.key,
+                        screen = AnalyticsParams.SCREEN_CATEGORIES,
+                        addedAll = addedAll,
+                        catalogVersion = _state.value.catalogVersion,
+                        selectedCount = selectedCount
+                    )
+                )
+                true
+            }
         }
     }
 
     private fun confirmDialog() {
         when (val dialog = _state.value.dialog) {
-            is CategoryDialog.Add -> upsert(dialog.name) { name -> categories.insert(name) }
+            is CategoryDialog.Add -> upsert(dialog.name) { name -> adopt.adopt(name) }
             is CategoryDialog.Edit -> upsert(dialog.name) { name ->
                 when (val renamed = categories.rename(dialog.id, name)) {
                     is Result.Error -> renamed

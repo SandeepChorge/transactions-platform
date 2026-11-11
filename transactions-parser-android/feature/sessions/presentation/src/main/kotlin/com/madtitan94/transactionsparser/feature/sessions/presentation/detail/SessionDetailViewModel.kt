@@ -5,7 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsParams
 import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
+import com.madtitan94.transactionsparser.core.domain.catalog.AdoptSuggestedCategory
+import com.madtitan94.transactionsparser.core.domain.catalog.SuggestedCategory
+import com.madtitan94.transactionsparser.core.domain.catalog.SuggestedCategorySource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.SessionLocalDataSource
@@ -84,6 +88,9 @@ data class SessionDetailState(
     val statusLabel: String = "",
     val groups: List<PayeeGroupUi> = emptyList(),
     val categories: List<Category> = emptyList(),
+    val suggestions: List<SuggestedCategory> = emptyList(),
+    val selectedSuggestionNames: Set<String> = emptySet(),
+    val catalogVersion: Int = 0,
     val mappedGroups: Int = 0,
     val totalGroups: Int = 0,
     val suggestedCount: Int = 0,
@@ -96,7 +103,10 @@ data class SessionDetailState(
     /** The alias collision awaiting an answer, and which group raised it. */
     val mergePrompt: MergePrompt? = null,
     val mergePromptKey: String? = null
-)
+) {
+    /** Suggestions stand in for an empty category list. They are not offered beside the user's own. */
+    val showSuggestions: Boolean get() = categories.isEmpty() && suggestions.isNotEmpty()
+}
 
 sealed interface SessionDetailAction {
     data object OnLeaveMapping : SessionDetailAction
@@ -114,6 +124,8 @@ sealed interface SessionDetailAction {
     data object OnCreateCategory : SessionDetailAction
     data object OnDismissNewCategory : SessionDetailAction
     data class OnSuggestionPick(val key: String, val payeeId: Long) : SessionDetailAction
+    data class OnToggleSuggestion(val name: String) : SessionDetailAction
+    data class OnConfirmSuggestions(val key: String) : SessionDetailAction
     /** Answers to the same-name prompt. */
     data object OnConfirmMerge : SessionDetailAction
     data object OnKeepSeparate : SessionDetailAction
@@ -139,6 +151,8 @@ class SessionDetailViewModel(
     private val transactions: TransactionLocalDataSource,
     private val payees: PayeeLocalDataSource,
     private val categories: CategoryLocalDataSource,
+    private val catalog: SuggestedCategorySource,
+    private val adopt: AdoptSuggestedCategory,
     private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
@@ -166,9 +180,29 @@ class SessionDetailViewModel(
         payees.observeAll()
     ) { byName, all -> byName to all }
 
+    /** Set for the duration of an adopt so a second tap cannot track the same chip twice. */
+    private var adopting = false
+
     init {
         loadSessionHeader()
         observeGroups()
+        observeSuggestions()
+    }
+
+    private fun observeSuggestions() {
+        viewModelScope.launch {
+            catalog.observe().collect { suggestions ->
+                _state.update {
+                    it.copy(
+                        suggestions = suggestions.categories,
+                        catalogVersion = suggestions.version,
+                        selectedSuggestionNames = it.selectedSuggestionNames.intersect(
+                            suggestions.categories.map { suggestion -> suggestion.name }.toSet()
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private fun loadSessionHeader() {
@@ -260,6 +294,8 @@ class SessionDetailViewModel(
                 it.copy(newCategoryForKey = null, newCategoryName = "", newCategoryError = null)
             }
             is SessionDetailAction.OnSuggestionPick -> pickSuggestion(action.key, action.payeeId)
+            is SessionDetailAction.OnToggleSuggestion -> toggleSuggestion(action.name)
+            is SessionDetailAction.OnConfirmSuggestions -> confirmSuggestions(action.key)
             SessionDetailAction.OnConfirmMerge -> confirmMerge()
             SessionDetailAction.OnKeepSeparate -> keepSeparate()
             SessionDetailAction.OnDismissMergePrompt -> _state.update {
@@ -451,7 +487,7 @@ class SessionDetailViewModel(
         }
 
         viewModelScope.launch {
-            when (val inserted = categories.insert(name)) {
+            when (val inserted = adopt.adopt(name)) {
                 is Result.Error -> _state.update {
                     it.copy(newCategoryError = inserted.error.toUiText())
                 }
@@ -461,6 +497,72 @@ class SessionDetailViewModel(
                         it.copy(newCategoryForKey = null, newCategoryName = "", newCategoryError = null)
                     }
                 }
+            }
+        }
+    }
+
+    private fun toggleSuggestion(name: String) {
+        if (_state.value.categories.isNotEmpty()) return
+        if (_state.value.suggestions.none { it.name == name }) return
+        _state.update { current ->
+            val selected = current.selectedSuggestionNames
+            current.copy(
+                selectedSuggestionNames = if (name in selected) selected - name else selected + name
+            )
+        }
+    }
+
+    private fun confirmSuggestions(key: String) {
+        if (adopting || _state.value.categories.isNotEmpty()) return
+        val current = _state.value
+        val hadSelection = current.selectedSuggestionNames.isNotEmpty()
+        val snapshot = if (!hadSelection) {
+            current.suggestions
+        } else {
+            current.suggestions.filter { it.name in current.selectedSuggestionNames }
+        }
+        if (snapshot.isEmpty()) return
+        val addedAll = snapshot.size == current.suggestions.size
+        val selectedCount = snapshot.size
+        adopting = true
+        viewModelScope.launch {
+            try {
+                var firstId: Long? = null
+                for (suggestion in snapshot) {
+                    val id = adoptAndTrack(suggestion, addedAll, selectedCount) ?: return@launch
+                    if (firstId == null) firstId = id
+                }
+                if (hadSelection && firstId != null) {
+                    updateEdit(key) { it.copy(categoryId = firstId) }
+                }
+            } finally {
+                adopting = false
+            }
+        }
+    }
+
+    /** The new category id, or null when the write failed. */
+    private suspend fun adoptAndTrack(
+        suggestion: SuggestedCategory,
+        addedAll: Boolean,
+        selectedCount: Int
+    ): Long? {
+        return when (val result = adopt.adopt(suggestion.name)) {
+            is Result.Error -> {
+                _events.send(SessionDetailEvent.ShowMessage(result.error.toUiText()))
+                null
+            }
+            is Result.Success -> {
+                analytics.track(
+                    AnalyticsEvent.SuggestedCategoryAdopted(
+                        categoryKey = suggestion.key,
+                        screen = AnalyticsParams.SCREEN_MAPPING,
+                        addedAll = addedAll,
+                        catalogVersion = _state.value.catalogVersion,
+                        selectedCount = selectedCount
+                    )
+                )
+                result.data
             }
         }
     }

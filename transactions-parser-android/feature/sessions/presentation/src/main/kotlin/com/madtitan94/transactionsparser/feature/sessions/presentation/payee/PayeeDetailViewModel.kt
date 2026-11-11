@@ -7,6 +7,12 @@ import androidx.navigation.toRoute
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsEvent
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsParams
+import com.madtitan94.transactionsparser.core.domain.analytics.AnalyticsTracker
+import com.madtitan94.transactionsparser.core.domain.catalog.AdoptSuggestedCategory
+import com.madtitan94.transactionsparser.core.domain.catalog.SuggestedCategory
+import com.madtitan94.transactionsparser.core.domain.catalog.SuggestedCategorySource
 import com.madtitan94.transactionsparser.core.domain.datasource.CategoryLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.PayeeLocalDataSource
 import com.madtitan94.transactionsparser.core.domain.datasource.TransactionLocalDataSource
@@ -69,6 +75,12 @@ data class PayeeDetailState(
     val aliasInput: String = "",
     val selectedCategoryId: Long? = null,
     val categories: List<Category> = emptyList(),
+    val suggestions: List<SuggestedCategory> = emptyList(),
+    val selectedSuggestionNames: Set<String> = emptySet(),
+    val catalogVersion: Int = 0,
+    val creatingCategory: Boolean = false,
+    val newCategoryName: String = "",
+    val newCategoryError: UiText? = null,
     val isSaving: Boolean = false,
     /** Day-start millis -> that day's counted subtotal, for the sticky headers. */
     val dayTotals: Map<Long, PeriodTotal> = emptyMap(),
@@ -89,6 +101,9 @@ data class PayeeDetailState(
     val canSave: Boolean
         get() = aliasInput.isNotBlank() && selectedCategoryId != null && !isSaving
 
+    /** Suggestions stand in for an empty category list. They are not offered beside the user's own. */
+    val showSuggestions: Boolean get() = categories.isEmpty() && suggestions.isNotEmpty()
+
     /** One name is just this payee's name; the section only earns its space beyond that. */
     val showsLinkedIdentifiers: Boolean
         get() = linkedIdentifiers.size > 1
@@ -108,6 +123,12 @@ sealed interface PayeeDetailAction {
     data object OnConfirmMerge : PayeeDetailAction
     data object OnKeepSeparate : PayeeDetailAction
     data object OnDismissMergePrompt : PayeeDetailAction
+    data object OnAddCategoryClick : PayeeDetailAction
+    data class OnNewCategoryNameChange(val name: String) : PayeeDetailAction
+    data object OnCreateCategory : PayeeDetailAction
+    data object OnDismissNewCategory : PayeeDetailAction
+    data class OnToggleSuggestion(val name: String) : PayeeDetailAction
+    data object OnConfirmSuggestions : PayeeDetailAction
 }
 
 sealed interface PayeeDetailEvent {
@@ -118,7 +139,10 @@ class PayeeDetailViewModel(
     savedStateHandle: SavedStateHandle,
     private val transactions: TransactionLocalDataSource,
     private val payees: PayeeLocalDataSource,
-    private val categories: CategoryLocalDataSource
+    private val categories: CategoryLocalDataSource,
+    private val catalog: SuggestedCategorySource,
+    private val adopt: AdoptSuggestedCategory,
+    private val analytics: AnalyticsTracker
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<PayeeDetailRoute>()
@@ -157,11 +181,31 @@ class PayeeDetailViewModel(
             .map { paging -> paging.map { it.toRowUi() } }
             .cachedIn(viewModelScope)
 
+    /** Set for the duration of an adopt so a second tap cannot track the same chip twice. */
+    private var adopting = false
+
     init {
         observeFilter()
         observeHeader()
         observeLinkedIdentifiers()
         observeAliasSuggestions()
+        observeSuggestions()
+    }
+
+    private fun observeSuggestions() {
+        viewModelScope.launch {
+            catalog.observe().collect { suggestions ->
+                _state.update {
+                    it.copy(
+                        suggestions = suggestions.categories,
+                        catalogVersion = suggestions.version,
+                        selectedSuggestionNames = it.selectedSuggestionNames.intersect(
+                            suggestions.categories.map { suggestion -> suggestion.name }.toSet()
+                        )
+                    )
+                }
+            }
+        }
     }
 
     /** The flow drives the queries; the state field is only its reflection for the UI. */
@@ -267,7 +311,16 @@ class PayeeDetailViewModel(
         when (action) {
             PayeeDetailAction.OnLeaveMapping -> {
                 edits.value = PayeeEdit()
-                _state.update { it.copy(linkTargetId = null, mergePrompt = null, aliasSuggestions = emptyList()) }
+                _state.update {
+                    it.copy(
+                        linkTargetId = null,
+                        mergePrompt = null,
+                        aliasSuggestions = emptyList(),
+                        creatingCategory = false,
+                        newCategoryName = "",
+                        newCategoryError = null
+                    )
+                }
             }
             // Typing after picking a suggestion means the pick no longer stands.
             is PayeeDetailAction.OnAliasChange -> {
@@ -282,6 +335,105 @@ class PayeeDetailViewModel(
             PayeeDetailAction.OnConfirmMerge -> confirmMerge()
             PayeeDetailAction.OnKeepSeparate -> keepSeparate()
             PayeeDetailAction.OnDismissMergePrompt -> _state.update { it.copy(mergePrompt = null) }
+            PayeeDetailAction.OnAddCategoryClick -> _state.update {
+                it.copy(creatingCategory = true, newCategoryName = "", newCategoryError = null)
+            }
+            is PayeeDetailAction.OnNewCategoryNameChange -> _state.update {
+                it.copy(newCategoryName = action.name, newCategoryError = null)
+            }
+            PayeeDetailAction.OnCreateCategory -> createCategory()
+            PayeeDetailAction.OnDismissNewCategory -> _state.update {
+                it.copy(creatingCategory = false, newCategoryName = "", newCategoryError = null)
+            }
+            is PayeeDetailAction.OnToggleSuggestion -> toggleSuggestion(action.name)
+            PayeeDetailAction.OnConfirmSuggestions -> confirmSuggestions()
+        }
+    }
+
+    private fun createCategory() {
+        val name = _state.value.newCategoryName.trim()
+        if (name.isBlank()) {
+            _state.update {
+                it.copy(newCategoryError = UiText.StringResource(R.string.category_name_required))
+            }
+            return
+        }
+        viewModelScope.launch {
+            when (val inserted = adopt.adopt(name)) {
+                is Result.Error -> _state.update { it.copy(newCategoryError = inserted.error.toUiText()) }
+                is Result.Success -> {
+                    edits.update { it.copy(categoryId = inserted.data) }
+                    _state.update {
+                        it.copy(creatingCategory = false, newCategoryName = "", newCategoryError = null)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun toggleSuggestion(name: String) {
+        if (_state.value.categories.isNotEmpty()) return
+        if (_state.value.suggestions.none { it.name == name }) return
+        _state.update { current ->
+            val selected = current.selectedSuggestionNames
+            current.copy(
+                selectedSuggestionNames = if (name in selected) selected - name else selected + name
+            )
+        }
+    }
+
+    private fun confirmSuggestions() {
+        if (adopting || _state.value.categories.isNotEmpty()) return
+        val current = _state.value
+        val hadSelection = current.selectedSuggestionNames.isNotEmpty()
+        val snapshot = if (!hadSelection) {
+            current.suggestions
+        } else {
+            current.suggestions.filter { it.name in current.selectedSuggestionNames }
+        }
+        if (snapshot.isEmpty()) return
+        val addedAll = snapshot.size == current.suggestions.size
+        val selectedCount = snapshot.size
+        adopting = true
+        viewModelScope.launch {
+            try {
+                var firstId: Long? = null
+                for (suggestion in snapshot) {
+                    val id = adoptAndTrack(suggestion, addedAll, selectedCount) ?: return@launch
+                    if (firstId == null) firstId = id
+                }
+                if (hadSelection && firstId != null) {
+                    edits.update { it.copy(categoryId = firstId) }
+                }
+            } finally {
+                adopting = false
+            }
+        }
+    }
+
+    /** The new category id, or null when the write failed. A typed name does not come through here. */
+    private suspend fun adoptAndTrack(
+        suggestion: SuggestedCategory,
+        addedAll: Boolean,
+        selectedCount: Int
+    ): Long? {
+        return when (val result = adopt.adopt(suggestion.name)) {
+            is Result.Error -> {
+                _events.send(PayeeDetailEvent.ShowMessage(result.error.toUiText()))
+                null
+            }
+            is Result.Success -> {
+                analytics.track(
+                    AnalyticsEvent.SuggestedCategoryAdopted(
+                        categoryKey = suggestion.key,
+                        screen = AnalyticsParams.SCREEN_PAYEE_DETAIL,
+                        addedAll = addedAll,
+                        catalogVersion = _state.value.catalogVersion,
+                        selectedCount = selectedCount
+                    )
+                )
+                result.data
+            }
         }
     }
 

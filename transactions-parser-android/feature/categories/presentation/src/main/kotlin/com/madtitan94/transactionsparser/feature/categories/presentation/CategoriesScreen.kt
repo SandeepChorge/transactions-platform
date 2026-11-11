@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -42,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.madtitan94.transactionsparser.core.designsystem.components.AppAlertDialog
 import com.madtitan94.transactionsparser.core.designsystem.components.EmptyState
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
+import com.madtitan94.transactionsparser.core.designsystem.components.SuggestedCategoryChips
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -101,11 +104,26 @@ fun CategoriesScreen(
     ) { padding ->
         when {
             state.isLoading -> LoadingIndicator(Modifier.padding(padding))
-            state.categories.isEmpty() -> EmptyState(
-                title = stringResource(R.string.categories_empty_title),
-                description = stringResource(R.string.categories_empty_description),
-                modifier = Modifier.padding(padding)
-            )
+            state.categories.isEmpty() -> Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                EmptyState(
+                    title = stringResource(R.string.categories_empty_title),
+                    description = stringResource(R.string.categories_empty_description)
+                )
+                if (state.showSuggestions) {
+                    SuggestedCategoryChips(
+                        labels = state.suggestions.map { it.name },
+                        selectedLabels = state.selectedSuggestionNames,
+                        onToggle = { onAction(CategoriesAction.OnToggleSuggestion(it)) },
+                        onConfirm = { onAction(CategoriesAction.OnConfirmSuggestions) },
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+                }
+            }
             else -> LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

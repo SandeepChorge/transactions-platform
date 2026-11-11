@@ -136,6 +136,37 @@ sealed interface AnalyticsEvent {
         )
     }
 
+    /**
+     * The user accepted a suggested category.
+     *
+     * One event per category, including each category inside an "Add all" or "Add selected"
+     * confirmation, because the useful dimension is *which* suggestion was taken and Firebase
+     * parameters are not lists. [addedAll] is true only when the whole catalog list was added,
+     * whether through Add all or by selecting every chip. [selectedCount] is how many categories
+     * that confirmation adopted.
+     *
+     * [categoryKey] is the catalog identifier (`food`), validated to a short lowercase token before
+     * it can enter the catalog at all. It is not the label on screen and it is not a name the user
+     * typed. [screen] is one of [AnalyticsParams.SCREEN_CATEGORIES], [AnalyticsParams.SCREEN_MAPPING]
+     * or [AnalyticsParams.SCREEN_PAYEE_DETAIL]. [catalogVersion] is the catalog document's version.
+     */
+    data class SuggestedCategoryAdopted(
+        val categoryKey: String,
+        val screen: String,
+        val addedAll: Boolean,
+        val catalogVersion: Int,
+        val selectedCount: Int
+    ) : AnalyticsEvent {
+        override val name = "suggested_category_adopted"
+        override val params = mapOf(
+            AnalyticsParams.CATEGORY_KEY to categoryKey,
+            AnalyticsParams.SCREEN to screen,
+            AnalyticsParams.ADDED_ALL to addedAll,
+            AnalyticsParams.CATALOG_VERSION to catalogVersion,
+            AnalyticsParams.SELECTED_COUNT to selectedCount
+        )
+    }
+
     /** A Google sign-in completed. Carries nothing: who signed in is the default parameters' job. */
     data object LoggedIn : AnalyticsEvent {
         override val name = "logged_in"
@@ -176,6 +207,16 @@ object AnalyticsParams {
     const val DASHBOARD = "dashboard"
     const val FORMAT = "format"
     const val ROW_COUNT = "rowCount"
+    const val CATEGORY_KEY = "categoryKey"
+    const val SCREEN = "screen"
+    const val ADDED_ALL = "addedAll"
+    const val CATALOG_VERSION = "catalogVersion"
+    const val SELECTED_COUNT = "selectedCount"
+
+    /** Values for [SCREEN]. Fixed tokens, not the title of the screen. */
+    const val SCREEN_CATEGORIES = "categories"
+    const val SCREEN_MAPPING = "mapping"
+    const val SCREEN_PAYEE_DETAIL = "payee_detail"
 
     /**
      * [SOURCE] when the file never got far enough to be attributed to an issuer — it was not a PDF,

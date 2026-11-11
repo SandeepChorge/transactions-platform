@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -28,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,12 +48,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.madtitan94.transactionsparser.core.designsystem.components.ListRow
 import com.madtitan94.transactionsparser.core.designsystem.components.LoadingIndicator
 import com.madtitan94.transactionsparser.core.designsystem.components.SectionHeader
+import com.madtitan94.transactionsparser.core.designsystem.components.SuggestedCategoryChips
 import com.madtitan94.transactionsparser.core.presentation.ObserveAsEvents
 import com.madtitan94.transactionsparser.core.presentation.formatPaise
 import com.madtitan94.transactionsparser.core.presentation.formatStatementDayHeader
@@ -155,6 +159,9 @@ private fun PayeeDetailScreen(
                 onKeepSeparate = { onAction(PayeeDetailAction.OnKeepSeparate) },
                 onDismiss = { onAction(PayeeDetailAction.OnDismissMergePrompt) }
             )
+        }
+        if (state.creatingCategory) {
+            NewCategoryDialog(state = state, onAction = onAction)
         }
     }
 }
@@ -423,6 +430,60 @@ private fun CategoryPicker(
                         expanded = false
                     }
                 )
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.session_new_category)) },
+                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onAction(PayeeDetailAction.OnAddCategoryClick)
+                }
+            )
+        }
+        if (state.showSuggestions) {
+            SuggestedCategoryChips(
+                labels = state.suggestions.map { it.name },
+                selectedLabels = state.selectedSuggestionNames,
+                onToggle = { onAction(PayeeDetailAction.OnToggleSuggestion(it)) },
+                onConfirm = { onAction(PayeeDetailAction.OnConfirmSuggestions) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun NewCategoryDialog(
+    state: PayeeDetailState,
+    onAction: (PayeeDetailAction) -> Unit
+) {
+    Dialog(onDismissRequest = { onAction(PayeeDetailAction.OnDismissNewCategory) }) {
+        Card {
+            Column(Modifier.padding(24.dp)) {
+                Text(
+                    text = stringResource(R.string.session_new_category_title),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = state.newCategoryName,
+                    onValueChange = { onAction(PayeeDetailAction.OnNewCategoryNameChange(it)) },
+                    label = { Text(stringResource(R.string.session_category_name_label)) },
+                    isError = state.newCategoryError != null,
+                    supportingText = state.newCategoryError?.let { { Text(it.asString()) } },
+                    singleLine = true
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { onAction(PayeeDetailAction.OnDismissNewCategory) }) {
+                        Text(stringResource(R.string.session_cancel))
+                    }
+                    TextButton(onClick = { onAction(PayeeDetailAction.OnCreateCategory) }) {
+                        Text(stringResource(R.string.session_create))
+                    }
+                }
             }
         }
     }
