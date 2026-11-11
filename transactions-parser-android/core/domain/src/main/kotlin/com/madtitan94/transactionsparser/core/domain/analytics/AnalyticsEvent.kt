@@ -139,9 +139,11 @@ sealed interface AnalyticsEvent {
     /**
      * The user accepted a suggested category.
      *
-     * One event per category, including each category inside an "Add all" tap, because the useful
-     * dimension is *which* suggestion was taken and Firebase parameters are not lists.
-     * [addedAll] separates a chip from that bulk tap.
+     * One event per category, including each category inside an "Add all" or "Add selected"
+     * confirmation, because the useful dimension is *which* suggestion was taken and Firebase
+     * parameters are not lists. [addedAll] is true only when the whole catalog list was added,
+     * whether through Add all or by selecting every chip. [selectedCount] is how many categories
+     * that confirmation adopted.
      *
      * [categoryKey] is the catalog identifier (`food`), validated to a short lowercase token before
      * it can enter the catalog at all. It is not the label on screen and it is not a name the user
@@ -152,14 +154,16 @@ sealed interface AnalyticsEvent {
         val categoryKey: String,
         val screen: String,
         val addedAll: Boolean,
-        val catalogVersion: Int
+        val catalogVersion: Int,
+        val selectedCount: Int
     ) : AnalyticsEvent {
         override val name = "suggested_category_adopted"
         override val params = mapOf(
             AnalyticsParams.CATEGORY_KEY to categoryKey,
             AnalyticsParams.SCREEN to screen,
             AnalyticsParams.ADDED_ALL to addedAll,
-            AnalyticsParams.CATALOG_VERSION to catalogVersion
+            AnalyticsParams.CATALOG_VERSION to catalogVersion,
+            AnalyticsParams.SELECTED_COUNT to selectedCount
         )
     }
 
@@ -207,6 +211,7 @@ object AnalyticsParams {
     const val SCREEN = "screen"
     const val ADDED_ALL = "addedAll"
     const val CATALOG_VERSION = "catalogVersion"
+    const val SELECTED_COUNT = "selectedCount"
 
     /** Values for [SCREEN]. Fixed tokens, not the title of the screen. */
     const val SCREEN_CATEGORIES = "categories"

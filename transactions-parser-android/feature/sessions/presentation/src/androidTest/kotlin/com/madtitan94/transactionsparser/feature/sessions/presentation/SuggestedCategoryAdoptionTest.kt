@@ -91,7 +91,8 @@ class SuggestedCategoryAdoptionTest {
         val analytics = RecordingAnalytics()
         val viewModel = session(categories, analytics)
 
-        viewModel.onAction(SessionDetailAction.OnAdoptSuggestion(KEY, "Food"))
+        viewModel.onAction(SessionDetailAction.OnToggleSuggestion("Food"))
+        viewModel.onAction(SessionDetailAction.OnConfirmSuggestions(KEY))
 
         assertThat(categories.live.value.map { it.name }).isEqualTo(listOf("Food"))
         assertThat(viewModel.state.value.showSuggestions).isFalse()
@@ -100,6 +101,7 @@ class SuggestedCategoryAdoptionTest {
         assertThat(event.categoryKey).isEqualTo("food")
         assertThat(event.screen).isEqualTo(AnalyticsParams.SCREEN_MAPPING)
         assertThat(event.addedAll).isFalse()
+        assertThat(event.selectedCount).isEqualTo(1)
         assertThat(event.catalogVersion).isEqualTo(3)
         assertThat(event.params.values.filterIsInstance<String>().none { it == "Food" }).isTrue()
     }
@@ -110,14 +112,33 @@ class SuggestedCategoryAdoptionTest {
         val analytics = RecordingAnalytics()
         val viewModel = session(categories, analytics)
 
-        viewModel.onAction(SessionDetailAction.OnAdoptAllSuggestions)
+        viewModel.onAction(SessionDetailAction.OnConfirmSuggestions(KEY))
 
         assertThat(categories.live.value.map { it.name }).isEqualTo(listOf("Food", "Groceries"))
         assertThat(viewModel.state.value.groups.single().selectedCategoryId).isNull()
         assertThat(analytics.events.map { (it as AnalyticsEvent.SuggestedCategoryAdopted).addedAll })
             .isEqualTo(listOf(true, true))
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).selectedCount == 2 }).isTrue()
         assertThat(analytics.events.flatMap { it.params.values.filterIsInstance<String>() })
             .isEqualTo(listOf("food", "mapping", "groceries", "mapping"))
+    }
+
+    @Test
+    fun mappingConfirmingSeveralSelectsTheFirstInDisplayOrder() = runTest {
+        val categories = FakeCategories()
+        val analytics = RecordingAnalytics()
+        val viewModel = session(categories, analytics)
+
+        viewModel.onAction(SessionDetailAction.OnToggleSuggestion("Groceries"))
+        viewModel.onAction(SessionDetailAction.OnToggleSuggestion("Food"))
+        viewModel.onAction(SessionDetailAction.OnConfirmSuggestions(KEY))
+
+        assertThat(categories.live.value.map { it.name }).isEqualTo(listOf("Food", "Groceries"))
+        assertThat(viewModel.state.value.groups.single().selectedCategoryId).isEqualTo(1L)
+        assertThat(analytics.events.map { (it as AnalyticsEvent.SuggestedCategoryAdopted).categoryKey })
+            .isEqualTo(listOf("food", "groceries"))
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).addedAll }).isTrue()
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).selectedCount == 2 }).isTrue()
     }
 
     @Test
@@ -153,7 +174,8 @@ class SuggestedCategoryAdoptionTest {
         val analytics = RecordingAnalytics()
         val viewModel = payee(categories, analytics)
 
-        viewModel.onAction(PayeeDetailAction.OnAdoptSuggestion("Groceries"))
+        viewModel.onAction(PayeeDetailAction.OnToggleSuggestion("Groceries"))
+        viewModel.onAction(PayeeDetailAction.OnConfirmSuggestions)
 
         assertThat(viewModel.state.value.selectedCategoryId).isEqualTo(1L)
         assertThat(viewModel.state.value.showSuggestions).isFalse()
@@ -161,6 +183,25 @@ class SuggestedCategoryAdoptionTest {
         assertThat(event.categoryKey).isEqualTo("groceries")
         assertThat(event.screen).isEqualTo(AnalyticsParams.SCREEN_PAYEE_DETAIL)
         assertThat(event.addedAll).isFalse()
+        assertThat(event.selectedCount).isEqualTo(1)
+    }
+
+    @Test
+    fun payeeDetailConfirmingSeveralSelectsTheFirstInDisplayOrder() = runTest {
+        val categories = FakeCategories()
+        val analytics = RecordingAnalytics()
+        val viewModel = payee(categories, analytics)
+
+        viewModel.onAction(PayeeDetailAction.OnToggleSuggestion("Groceries"))
+        viewModel.onAction(PayeeDetailAction.OnToggleSuggestion("Food"))
+        viewModel.onAction(PayeeDetailAction.OnConfirmSuggestions)
+
+        assertThat(categories.live.value.map { it.name }).isEqualTo(listOf("Food", "Groceries"))
+        assertThat(viewModel.state.value.selectedCategoryId).isEqualTo(1L)
+        assertThat(analytics.events.map { (it as AnalyticsEvent.SuggestedCategoryAdopted).categoryKey })
+            .isEqualTo(listOf("food", "groceries"))
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).addedAll }).isTrue()
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).selectedCount == 2 }).isTrue()
     }
 
     @Test

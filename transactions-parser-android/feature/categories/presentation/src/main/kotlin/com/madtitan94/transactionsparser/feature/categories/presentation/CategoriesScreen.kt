@@ -117,8 +117,9 @@ fun CategoriesScreen(
                 if (state.showSuggestions) {
                     SuggestedCategoryChips(
                         labels = state.suggestions.map { it.name },
-                        onAdopt = { onAction(CategoriesAction.OnAdoptSuggestion(it)) },
-                        onAdoptAll = { onAction(CategoriesAction.OnAdoptAllSuggestions) },
+                        selectedLabels = state.selectedSuggestionNames,
+                        onToggle = { onAction(CategoriesAction.OnToggleSuggestion(it)) },
+                        onConfirm = { onAction(CategoriesAction.OnConfirmSuggestions) },
                         modifier = Modifier.padding(horizontal = 32.dp)
                     )
                 }

@@ -39,6 +39,7 @@ data class CategoriesState(
     val isLoading: Boolean = true,
     val categories: List<CategoryUi> = emptyList(),
     val suggestions: List<SuggestedCategory> = emptyList(),
+    val selectedSuggestionNames: Set<String> = emptySet(),
     val catalogVersion: Int = 0,
     val dialog: CategoryDialog? = null
 ) {
@@ -53,8 +54,8 @@ sealed interface CategoriesAction {
     data class OnDialogNameChange(val name: String) : CategoriesAction
     data object OnDialogConfirm : CategoriesAction
     data object OnDialogDismiss : CategoriesAction
-    data class OnAdoptSuggestion(val name: String) : CategoriesAction
-    data object OnAdoptAllSuggestions : CategoriesAction
+    data class OnToggleSuggestion(val name: String) : CategoriesAction
+    data object OnConfirmSuggestions : CategoriesAction
 }
 
 sealed interface CategoriesEvent {
@@ -97,7 +98,10 @@ class CategoriesViewModel(
                             )
                         },
                         suggestions = suggestions.categories,
-                        catalogVersion = suggestions.version
+                        catalogVersion = suggestions.version,
+                        selectedSuggestionNames = it.selectedSuggestionNames.intersect(
+                            suggestions.categories.map { suggestion -> suggestion.name }.toSet()
+                        )
                     )
                 }
             }
@@ -139,32 +143,38 @@ class CategoriesViewModel(
             }
             CategoriesAction.OnDialogConfirm -> confirmDialog()
             CategoriesAction.OnDialogDismiss -> _state.update { it.copy(dialog = null) }
-            is CategoriesAction.OnAdoptSuggestion -> adoptOne(action.name, addedAll = false)
-            CategoriesAction.OnAdoptAllSuggestions -> adoptAll()
+            is CategoriesAction.OnToggleSuggestion -> toggleSuggestion(action.name)
+            CategoriesAction.OnConfirmSuggestions -> confirmSuggestions()
         }
     }
 
-    private fun adoptOne(name: String, addedAll: Boolean) {
-        if (adopting || _state.value.categories.isNotEmpty()) return
-        val suggestion = _state.value.suggestions.find { it.name == name } ?: return
-        adopting = true
-        viewModelScope.launch {
-            try {
-                adoptAndTrack(suggestion, addedAll)
-            } finally {
-                adopting = false
-            }
+    private fun toggleSuggestion(name: String) {
+        if (_state.value.categories.isNotEmpty()) return
+        if (_state.value.suggestions.none { it.name == name }) return
+        _state.update { current ->
+            val selected = current.selectedSuggestionNames
+            current.copy(
+                selectedSuggestionNames = if (name in selected) selected - name else selected + name
+            )
         }
     }
 
-    private fun adoptAll() {
+    private fun confirmSuggestions() {
         if (adopting || _state.value.categories.isNotEmpty()) return
-        val snapshot = _state.value.suggestions
+        val current = _state.value
+        val snapshot = if (current.selectedSuggestionNames.isEmpty()) {
+            current.suggestions
+        } else {
+            current.suggestions.filter { it.name in current.selectedSuggestionNames }
+        }
+        if (snapshot.isEmpty()) return
+        val addedAll = snapshot.size == current.suggestions.size
+        val selectedCount = snapshot.size
         adopting = true
         viewModelScope.launch {
             try {
                 for (suggestion in snapshot) {
-                    if (!adoptAndTrack(suggestion, addedAll = true)) return@launch
+                    if (!adoptAndTrack(suggestion, addedAll, selectedCount)) return@launch
                 }
             } finally {
                 adopting = false
@@ -172,8 +182,12 @@ class CategoriesViewModel(
         }
     }
 
-    /** False when the write failed. The caller stops an "Add all" there. */
-    private suspend fun adoptAndTrack(suggestion: SuggestedCategory, addedAll: Boolean): Boolean {
+    /** False when the write failed. The caller stops a bulk adopt there. */
+    private suspend fun adoptAndTrack(
+        suggestion: SuggestedCategory,
+        addedAll: Boolean,
+        selectedCount: Int
+    ): Boolean {
         return when (val result = adopt.adopt(suggestion.name)) {
             is Result.Error -> {
                 _events.send(CategoriesEvent.ShowMessage(result.error.toUiText()))
@@ -185,7 +199,8 @@ class CategoriesViewModel(
                         categoryKey = suggestion.key,
                         screen = AnalyticsParams.SCREEN_CATEGORIES,
                         addedAll = addedAll,
-                        catalogVersion = _state.value.catalogVersion
+                        catalogVersion = _state.value.catalogVersion,
+                        selectedCount = selectedCount
                     )
                 )
                 true

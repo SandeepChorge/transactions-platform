@@ -190,11 +190,28 @@ class CategoriesViewModelTest {
     }
 
     @Test
-    fun `tapping a suggestion adopts it and records the catalog key`() = runTest {
+    fun `tapping a suggestion selects it without adopting`() = runTest {
         val dataSource = FakeCategoryDataSource()
         val (viewModel, analytics) = viewModel(dataSource, catalog = sampleCatalog)
 
-        viewModel.onAction(CategoriesAction.OnAdoptSuggestion("Food"))
+        viewModel.onAction(CategoriesAction.OnToggleSuggestion("Food"))
+
+        assertThat(dataSource.categories.value).isEmpty()
+        assertThat(viewModel.state.value.selectedSuggestionNames).isEqualTo(setOf("Food"))
+        assertThat(viewModel.state.value.showSuggestions).isTrue()
+        assertThat(analytics.events).isEmpty()
+
+        viewModel.onAction(CategoriesAction.OnToggleSuggestion("Food"))
+        assertThat(viewModel.state.value.selectedSuggestionNames).isEmpty()
+    }
+
+    @Test
+    fun `confirming a selection adopts only those categories and records the catalog key`() = runTest {
+        val dataSource = FakeCategoryDataSource()
+        val (viewModel, analytics) = viewModel(dataSource, catalog = sampleCatalog)
+
+        viewModel.onAction(CategoriesAction.OnToggleSuggestion("Food"))
+        viewModel.onAction(CategoriesAction.OnConfirmSuggestions)
 
         assertThat(dataSource.categories.value.map { it.name }).isEqualTo(listOf("Food"))
         assertThat(viewModel.state.value.showSuggestions).isFalse()
@@ -202,6 +219,7 @@ class CategoriesViewModelTest {
         assertThat(event.categoryKey).isEqualTo("food")
         assertThat(event.screen).isEqualTo(AnalyticsParams.SCREEN_CATEGORIES)
         assertThat(event.addedAll).isFalse()
+        assertThat(event.selectedCount).isEqualTo(1)
         assertThat(event.catalogVersion).isEqualTo(3)
         assertThat(event.params.values.filterIsInstance<String>()).isEqualTo(listOf("food", "categories"))
     }
@@ -211,13 +229,30 @@ class CategoriesViewModelTest {
         val dataSource = FakeCategoryDataSource()
         val (viewModel, analytics) = viewModel(dataSource, catalog = sampleCatalog)
 
-        viewModel.onAction(CategoriesAction.OnAdoptAllSuggestions)
+        viewModel.onAction(CategoriesAction.OnConfirmSuggestions)
 
         assertThat(dataSource.categories.value.map { it.name }).isEqualTo(listOf("Food", "Groceries"))
         assertThat(viewModel.state.value.showSuggestions).isFalse()
         assertThat(analytics.events.map { (it as AnalyticsEvent.SuggestedCategoryAdopted).categoryKey })
             .isEqualTo(listOf("food", "groceries"))
         assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).addedAll }).isTrue()
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).selectedCount == 2 }).isTrue()
+    }
+
+    @Test
+    fun `selecting every suggestion and confirming is an add-all`() = runTest {
+        val dataSource = FakeCategoryDataSource()
+        val (viewModel, analytics) = viewModel(dataSource, catalog = sampleCatalog)
+
+        viewModel.onAction(CategoriesAction.OnToggleSuggestion("Food"))
+        viewModel.onAction(CategoriesAction.OnToggleSuggestion("Groceries"))
+        viewModel.onAction(CategoriesAction.OnConfirmSuggestions)
+
+        assertThat(dataSource.categories.value.map { it.name }).isEqualTo(listOf("Food", "Groceries"))
+        assertThat(analytics.events.map { (it as AnalyticsEvent.SuggestedCategoryAdopted).categoryKey })
+            .isEqualTo(listOf("food", "groceries"))
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).addedAll }).isTrue()
+        assertThat(analytics.events.all { (it as AnalyticsEvent.SuggestedCategoryAdopted).selectedCount == 2 }).isTrue()
     }
 
     @Test

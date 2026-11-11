@@ -76,6 +76,7 @@ data class PayeeDetailState(
     val selectedCategoryId: Long? = null,
     val categories: List<Category> = emptyList(),
     val suggestions: List<SuggestedCategory> = emptyList(),
+    val selectedSuggestionNames: Set<String> = emptySet(),
     val catalogVersion: Int = 0,
     val creatingCategory: Boolean = false,
     val newCategoryName: String = "",
@@ -126,8 +127,8 @@ sealed interface PayeeDetailAction {
     data class OnNewCategoryNameChange(val name: String) : PayeeDetailAction
     data object OnCreateCategory : PayeeDetailAction
     data object OnDismissNewCategory : PayeeDetailAction
-    data class OnAdoptSuggestion(val name: String) : PayeeDetailAction
-    data object OnAdoptAllSuggestions : PayeeDetailAction
+    data class OnToggleSuggestion(val name: String) : PayeeDetailAction
+    data object OnConfirmSuggestions : PayeeDetailAction
 }
 
 sealed interface PayeeDetailEvent {
@@ -197,7 +198,10 @@ class PayeeDetailViewModel(
                 _state.update {
                     it.copy(
                         suggestions = suggestions.categories,
-                        catalogVersion = suggestions.version
+                        catalogVersion = suggestions.version,
+                        selectedSuggestionNames = it.selectedSuggestionNames.intersect(
+                            suggestions.categories.map { suggestion -> suggestion.name }.toSet()
+                        )
                     )
                 }
             }
@@ -341,8 +345,8 @@ class PayeeDetailViewModel(
             PayeeDetailAction.OnDismissNewCategory -> _state.update {
                 it.copy(creatingCategory = false, newCategoryName = "", newCategoryError = null)
             }
-            is PayeeDetailAction.OnAdoptSuggestion -> adoptOne(action.name)
-            PayeeDetailAction.OnAdoptAllSuggestions -> adoptAll()
+            is PayeeDetailAction.OnToggleSuggestion -> toggleSuggestion(action.name)
+            PayeeDetailAction.OnConfirmSuggestions -> confirmSuggestions()
         }
     }
 
@@ -367,28 +371,39 @@ class PayeeDetailViewModel(
         }
     }
 
-    private fun adoptOne(name: String) {
-        if (adopting || _state.value.categories.isNotEmpty()) return
-        val suggestion = _state.value.suggestions.find { it.name == name } ?: return
-        adopting = true
-        viewModelScope.launch {
-            try {
-                val id = adoptAndTrack(suggestion, addedAll = false) ?: return@launch
-                edits.update { it.copy(categoryId = id) }
-            } finally {
-                adopting = false
-            }
+    private fun toggleSuggestion(name: String) {
+        if (_state.value.categories.isNotEmpty()) return
+        if (_state.value.suggestions.none { it.name == name }) return
+        _state.update { current ->
+            val selected = current.selectedSuggestionNames
+            current.copy(
+                selectedSuggestionNames = if (name in selected) selected - name else selected + name
+            )
         }
     }
 
-    private fun adoptAll() {
+    private fun confirmSuggestions() {
         if (adopting || _state.value.categories.isNotEmpty()) return
-        val snapshot = _state.value.suggestions
+        val current = _state.value
+        val hadSelection = current.selectedSuggestionNames.isNotEmpty()
+        val snapshot = if (!hadSelection) {
+            current.suggestions
+        } else {
+            current.suggestions.filter { it.name in current.selectedSuggestionNames }
+        }
+        if (snapshot.isEmpty()) return
+        val addedAll = snapshot.size == current.suggestions.size
+        val selectedCount = snapshot.size
         adopting = true
         viewModelScope.launch {
             try {
+                var firstId: Long? = null
                 for (suggestion in snapshot) {
-                    if (adoptAndTrack(suggestion, addedAll = true) == null) return@launch
+                    val id = adoptAndTrack(suggestion, addedAll, selectedCount) ?: return@launch
+                    if (firstId == null) firstId = id
+                }
+                if (hadSelection && firstId != null) {
+                    edits.update { it.copy(categoryId = firstId) }
                 }
             } finally {
                 adopting = false
@@ -397,7 +412,11 @@ class PayeeDetailViewModel(
     }
 
     /** The new category id, or null when the write failed. A typed name does not come through here. */
-    private suspend fun adoptAndTrack(suggestion: SuggestedCategory, addedAll: Boolean): Long? {
+    private suspend fun adoptAndTrack(
+        suggestion: SuggestedCategory,
+        addedAll: Boolean,
+        selectedCount: Int
+    ): Long? {
         return when (val result = adopt.adopt(suggestion.name)) {
             is Result.Error -> {
                 _events.send(PayeeDetailEvent.ShowMessage(result.error.toUiText()))
@@ -409,7 +428,8 @@ class PayeeDetailViewModel(
                         categoryKey = suggestion.key,
                         screen = AnalyticsParams.SCREEN_PAYEE_DETAIL,
                         addedAll = addedAll,
-                        catalogVersion = _state.value.catalogVersion
+                        catalogVersion = _state.value.catalogVersion,
+                        selectedCount = selectedCount
                     )
                 )
                 result.data

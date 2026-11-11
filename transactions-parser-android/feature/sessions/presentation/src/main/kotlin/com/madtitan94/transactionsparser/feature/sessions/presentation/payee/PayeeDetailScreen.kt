@@ -443,8 +443,9 @@ private fun CategoryPicker(
         if (state.showSuggestions) {
             SuggestedCategoryChips(
                 labels = state.suggestions.map { it.name },
-                onAdopt = { onAction(PayeeDetailAction.OnAdoptSuggestion(it)) },
-                onAdoptAll = { onAction(PayeeDetailAction.OnAdoptAllSuggestions) }
+                selectedLabels = state.selectedSuggestionNames,
+                onToggle = { onAction(PayeeDetailAction.OnToggleSuggestion(it)) },
+                onConfirm = { onAction(PayeeDetailAction.OnConfirmSuggestions) }
             )
         }
     }

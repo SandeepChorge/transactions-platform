@@ -57,19 +57,22 @@ class AnalyticsEventTest {
             categoryKey = "food",
             screen = AnalyticsParams.SCREEN_CATEGORIES,
             addedAll = false,
-            catalogVersion = 1
+            catalogVersion = 1,
+            selectedCount = 1
         ),
         AnalyticsEvent.SuggestedCategoryAdopted(
             categoryKey = "groceries",
             screen = AnalyticsParams.SCREEN_MAPPING,
             addedAll = false,
-            catalogVersion = 1
+            catalogVersion = 1,
+            selectedCount = 1
         ),
         AnalyticsEvent.SuggestedCategoryAdopted(
             categoryKey = "rent",
             screen = AnalyticsParams.SCREEN_PAYEE_DETAIL,
             addedAll = true,
-            catalogVersion = 2
+            catalogVersion = 2,
+            selectedCount = 3
         ),
         AnalyticsEvent.LoggedIn,
         AnalyticsEvent.LoggedOut
@@ -114,7 +117,8 @@ class AnalyticsEventTest {
                 categoryKey = "food",
                 screen = AnalyticsParams.SCREEN_CATEGORIES,
                 addedAll = false,
-                catalogVersion = 1
+                catalogVersion = 1,
+                selectedCount = 1
             ).name
         ).isEqualTo("suggested_category_adopted")
     }

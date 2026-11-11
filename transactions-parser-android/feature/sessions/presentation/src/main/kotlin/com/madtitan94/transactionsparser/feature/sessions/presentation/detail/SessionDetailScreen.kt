@@ -162,6 +162,7 @@ fun SessionDetailScreen(
                         group = group,
                         categories = state.categories,
                         suggestions = state.suggestions.map { it.name },
+                        selectedSuggestionNames = state.selectedSuggestionNames,
                         showSuggestions = state.showSuggestions,
                         readOnly = state.isReadOnly,
                         onOpen = { onOpenPayee(group.key, group.rawPayee) },
@@ -272,6 +273,7 @@ private fun PayeeGroupCard(
     group: PayeeGroupUi,
     categories: List<Category>,
     suggestions: List<String>,
+    selectedSuggestionNames: Set<String>,
     showSuggestions: Boolean,
     readOnly: Boolean,
     onOpen: () -> Unit,
@@ -403,11 +405,12 @@ private fun PayeeGroupCard(
                 CategoryDropdown(
                     categories = categories,
                     suggestions = if (showSuggestions) suggestions else emptyList(),
+                    selectedLabels = selectedSuggestionNames,
                     selectedCategoryId = group.selectedCategoryId,
                     onSelect = { onAction(SessionDetailAction.OnCategorySelect(group.key, it)) },
                     onAddNew = { onAction(SessionDetailAction.OnAddCategoryClick(group.key)) },
-                    onAdopt = { onAction(SessionDetailAction.OnAdoptSuggestion(group.key, it)) },
-                    onAdoptAll = { onAction(SessionDetailAction.OnAdoptAllSuggestions) }
+                    onToggle = { onAction(SessionDetailAction.OnToggleSuggestion(it)) },
+                    onConfirm = { onAction(SessionDetailAction.OnConfirmSuggestions(group.key)) }
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -433,11 +436,12 @@ private fun PayeeGroupCard(
 private fun CategoryDropdown(
     categories: List<Category>,
     suggestions: List<String>,
+    selectedLabels: Set<String>,
     selectedCategoryId: Long?,
     onSelect: (Long) -> Unit,
     onAddNew: () -> Unit,
-    onAdopt: (String) -> Unit,
-    onAdoptAll: () -> Unit
+    onToggle: (String) -> Unit,
+    onConfirm: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedName = categories.find { it.id == selectedCategoryId }?.name
@@ -485,8 +489,9 @@ private fun CategoryDropdown(
             Spacer(Modifier.height(8.dp))
             SuggestedCategoryChips(
                 labels = suggestions,
-                onAdopt = onAdopt,
-                onAdoptAll = onAdoptAll
+                selectedLabels = selectedLabels,
+                onToggle = onToggle,
+                onConfirm = onConfirm
             )
         }
     }

@@ -89,6 +89,7 @@ data class SessionDetailState(
     val groups: List<PayeeGroupUi> = emptyList(),
     val categories: List<Category> = emptyList(),
     val suggestions: List<SuggestedCategory> = emptyList(),
+    val selectedSuggestionNames: Set<String> = emptySet(),
     val catalogVersion: Int = 0,
     val mappedGroups: Int = 0,
     val totalGroups: Int = 0,
@@ -123,8 +124,8 @@ sealed interface SessionDetailAction {
     data object OnCreateCategory : SessionDetailAction
     data object OnDismissNewCategory : SessionDetailAction
     data class OnSuggestionPick(val key: String, val payeeId: Long) : SessionDetailAction
-    data class OnAdoptSuggestion(val key: String, val name: String) : SessionDetailAction
-    data object OnAdoptAllSuggestions : SessionDetailAction
+    data class OnToggleSuggestion(val name: String) : SessionDetailAction
+    data class OnConfirmSuggestions(val key: String) : SessionDetailAction
     /** Answers to the same-name prompt. */
     data object OnConfirmMerge : SessionDetailAction
     data object OnKeepSeparate : SessionDetailAction
@@ -194,7 +195,10 @@ class SessionDetailViewModel(
                 _state.update {
                     it.copy(
                         suggestions = suggestions.categories,
-                        catalogVersion = suggestions.version
+                        catalogVersion = suggestions.version,
+                        selectedSuggestionNames = it.selectedSuggestionNames.intersect(
+                            suggestions.categories.map { suggestion -> suggestion.name }.toSet()
+                        )
                     )
                 }
             }
@@ -290,8 +294,8 @@ class SessionDetailViewModel(
                 it.copy(newCategoryForKey = null, newCategoryName = "", newCategoryError = null)
             }
             is SessionDetailAction.OnSuggestionPick -> pickSuggestion(action.key, action.payeeId)
-            is SessionDetailAction.OnAdoptSuggestion -> adoptOne(action.key, action.name)
-            SessionDetailAction.OnAdoptAllSuggestions -> adoptAll()
+            is SessionDetailAction.OnToggleSuggestion -> toggleSuggestion(action.name)
+            is SessionDetailAction.OnConfirmSuggestions -> confirmSuggestions(action.key)
             SessionDetailAction.OnConfirmMerge -> confirmMerge()
             SessionDetailAction.OnKeepSeparate -> keepSeparate()
             SessionDetailAction.OnDismissMergePrompt -> _state.update {
@@ -497,28 +501,39 @@ class SessionDetailViewModel(
         }
     }
 
-    private fun adoptOne(key: String, name: String) {
-        if (adopting || _state.value.categories.isNotEmpty()) return
-        val suggestion = _state.value.suggestions.find { it.name == name } ?: return
-        adopting = true
-        viewModelScope.launch {
-            try {
-                val id = adoptAndTrack(suggestion, addedAll = false) ?: return@launch
-                updateEdit(key) { it.copy(categoryId = id) }
-            } finally {
-                adopting = false
-            }
+    private fun toggleSuggestion(name: String) {
+        if (_state.value.categories.isNotEmpty()) return
+        if (_state.value.suggestions.none { it.name == name }) return
+        _state.update { current ->
+            val selected = current.selectedSuggestionNames
+            current.copy(
+                selectedSuggestionNames = if (name in selected) selected - name else selected + name
+            )
         }
     }
 
-    private fun adoptAll() {
+    private fun confirmSuggestions(key: String) {
         if (adopting || _state.value.categories.isNotEmpty()) return
-        val snapshot = _state.value.suggestions
+        val current = _state.value
+        val hadSelection = current.selectedSuggestionNames.isNotEmpty()
+        val snapshot = if (!hadSelection) {
+            current.suggestions
+        } else {
+            current.suggestions.filter { it.name in current.selectedSuggestionNames }
+        }
+        if (snapshot.isEmpty()) return
+        val addedAll = snapshot.size == current.suggestions.size
+        val selectedCount = snapshot.size
         adopting = true
         viewModelScope.launch {
             try {
+                var firstId: Long? = null
                 for (suggestion in snapshot) {
-                    if (adoptAndTrack(suggestion, addedAll = true) == null) return@launch
+                    val id = adoptAndTrack(suggestion, addedAll, selectedCount) ?: return@launch
+                    if (firstId == null) firstId = id
+                }
+                if (hadSelection && firstId != null) {
+                    updateEdit(key) { it.copy(categoryId = firstId) }
                 }
             } finally {
                 adopting = false
@@ -527,7 +542,11 @@ class SessionDetailViewModel(
     }
 
     /** The new category id, or null when the write failed. */
-    private suspend fun adoptAndTrack(suggestion: SuggestedCategory, addedAll: Boolean): Long? {
+    private suspend fun adoptAndTrack(
+        suggestion: SuggestedCategory,
+        addedAll: Boolean,
+        selectedCount: Int
+    ): Long? {
         return when (val result = adopt.adopt(suggestion.name)) {
             is Result.Error -> {
                 _events.send(SessionDetailEvent.ShowMessage(result.error.toUiText()))
@@ -539,7 +558,8 @@ class SessionDetailViewModel(
                         categoryKey = suggestion.key,
                         screen = AnalyticsParams.SCREEN_MAPPING,
                         addedAll = addedAll,
-                        catalogVersion = _state.value.catalogVersion
+                        catalogVersion = _state.value.catalogVersion,
+                        selectedCount = selectedCount
                     )
                 )
                 result.data

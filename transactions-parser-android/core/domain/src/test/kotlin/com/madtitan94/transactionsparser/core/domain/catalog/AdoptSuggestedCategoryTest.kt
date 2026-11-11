@@ -69,6 +69,17 @@ class AdoptSuggestedCategoryTest {
         assertThat(categories.inserted).isEmpty()
     }
 
+    @Test
+    fun `several names can be adopted one after another`() = runTest {
+        val categories = FakeCategories()
+        val useCase = AdoptSuggestedCategory(categories)
+
+        assertThat(useCase.adopt("Food")).isEqualTo(Result.Success(1L))
+        assertThat(useCase.adopt("Groceries")).isEqualTo(Result.Success(2L))
+        assertThat(categories.inserted).isEqualTo(listOf("Food", "Groceries"))
+        assertThat(categories.live.value.map { it.name }).isEqualTo(listOf("Food", "Groceries"))
+    }
+
     private class FakeCategories(
         live: List<Category> = emptyList(),
         deleted: List<Category> = emptyList()
